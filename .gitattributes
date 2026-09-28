@@ -1,0 +1,3 @@
+# The corpus is hashed as raw bytes (corpus/MANIFEST.json, provenance files). A checkout must never
+# rewrite a line ending there, on any platform.
+corpus/** -text

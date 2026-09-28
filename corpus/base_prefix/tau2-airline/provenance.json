@@ -1,0 +1,57 @@
+{
+  "agent_class": "tau2.agent.llm_agent.LLMAgent",
+  "evidence": "reconstructed",
+  "outputs": {
+    "system.txt": {
+      "bytes": 8033,
+      "sha256": "54c8a8153c0f9fe4d2bc4d57a3698221d09388d84245afdcc253378ee4238cb2"
+    },
+    "tools.json": {
+      "bytes": 17753,
+      "sha256": "253e8390342cad1e556cfb04caec41815dcf9fa788dbbf5f6db0c870c9983cbb"
+    }
+  },
+  "packages": {
+    "docstring_parser": "0.18.0",
+    "litellm": "1.82.6",
+    "pydantic": "2.13.5",
+    "pydantic_core": "2.46.5",
+    "tau2": "1.0.1",
+    "websockets": "17.1"
+  },
+  "platform": "Windows",
+  "policy_bytes": 7676,
+  "policy_sha256": "10dc0525421521208be39cee235bba84a16e2bcba9899eb93d92cd81d2f62fc4",
+  "python": "3.12.14",
+  "rendered_utc_date": "2026-09-28",
+  "script": "tools/render_tau2_prefix.py",
+  "script_sha256_lf": "636fea264021212e4059540b6d0cc0f5c2ae384f0d4885dd76c58d42dc8f6bf4",
+  "source_commit": "b7ea9074c1cba482b30687fecdb5c8425fd6f619",
+  "source_paths_read": [
+    "src/tau2/agent/llm_agent.py",
+    "src/tau2/environment",
+    "src/tau2/domains/airline",
+    "data/tau2/domains/airline/policy.md",
+    "data/tau2/domains/airline/db.json"
+  ],
+  "source_repo": "https://github.com/sierra-research/tau2-bench",
+  "statement": "Rendered by tau2's own code at a public commit. The published result files record commits absent from the public history and no tool schemas; the bytes their runs sent are not recoverable.",
+  "tool_count": 14,
+  "tool_names": [
+    "book_reservation",
+    "calculate",
+    "cancel_reservation",
+    "get_reservation_details",
+    "get_user_details",
+    "list_all_airports",
+    "search_direct_flight",
+    "search_onestop_flight",
+    "send_certificate",
+    "transfer_to_human_agents",
+    "update_reservation_baggages",
+    "update_reservation_flights",
+    "update_reservation_passengers",
+    "get_flight_status"
+  ],
+  "what": "tau2-bench airline base prefix: system prompt and tool schemas"
+}

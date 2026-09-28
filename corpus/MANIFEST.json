@@ -1,0 +1,21 @@
+{
+  "files": {
+    "base_prefix/tau2-airline/environment.txt": {
+      "bytes": 1357,
+      "sha256": "54e33a0619594486ac63b648ee4af037c44d47c3ace78d87fe46182acacd4a47"
+    },
+    "base_prefix/tau2-airline/provenance.json": {
+      "bytes": 1931,
+      "sha256": "40fd5b548e9e3df8360701b48e1852974c350f2371318003e85c528f834bff5b"
+    },
+    "base_prefix/tau2-airline/system.txt": {
+      "bytes": 8033,
+      "sha256": "54c8a8153c0f9fe4d2bc4d57a3698221d09388d84245afdcc253378ee4238cb2"
+    },
+    "base_prefix/tau2-airline/tools.json": {
+      "bytes": 17753,
+      "sha256": "253e8390342cad1e556cfb04caec41815dcf9fa788dbbf5f6db0c870c9983cbb"
+    }
+  },
+  "manifest_version": 1
+}
