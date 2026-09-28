@@ -28,8 +28,10 @@ If either fails, the instrument cannot see a death and no table is produced.
 
 ## Status
 
-The record-keeping and the starting prefix exist; no experiment does. `ledger/ledger.md` is the
-record of what has been registered and measured, and it says what has not.
+The record-keeping, the starting prefix and the two controls exist. The controls have been tested
+against a stand-in server only; no engine or provider has been sent a request, and no experiment is
+registered. `ledger/ledger.md` is the record of what has been registered and measured, and it says
+what has not.
 
 ## How the record stays auditable
 
