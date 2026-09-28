@@ -56,7 +56,6 @@ def load_seal_config(path: Path, repo_root: Path) -> SealConfig:
 
 _SHA40 = re.compile(r"[0-9a-f]{40}")
 _SHA256 = re.compile(r"[0-9a-f]{64}")
-_PENDING = re.compile(r"[A-Z0-9_]+_PENDING")
 
 
 def _registered_by(raw, name: str) -> str:
@@ -80,6 +79,20 @@ def _number(c: dict, key: str, name: str) -> float:
     return float(v)
 
 
+def _text(c: dict, key: str, name: str) -> str:
+    v = c[key]
+    if not isinstance(v, str) or not v:
+        raise ValueError(f"{name} {key} must be a non-empty string, got {v!r}")
+    return v
+
+
+def _digest(c: dict, key: str, name: str, pattern: re.Pattern) -> str:
+    v = str(c[key])
+    if not pattern.fullmatch(v):
+        raise ValueError(f"{name} {key} {v!r} is not a lowercase hex digest of the expected length")
+    return v
+
+
 def _require(c: dict, keys: tuple[str, ...], name: str) -> None:
     missing = [k for k in keys if k not in c]
     if missing:
@@ -95,22 +108,23 @@ def _require(c: dict, keys: tuple[str, ...], name: str) -> None:
 @dataclass(frozen=True)
 class ControlsConfig:
     """Identity and scramble (ledger entry 0001). `registered_by` is the four-digit ledger entry that
-    fixed these values; empty means UNREGISTERED and a gate must refuse to run."""
+    fixed these values; empty means UNREGISTERED and the driver refuses to run."""
     repetitions: int
-    settle_seconds: float
     length_tolerance_tokens: int
-    max_retries: int
-    retry_wait_seconds: float
+    max_tokens: int
+    temperature: float
     nonce_bytes: int
     seed: int
+    request_timeout_seconds: float
+    user_message: str
     corpus_dir: Path
     results_dir: Path
     registered_by: str
     config_path: Path
 
 
-_CONTROLS_KEYS = ("repetitions", "settle_seconds", "length_tolerance_tokens", "max_retries",
-                  "retry_wait_seconds", "nonce_bytes", "seed", "corpus_dir", "results_dir", "registered_by")
+_CONTROLS_KEYS = ("repetitions", "length_tolerance_tokens", "max_tokens", "temperature", "nonce_bytes", "seed",
+                  "request_timeout_seconds", "user_message", "corpus_dir", "results_dir", "registered_by")
 
 
 def load_controls_config(path: Path, repo_root: Path) -> ControlsConfig:
@@ -123,12 +137,14 @@ def load_controls_config(path: Path, repo_root: Path) -> ControlsConfig:
     root = Path(repo_root)
     return ControlsConfig(
         repetitions=_int(c, "repetitions", name, minimum=1),
-        settle_seconds=_number(c, "settle_seconds", name),
         length_tolerance_tokens=_int(c, "length_tolerance_tokens", name, minimum=0),
-        max_retries=_int(c, "max_retries", name, minimum=0),
-        retry_wait_seconds=_number(c, "retry_wait_seconds", name),
+        max_tokens=_int(c, "max_tokens", name, minimum=1),
+        temperature=_number(c, "temperature", name),
         nonce_bytes=_int(c, "nonce_bytes", name, minimum=1),
-        seed=int(c["seed"]), corpus_dir=root / c["corpus_dir"], results_dir=root / c["results_dir"],
+        seed=int(c["seed"]),
+        request_timeout_seconds=_number(c, "request_timeout_seconds", name),
+        user_message=_text(c, "user_message", name),
+        corpus_dir=root / c["corpus_dir"], results_dir=root / c["results_dir"],
         registered_by=_registered_by(c["registered_by"], name), config_path=path,
     )
 
@@ -140,42 +156,34 @@ class EngineModel:
     family: str
     hf_repo: str
     file: str
-    sha256: str          # a 64-hex digest, or a *_PENDING placeholder the gate refuses by name
-
-    @property
-    def pinned(self) -> bool:
-        return bool(_SHA256.fullmatch(self.sha256))
+    sha256: str
 
 
 @dataclass(frozen=True)
 class EngineConfig:
-    """One serving engine. Every flag that changes what a cache death looks like is REQUIRED: a flag
-    left to the server's default is a setting the record cannot state."""
+    """One serving engine, pinned to a release, the commit it was built from and the download's
+    digest. No server flag is configured: a run is at the server's defaults unless the entry that
+    registers an experiment names an override."""
     name: str
     repo: str
-    commit: str          # a 40-hex sha, or a *_PENDING placeholder the gate refuses by name
-    flags: dict
+    release: str
+    commit: str
+    download: str
+    download_sha256: str
     models: tuple[EngineModel, ...]
     registered_by: str
     config_path: Path
 
-    @property
-    def pinned(self) -> bool:
-        return bool(_SHA40.fullmatch(self.commit)) and all(m.pinned for m in self.models)
+    def model(self, family: str) -> EngineModel:
+        for m in self.models:
+            if m.family == family:
+                return m
+        raise ValueError(f"engine {self.name} has no model of family {family!r}; "
+                         f"known: {[m.family for m in self.models]}")
 
 
-_ENGINE_KEYS = ("repo", "commit", "flags", "models", "registered_by")
-_LLAMACPP_FLAGS = {"cache_prompt": bool, "cache_reuse": int, "cache_ram_mib": int, "ctx_size": int,
-                   "parallel": int, "slot_prompt_similarity": float}
-_FLAGS = {"llamacpp": _LLAMACPP_FLAGS}
+_ENGINE_KEYS = ("repo", "release", "commit", "download", "download_sha256", "models", "registered_by")
 _MODEL_KEYS = ("family", "hf_repo", "file", "sha256")
-
-
-def _pin(raw, pattern: re.Pattern, what: str) -> str:
-    s = str(raw)
-    if not (pattern.fullmatch(s) or _PENDING.fullmatch(s)):
-        raise ValueError(f"{what} {s!r} is neither a digest of the expected length nor a *_PENDING placeholder")
-    return s
 
 
 def load_engines_config(path: Path) -> dict[str, EngineConfig]:
@@ -186,27 +194,19 @@ def load_engines_config(path: Path) -> dict[str, EngineConfig]:
     out = {}
     for ename, c in engines.items():
         name = f"{path.name} [engine.{ename}]"
-        if ename not in _FLAGS:
-            raise ValueError(f"{name}: unknown engine; known engines are {sorted(_FLAGS)}")
         _require(c, _ENGINE_KEYS, name)
-        want = _FLAGS[ename]
-        _require(c["flags"], tuple(sorted(want)), f"{name}.flags")
-        for k, typ in want.items():
-            v = c["flags"][k]
-            ok = (isinstance(v, bool) if typ is bool else
-                  not isinstance(v, bool) and isinstance(v, (int, float) if typ is float else int))
-            if not ok:
-                raise ValueError(f"{name}.flags {k} must be {typ.__name__}, got {v!r}")
         models = []
         for m in c["models"]:
-            _require(m, _MODEL_KEYS, f"{name}.models")
-            models.append(EngineModel(family=str(m["family"]), hf_repo=str(m["hf_repo"]), file=str(m["file"]),
-                                      sha256=_pin(m["sha256"], _SHA256, f"{name}.models sha256")))
+            mname = f"{name}.models"
+            _require(m, _MODEL_KEYS, mname)
+            models.append(EngineModel(family=_text(m, "family", mname), hf_repo=_text(m, "hf_repo", mname),
+                                      file=_text(m, "file", mname), sha256=_digest(m, "sha256", mname, _SHA256)))
         families = [m.family for m in models]
         if not models or len(set(families)) != len(families):
             raise ValueError(f"{name} needs at least one model and distinct families, got {families}")
-        out[ename] = EngineConfig(name=ename, repo=str(c["repo"]),
-                                  commit=_pin(c["commit"], _SHA40, f"{name} commit"),
-                                  flags=dict(c["flags"]), models=tuple(models),
-                                  registered_by=_registered_by(c["registered_by"], name), config_path=path)
+        out[ename] = EngineConfig(
+            name=ename, repo=_text(c, "repo", name), release=_text(c, "release", name),
+            commit=_digest(c, "commit", name, _SHA40), download=_text(c, "download", name),
+            download_sha256=_digest(c, "download_sha256", name, _SHA256), models=tuple(models),
+            registered_by=_registered_by(c["registered_by"], name), config_path=path)
     return out

@@ -1,15 +1,16 @@
-# The two controls: identity and scramble (ledger entry 0001, registration rule 1).
+# The two controls: identity and scramble (ledger entry 0001, rule 1).
 #
 # UNREGISTERED. `registered_by` is empty until a numbered ledger entry fixes these values, and the
-# control driver must refuse to run while it is empty.
+# driver refuses to run while it is empty.
 [controls]
-repetitions = 5                 # identity + scramble pairs per model
-settle_seconds = 2.0            # wait between a write and the byte-identical resend
-length_tolerance_tokens = 0     # scramble prefix length vs identity prefix length, in the instrument's own tokens
-max_retries = 0
-retry_wait_seconds = 0.0
-nonce_bytes = 16                # per-run isolation value, recorded with every request
+repetitions = 5                 # write, identical resend, scramble: once per repetition, per model
+length_tolerance_tokens = 16    # scramble prompt length vs identity prompt length, in the engine's own tokens
+max_tokens = 1                  # the controls read the prompt side only
+temperature = 0.0
+nonce_bytes = 16                # per-run isolation value, placed ahead of the system text
 seed = 0                        # scramble text is drawn from rng.make_rng(seed); the nonce is not
+request_timeout_seconds = 600.0
+user_message = "Hello."
 corpus_dir = "corpus/live/controls"
 results_dir = "results/controls"
 registered_by = ""

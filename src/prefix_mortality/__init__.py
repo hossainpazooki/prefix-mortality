@@ -21,4 +21,4 @@ BASE_PREFIX_REPO = "https://github.com/sierra-research/tau2-bench"
 BASE_PREFIX_SHA = "b7ea9074c1cba482b30687fecdb5c8425fd6f619"      # PINNED; corpus/base_prefix/ was rendered from it
 
 ENGINE_REPO = "https://github.com/ggml-org/llama.cpp"
-ENGINE_OBSERVED_SHA = "6c7a87f7e5e5cd75b8a641c3471f2dee84a6ed17"  # master on 2026-09-28; OBSERVED, NOT PINNED
+ENGINE_SHA = "6c7a87f7e5e5cd75b8a641c3471f2dee84a6ed17"           # release b11235; PINNED (config/engines.toml)

@@ -44,12 +44,13 @@ pattern = "**/k*.safetensors"
 CONTROLS = '''
 [controls]
 repetitions = 5
-settle_seconds = 2.0
-length_tolerance_tokens = 0
-max_retries = 0
-retry_wait_seconds = 0.0
+length_tolerance_tokens = 16
+max_tokens = 1
+temperature = 0.0
 nonce_bytes = 16
 seed = 7
+request_timeout_seconds = 600.0
+user_message = "Hello."
 corpus_dir = "corpus/live/controls"
 results_dir = "results/controls"
 registered_by = ""
@@ -58,7 +59,8 @@ registered_by = ""
 
 def test_controls_config_loads_and_records_unregistered(tmp_path):
     cfg = load_controls_config(_write(tmp_path, "controls.toml", CONTROLS), repo_root=tmp_path)
-    assert cfg.repetitions == 5 and cfg.settle_seconds == 2.0 and cfg.nonce_bytes == 16 and cfg.seed == 7
+    assert cfg.repetitions == 5 and cfg.length_tolerance_tokens == 16 and cfg.nonce_bytes == 16 and cfg.seed == 7
+    assert cfg.max_tokens == 1 and cfg.temperature == 0.0 and cfg.user_message == "Hello."
     assert cfg.corpus_dir == tmp_path / "corpus" / "live" / "controls"
     assert cfg.registered_by == ""
 
@@ -66,11 +68,13 @@ def test_controls_config_loads_and_records_unregistered(tmp_path):
 @pytest.mark.parametrize("old, new, msg", [
     ("repetitions = 5", "repetitions = 0", "repetitions"),
     ("repetitions = 5", "repetitions = 5.0", "repetitions"),
-    ("settle_seconds = 2.0", "settle_seconds = -1.0", "settle_seconds"),
+    ("temperature = 0.0", "temperature = -1.0", "temperature"),
     ("nonce_bytes = 16", "nonce_bytes = 0", "nonce_bytes"),
+    ("max_tokens = 1", "max_tokens = 0", "max_tokens"),
     ("seed = 7", "seed = true", "seed"),
+    ('user_message = "Hello."', 'user_message = ""', "user_message"),
     ('registered_by = ""', 'registered_by = "12"', "four-digit"),
-    ("max_retries = 0\n", "", "missing"),
+    ("max_tokens = 1\n", "", "missing"),
     ("seed = 7", "seed = 7\nsurprise = 1", "unknown keys"),
 ])
 def test_controls_config_refuses_bad_values(tmp_path, old, new, msg):
@@ -82,62 +86,51 @@ def test_controls_config_refuses_bad_values(tmp_path, old, new, msg):
 ENGINES = '''
 [engine.llamacpp]
 repo = "https://github.com/ggml-org/llama.cpp"
-commit = "LLAMACPP_SHA_PENDING"
+release = "b11235"
+commit = "6c7a87f7e5e5cd75b8a641c3471f2dee84a6ed17"
+download = "llama-b11235-bin-macos-arm64.tar.gz"
+download_sha256 = "d28351029acd7e0c01825d8e7dddadded3da4a2494bf72ebd98e73aec9344d50"
 registered_by = ""
-[engine.llamacpp.flags]
-cache_prompt = true
-cache_reuse = 0
-cache_ram_mib = 0
-ctx_size = 8192
-parallel = 1
-slot_prompt_similarity = 0.10
 [[engine.llamacpp.models]]
 family = "qwen"
 hf_repo = "Qwen/Qwen3-8B-GGUF"
-file = ""
-sha256 = "QWEN_GGUF_SHA256_PENDING"
+file = "Qwen3-8B-Q4_K_M.gguf"
+sha256 = "d98cdcbd03e17ce47681435b5150e34c1417f50b5c0019dd560e4882c5745785"
 [[engine.llamacpp.models]]
 family = "llama"
 hf_repo = "bartowski/Meta-Llama-3.1-8B-Instruct-GGUF"
-file = ""
-sha256 = "LLAMA_GGUF_SHA256_PENDING"
+file = "Meta-Llama-3.1-8B-Instruct-Q4_K_M.gguf"
+sha256 = "7b064f5842bf9532c91456deda288a1b672397a54fa729aa665952863033557c"
 '''
 
 
-def test_engines_config_loads_with_placeholders_and_reports_unpinned(tmp_path):
+def test_engines_config_loads_and_finds_a_model_by_family(tmp_path):
     e = load_engines_config(_write(tmp_path, "engines.toml", ENGINES))["llamacpp"]
+    assert e.release == "b11235" and e.commit.startswith("6c7a87f") and e.registered_by == ""
     assert [m.family for m in e.models] == ["qwen", "llama"]
-    assert e.flags["cache_reuse"] == 0 and e.flags["parallel"] == 1
-    assert e.registered_by == "" and not e.pinned and not e.models[0].pinned
-
-
-def test_engines_config_is_pinned_only_when_every_pin_is_a_digest(tmp_path):
-    text = (ENGINES.replace("LLAMACPP_SHA_PENDING", "a" * 40)
-            .replace("QWEN_GGUF_SHA256_PENDING", "b" * 64))
-    assert not load_engines_config(_write(tmp_path, "engines.toml", text))["llamacpp"].pinned
-    text = text.replace("LLAMA_GGUF_SHA256_PENDING", "c" * 64)
-    assert load_engines_config(_write(tmp_path, "engines.toml", text))["llamacpp"].pinned
+    assert e.model("llama").file == "Meta-Llama-3.1-8B-Instruct-Q4_K_M.gguf"
+    with pytest.raises(ValueError, match="no model of family"):
+        e.model("mistral")
 
 
 @pytest.mark.parametrize("old, new, msg", [
-    ('commit = "LLAMACPP_SHA_PENDING"', 'commit = "6c7a87f"', "neither a digest"),
-    ('sha256 = "QWEN_GGUF_SHA256_PENDING"', 'sha256 = ""', "neither a digest"),
-    ("cache_reuse = 0\n", "", "missing"),
-    ("cache_reuse = 0", "cache_reuse = 0\nmlock = true", "unknown keys"),
-    ("cache_prompt = true", "cache_prompt = 1", "cache_prompt must be bool"),
-    ("parallel = 1", "parallel = true", "parallel must be int"),
+    ('commit = "6c7a87f7e5e5cd75b8a641c3471f2dee84a6ed17"', 'commit = "6c7a87f"', "commit"),
+    ('commit = "6c7a87f7e5e5cd75b8a641c3471f2dee84a6ed17"', 'commit = "LLAMACPP_SHA_PENDING"', "commit"),
+    ('sha256 = "d98cdcbd03e17ce47681435b5150e34c1417f50b5c0019dd560e4882c5745785"', 'sha256 = ""', "sha256"),
+    ('release = "b11235"', 'release = ""', "release"),
+    ('release = "b11235"\n', "", "missing"),
+    ('registered_by = ""', 'registered_by = ""\n[engine.llamacpp.flags]\ncache_reuse = 0', "unknown keys"),
     ('family = "llama"', 'family = "qwen"', "distinct families"),
-    ("[engine.llamacpp", "[engine.mystery", "unknown engine"),
     ('registered_by = ""', 'registered_by = "1"', "four-digit"),
 ])
 def test_engines_config_refuses_bad_values(tmp_path, old, new, msg):
-    assert ENGINES.count(old) >= 1
+    assert ENGINES.count(old) == 1
     with pytest.raises(ValueError, match=msg):
         load_engines_config(_write(tmp_path, "engines.toml", ENGINES.replace(old, new)))
 
 
 def test_repo_configs_load():
-    from prefix_mortality import REPO_ROOT
+    from prefix_mortality import ENGINE_SHA, REPO_ROOT
     seal = load_seal_config(REPO_ROOT / "config" / "seal.toml", REPO_ROOT)
     for root in seal.artifact_roots:
         assert root.path.is_dir(), f"{root.path} must exist in a fresh clone: the seal writer fails closed on it"
@@ -145,5 +138,6 @@ def test_repo_configs_load():
     assert controls.registered_by == "", "the controls config is registered: update this test with the entry number"
     assert controls.corpus_dir.parent == REPO_ROOT / "corpus" / "live"
     engine = load_engines_config(REPO_ROOT / "config" / "engines.toml")["llamacpp"]
-    assert engine.registered_by == "" and not engine.pinned
+    assert engine.registered_by == "", "the engine config is registered: update this test with the entry number"
+    assert engine.commit == ENGINE_SHA
     assert {m.family for m in engine.models} == {"qwen", "llama"}

@@ -7,7 +7,7 @@ import pytest
 
 import prefix_mortality
 
-PINS = {prefix_mortality.CHASSIS_SHA, prefix_mortality.BASE_PREFIX_SHA, prefix_mortality.ENGINE_OBSERVED_SHA}
+PINS = {prefix_mortality.CHASSIS_SHA, prefix_mortality.BASE_PREFIX_SHA, prefix_mortality.ENGINE_SHA}
 
 
 def test_repo_root_is_the_repo():
@@ -21,9 +21,9 @@ def test_every_pin_in_upstream_md_is_declared_and_vice_versa():
     assert shas == PINS, shas ^ PINS
 
 
-def test_engine_config_cites_the_observed_commit():
+def test_engine_config_cites_the_pinned_commit():
     text = (prefix_mortality.REPO_ROOT / "config" / "engines.toml").read_text(encoding="utf-8")
-    assert prefix_mortality.ENGINE_OBSERVED_SHA in text
+    assert prefix_mortality.ENGINE_SHA in text
 
 
 # The chassis is copied, never shared; the base prefix is rendered by tau2's own code in a separate

@@ -16,12 +16,16 @@
 - What it cannot give: the bytes the published result files' runs sent. The fixture is a
   reconstruction at a public commit and is labelled so wherever it is used.
 
-## 2. Serving engine — `llama.cpp` — observed, not pinned
+## 2. Serving engine — `llama.cpp` (run as a separate process, never linked)
 
 - Repo: https://github.com/ggml-org/llama.cpp
-- `master` was observed at `6c7a87f7e5e5cd75b8a641c3471f2dee84a6ed17` and is recorded so a later pin
-  can state what moved. `config/engines.toml` holds a placeholder; the registering entry records the
-  commit the server was built from and the model files by sha256.
+- Pinned: release `b11235`, built from `6c7a87f7e5e5cd75b8a641c3471f2dee84a6ed17`. The download and
+  its digest, and the two model files and theirs, are in `config/engines.toml`.
+- Run at the server's defaults. The driver refuses a server that reports another build, and a model
+  file that does not hash to the configured digest.
+- Read at the pinned commit, and relied on: the server's README for the response fields;
+  `tools/server/server-context.cpp` for how reuse is counted and for the template endpoint;
+  `common/chat.cpp` for what is passed into a chat template.
 
 ## 3. Provider documentation — read, not vendored
 
