@@ -28,8 +28,14 @@ entry; entry 0001 carries the scope, the claim under test and the registration r
 .venv/Scripts/python.exe -m prefix_mortality.lint_scope
 .venv/Scripts/python.exe -m prefix_mortality.manifest check # `write` after adding corpus files
 .venv/Scripts/python.exe -m prefix_mortality.ledger_check   # --against <rev> in CI
+.venv/Scripts/python.exe -m prefix_mortality.controls probe --url URL    # bring an engine up; records nothing
+.venv/Scripts/python.exe -m prefix_mortality.controls run --url URL --family qwen --model-path FILE
+.venv/Scripts/python.exe -m prefix_mortality.summarize --run RUN_ID      # recomputes from disk; refuses on mismatch
 ```
 On macOS/Linux the interpreter is `.venv/bin/python`. The project pins Python 3.12.
+
+`controls run` refuses until a ledger entry registers `config/controls.toml` and
+`config/engines.toml`. After a run, `manifest write`, then commit the new files under `corpus/`.
 
 `tools/render_tau2_prefix.py` is not run by this venv: it needs an interpreter with tau2 installed
 from a checkout at the pinned commit, with the package versions in
@@ -38,11 +44,13 @@ in the fixture's provenance, so editing it turns `tests/test_base_prefix.py` red
 
 ## Layout
 `src/prefix_mortality/` — `hashing` · `rng` · `seal` · `ledger_check` · `lint_scope` (chassis) ·
-`config` (seal, controls, engines) · `nonce` · `manifest`.
+`config` (seal, controls, engines) · `nonce` · `manifest` · `llamacpp` (engine client) · `record`
+(request log) · `controls` (driver) · `summarize` (the rules, and the recomputation).
 `config/` — `seal.toml`, `controls.toml`, `engines.toml`. `ledger/` — `ledger.md`, `predictions/`.
 `corpus/` — `base_prefix/tau2-airline/`, `live/`, `requests/`, `MANIFEST.json`. `tools/` —
 `render_tau2_prefix.py`. `results/` — gitignored past its placeholder.
 
 ## State
-Nothing has run and no hypothesis is registered. Next: the record writer, one engine client, the two
-controls, and a summarizer for their output.
+Nothing has run against an engine and no hypothesis is registered. The controls are built and tested
+against a stand-in server only. Next: bring the pinned engine up with `probe`, register the controls
+by a ledger entry, run them on both models.
