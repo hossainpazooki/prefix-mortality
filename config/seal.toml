@@ -1,0 +1,16 @@
+# Seal protocol configuration. Paths are relative to the repo root. A "pair" here is an experiment id
+# (controls, m1 ... m8): a prediction for it is sealed before any record or report for it exists.
+predictions_dir = "ledger/predictions"
+# The seal loader is copied verbatim and requires this key. No upstream tree holds results for this
+# repo, so it points at the repo itself and no root below uses "${upstream}".
+upstream_path = "."
+
+# Every root below MUST exist when a prediction is written (the writer fails closed on a missing
+# root). The CI verifier checks hashes and immutability only and does not consult roots.
+[[artifact_roots]]
+path = "results"
+pattern = "{pair}/**/report.json"
+
+[[artifact_roots]]
+path = "corpus/live"
+pattern = "{pair}/**/*.jsonl"

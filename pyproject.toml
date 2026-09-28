@@ -1,0 +1,22 @@
+[project]
+name = "prefix-mortality"
+version = "0.0.1"
+description = "Measures how long a cached prompt prefix survives and what ends it, with a hash-chained ledger of what was registered and measured"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "numpy>=1.26",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+filterwarnings = ["ignore::DeprecationWarning"]

@@ -1,0 +1,31 @@
+# Serving engines. UNREGISTERED: `registered_by` is empty and every pin is a placeholder the gate
+# refuses by name. The first controls run on two open-weight model families.
+[engine.llamacpp]
+repo = "https://github.com/ggml-org/llama.cpp"
+# master was observed at 6c7a87f7e5e5cd75b8a641c3471f2dee84a6ed17 on 2026-09-28. Observed, not pinned:
+# the registering entry records the commit the server binary was built from.
+commit = "LLAMACPP_SHA_PENDING"
+registered_by = ""
+
+# Every server flag that changes what a cache death looks like. None is left to the server's
+# default, so the record can state it.
+[engine.llamacpp.flags]
+cache_prompt = true             # prefix reuse on; the thing under measurement
+cache_reuse = 0                 # KV shifting off: with it on, chunks after a divergence are reused and a death is masked
+cache_ram_mib = 0               # host-memory prompt cache off
+ctx_size = 8192
+parallel = 1                    # one slot: no slot selection between requests
+slot_prompt_similarity = 0.10   # inert at parallel = 1, recorded anyway
+
+# hf_repo values are candidates that exist on the Hub; no file was downloaded or hashed.
+[[engine.llamacpp.models]]
+family = "qwen"
+hf_repo = "Qwen/Qwen3-8B-GGUF"
+file = ""
+sha256 = "QWEN_GGUF_SHA256_PENDING"
+
+[[engine.llamacpp.models]]
+family = "llama"
+hf_repo = "bartowski/Meta-Llama-3.1-8B-Instruct-GGUF"
+file = ""
+sha256 = "LLAMA_GGUF_SHA256_PENDING"

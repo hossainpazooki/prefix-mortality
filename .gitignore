@@ -1,0 +1,18 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+*.egg-info/
+# keys: never in git
+.env
+.env.*
+# results tree: nothing tracked except the placeholder. Numbers reach the ledger only via a
+# fail-closed summarizer, never by committing reports. results/ is a seal artifact root
+# (config/seal.toml) and must exist in a fresh clone.
+results/*
+!results/.gitkeep
+# corpus/ IS tracked: the base prefix and the request log are part of the record.
+# model files and engine builds: acquired locally, never committed
+models/
+*.gguf
+engines/
