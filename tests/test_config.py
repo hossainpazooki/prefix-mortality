@@ -135,9 +135,9 @@ def test_repo_configs_load():
     for root in seal.artifact_roots:
         assert root.path.is_dir(), f"{root.path} must exist in a fresh clone: the seal writer fails closed on it"
     controls = load_controls_config(REPO_ROOT / "config" / "controls.toml", REPO_ROOT)
-    assert controls.registered_by == "", "the controls config is registered: update this test with the entry number"
+    assert controls.registered_by == "0002"
     assert controls.corpus_dir.parent == REPO_ROOT / "corpus" / "live"
     engine = load_engines_config(REPO_ROOT / "config" / "engines.toml")["llamacpp"]
-    assert engine.registered_by == "", "the engine config is registered: update this test with the entry number"
+    assert engine.registered_by == "0002"
     assert engine.commit == ENGINE_SHA
     assert {m.family for m in engine.models} == {"qwen", "llama"}

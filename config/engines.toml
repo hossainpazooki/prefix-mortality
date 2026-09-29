@@ -1,11 +1,11 @@
-# Serving engines. UNREGISTERED until a numbered ledger entry sets `registered_by`.
+# Serving engines. Registered by the ledger entry named in `registered_by`.
 [engine.llamacpp]
 repo = "https://github.com/ggml-org/llama.cpp"
 release = "b11235"
 commit = "6c7a87f7e5e5cd75b8a641c3471f2dee84a6ed17"
 download = "llama-b11235-bin-macos-arm64.tar.gz"
 download_sha256 = "d28351029acd7e0c01825d8e7dddadded3da4a2494bf72ebd98e73aec9344d50"
-registered_by = ""
+registered_by = "0002"
 
 # No server flag is set: the controls run at the server's defaults, and every record stores what the
 # server reports about itself. An experiment that overrides a flag names it in the entry that

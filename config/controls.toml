@@ -1,7 +1,7 @@
 # The two controls: identity and scramble (ledger entry 0001, rule 1).
 #
-# UNREGISTERED. `registered_by` is empty until a numbered ledger entry fixes these values, and the
-# driver refuses to run while it is empty.
+# Registered by ledger entry 0002, which fixes these values. A change to any of them needs a new
+# entry; the driver refuses to run while `registered_by` is empty.
 [controls]
 repetitions = 5                 # write, identical resend, scramble: once per repetition, per model
 length_tolerance_tokens = 16    # scramble prompt length vs identity prompt length, in the engine's own tokens
@@ -13,4 +13,4 @@ request_timeout_seconds = 600.0
 user_message = "Hello."
 corpus_dir = "corpus/live/controls"
 results_dir = "results/controls"
-registered_by = ""
+registered_by = "0002"
