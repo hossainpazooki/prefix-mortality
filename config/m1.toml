@@ -1,0 +1,31 @@
+# Edit position (M1) on llama.cpp: one word replaced at a named site of the base request.
+#
+# UNREGISTERED. `registered_by` is empty until a numbered ledger entry fixes these values, and the
+# driver refuses to run while it is empty. Request parameters (tokens to generate, temperature, nonce
+# length, user message) are those of config/controls.toml.
+[m1]
+repetitions = 5                       # trials per site, per model
+replacement = "zebra"                 # occurs nowhere in the base prefix
+# Fractions of the system text's length, in characters. 0.24 and 0.27 sit either side of the
+# similarity threshold on one model and both below it on the other; none falls inside the margin.
+system_fractions = [0.0, 0.1, 0.24, 0.27, 0.32, 0.5, 0.75, 0.999]
+tool_indexes = [0, 4, 9, 13]          # the first word of that tool's description
+edit_user_message = true              # the first word of the user message
+similarity_threshold = 0.10           # llama.cpp --slot-prompt-similarity, its default at the pinned commit
+threshold_margin = 0.002              # a trial this close to the threshold is reported and not counted
+corpus_dir = "corpus/live/m1"
+results_dir = "results/m1"
+registered_by = ""
+
+# One hypothesis per server configuration. `slots` is what the server must report; a run whose
+# records say otherwise is not that experiment. `rule` is how the reuse of the edited request is
+# predicted from d, the tokens it shares with the base request, and n, its own length:
+#   prefix     d
+#   threshold  d when d / n is above similarity_threshold, else 0
+[m1.hypotheses.H-M1L1]                # server started with --parallel 1
+slots = 1
+rule = "prefix"
+
+[m1.hypotheses.H-M1LD]                # server at its defaults
+slots = 4
+rule = "threshold"

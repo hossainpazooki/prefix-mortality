@@ -1,7 +1,8 @@
 """TOML config -> frozen dataclasses. Seeds and thresholds live here, never in code.
 
 Adapted from lag-ladder `src/lag_ladder/config.py` (UPSTREAM.md provenance): the seal loader is
-verbatim; the pilot loader is dropped; `load_controls_config` and `load_engines_config` are new.
+verbatim; the pilot loader is dropped; `load_controls_config`, `load_m1_config` and
+`load_engines_config` are new.
 """
 import re
 import tomllib
@@ -146,6 +147,99 @@ def load_controls_config(path: Path, repo_root: Path) -> ControlsConfig:
         user_message=_text(c, "user_message", name),
         corpus_dir=root / c["corpus_dir"], results_dir=root / c["results_dir"],
         registered_by=_registered_by(c["registered_by"], name), config_path=path,
+    )
+
+
+# --- edit position (M1) --------------------------------------------------------------------------
+
+M1_RULES = ("prefix", "threshold")
+_M1_ID = re.compile(r"H-M1L[A-Za-z0-9]")
+
+
+@dataclass(frozen=True)
+class M1Hypothesis:
+    id: str
+    slots: int
+    rule: str
+
+
+@dataclass(frozen=True)
+class M1Config:
+    """Edit position. One list of sites, run once per hypothesis; a hypothesis is a server
+    configuration and the rule that predicts reuse under it. Request parameters come from the
+    controls config."""
+    repetitions: int
+    replacement: str
+    system_fractions: tuple[float, ...]
+    tool_indexes: tuple[int, ...]
+    edit_user_message: bool
+    similarity_threshold: float
+    threshold_margin: float
+    corpus_dir: Path
+    results_dir: Path
+    hypotheses: tuple[M1Hypothesis, ...]
+    registered_by: str
+    config_path: Path
+
+    def hypothesis(self, hid: str) -> M1Hypothesis:
+        for h in self.hypotheses:
+            if h.id == hid:
+                return h
+        raise ValueError(f"{self.config_path.name} registers no hypothesis {hid!r}; "
+                         f"known: {[h.id for h in self.hypotheses]}")
+
+
+_M1_KEYS = ("repetitions", "replacement", "system_fractions", "tool_indexes", "edit_user_message",
+            "similarity_threshold", "threshold_margin", "corpus_dir", "results_dir", "registered_by", "hypotheses")
+_M1_HYPOTHESIS_KEYS = ("slots", "rule")
+
+
+def _ascending(c: dict, key: str, name: str, kind: type, lo: float, hi: float) -> tuple:
+    v = c[key]
+    allowed = (int, float) if kind is float else (int,)
+    ok = isinstance(v, list) and all(isinstance(x, allowed) and not isinstance(x, bool) and lo <= x <= hi
+                                     for x in v)
+    if not ok or any(b <= a for a, b in zip(v, v[1:])):
+        raise ValueError(f"{name} {key} must be a list of {kind.__name__} in [{lo}, {hi}], strictly ascending, "
+                         f"got {v!r}")
+    return tuple(kind(x) for x in v)
+
+
+def load_m1_config(path: Path, repo_root: Path) -> M1Config:
+    path = Path(path)
+    name = f"{path.name} [m1]"
+    c = _read(path)["m1"]
+    _require(c, _M1_KEYS, name)
+    if not isinstance(c["edit_user_message"], bool):
+        raise ValueError(f"{name} edit_user_message must be true or false")
+    replacement = _text(c, "replacement", name)
+    if not replacement.isalpha():
+        raise ValueError(f"{name} replacement must be one word of letters, got {replacement!r}")
+    threshold, margin = _number(c, "similarity_threshold", name), _number(c, "threshold_margin", name)
+    if not 0 < threshold < 1:
+        raise ValueError(f"{name} similarity_threshold must be between 0 and 1, got {threshold!r}")
+    fractions = _ascending(c, "system_fractions", name, float, 0.0, 1.0)
+    indexes = _ascending(c, "tool_indexes", name, int, 0, 10_000)
+    if not (fractions or indexes or c["edit_user_message"]):
+        raise ValueError(f"{name} names no site")
+    hypotheses = []
+    for hid, h in c["hypotheses"].items():
+        hname = f"{name}.hypotheses.{hid}"
+        if not _M1_ID.fullmatch(hid):
+            raise ValueError(f"{hname}: an id is H-M1L and one letter or digit for the configuration")
+        _require(h, _M1_HYPOTHESIS_KEYS, hname)
+        if h["rule"] not in M1_RULES:
+            raise ValueError(f"{hname} rule must be one of {M1_RULES}, got {h['rule']!r}")
+        hypotheses.append(M1Hypothesis(id=hid, slots=_int(h, "slots", hname, minimum=1), rule=h["rule"]))
+    if not hypotheses:
+        raise ValueError(f"{name} registers no hypothesis")
+    root = Path(repo_root)
+    return M1Config(
+        repetitions=_int(c, "repetitions", name, minimum=1), replacement=replacement,
+        system_fractions=fractions, tool_indexes=indexes, edit_user_message=c["edit_user_message"],
+        similarity_threshold=threshold, threshold_margin=margin,
+        corpus_dir=root / c["corpus_dir"], results_dir=root / c["results_dir"],
+        hypotheses=tuple(hypotheses), registered_by=_registered_by(c["registered_by"], name), config_path=path,
     )
 
 

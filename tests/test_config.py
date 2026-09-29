@@ -2,7 +2,7 @@
 replaced by the controls and engines loaders."""
 import pytest
 
-from prefix_mortality.config import load_controls_config, load_engines_config, load_seal_config
+from prefix_mortality.config import load_controls_config, load_engines_config, load_m1_config, load_seal_config
 
 
 def _write(tmp_path, name, text):
@@ -129,8 +129,78 @@ def test_engines_config_refuses_bad_values(tmp_path, old, new, msg):
         load_engines_config(_write(tmp_path, "engines.toml", ENGINES.replace(old, new)))
 
 
+M1 = '''
+[m1]
+repetitions = 5
+replacement = "zebra"
+system_fractions = [0, 0.25, 0.999]
+tool_indexes = [0, 13]
+edit_user_message = true
+similarity_threshold = 0.10
+threshold_margin = 0.002
+corpus_dir = "corpus/live/m1"
+results_dir = "results/m1"
+registered_by = ""
+[m1.hypotheses.H-M1L1]
+slots = 1
+rule = "prefix"
+[m1.hypotheses.H-M1LD]
+slots = 4
+rule = "threshold"
+'''
+
+
+def test_m1_config_loads_and_finds_a_hypothesis(tmp_path):
+    cfg = load_m1_config(_write(tmp_path, "m1.toml", M1), repo_root=tmp_path)
+    assert cfg.repetitions == 5 and cfg.replacement == "zebra" and cfg.edit_user_message is True
+    assert cfg.system_fractions == (0.0, 0.25, 0.999) and cfg.tool_indexes == (0, 13)
+    assert cfg.similarity_threshold == 0.10 and cfg.threshold_margin == 0.002 and cfg.registered_by == ""
+    assert cfg.corpus_dir == tmp_path / "corpus" / "live" / "m1"
+    assert [(h.id, h.slots, h.rule) for h in cfg.hypotheses] == [("H-M1L1", 1, "prefix"), ("H-M1LD", 4, "threshold")]
+    assert cfg.hypothesis("H-M1LD").rule == "threshold"
+    with pytest.raises(ValueError, match="registers no hypothesis"):
+        cfg.hypothesis("H-M1LV")
+
+
+@pytest.mark.parametrize("old, new, msg", [
+    ("repetitions = 5", "repetitions = 0", "repetitions"),
+    ('replacement = "zebra"', 'replacement = "two words"', "one word"),
+    ("system_fractions = [0, 0.25, 0.999]", "system_fractions = [0.25, 0.25]", "strictly ascending"),
+    ("system_fractions = [0, 0.25, 0.999]", "system_fractions = [0.5, 1.5]", "system_fractions"),
+    ("tool_indexes = [0, 13]", "tool_indexes = [13, 0]", "strictly ascending"),
+    ("tool_indexes = [0, 13]", "tool_indexes = [0.5]", "tool_indexes"),
+    ("edit_user_message = true", 'edit_user_message = "yes"', "true or false"),
+    ("similarity_threshold = 0.10", "similarity_threshold = 1.5", "between 0 and 1"),
+    ("threshold_margin = 0.002", "threshold_margin = -1", "threshold_margin"),
+    ("threshold_margin = 0.002\n", "", "missing"),
+    ('registered_by = ""', 'registered_by = ""\ncache_ram = 0', "unknown keys"),
+    ('registered_by = ""', 'registered_by = "6"', "four-digit"),
+    ('rule = "prefix"', 'rule = "nearest"', "rule must be one of"),
+    ("slots = 1", "slots = 0", "slots"),
+    ("slots = 1", 'slots = 1\nflag = "--parallel 1"', "unknown keys"),
+    ("[m1.hypotheses.H-M1L1]", "[m1.hypotheses.H-M1A1]", "an id is H-M1L"),
+])
+def test_m1_config_refuses_bad_values(tmp_path, old, new, msg):
+    assert M1.count(old) == 1
+    with pytest.raises(ValueError, match=msg):
+        load_m1_config(_write(tmp_path, "m1.toml", M1.replace(old, new)), repo_root=tmp_path)
+
+
+def test_m1_config_refuses_a_file_that_names_no_site_or_no_hypothesis(tmp_path):
+    none = M1.replace("[0, 0.25, 0.999]", "[]").replace("[0, 13]", "[]").replace("= true", "= false")
+    with pytest.raises(ValueError, match="names no site"):
+        load_m1_config(_write(tmp_path, "m1.toml", none), repo_root=tmp_path)
+    bare = M1[:M1.index("[m1.hypotheses.H-M1L1]")] + "[m1.hypotheses]\n"
+    with pytest.raises(ValueError, match="registers no hypothesis"):
+        load_m1_config(_write(tmp_path, "m1.toml", bare), repo_root=tmp_path)
+
+
 def test_repo_configs_load():
     from prefix_mortality import ENGINE_SHA, REPO_ROOT
+    m1 = load_m1_config(REPO_ROOT / "config" / "m1.toml", REPO_ROOT)
+    assert m1.registered_by == "", "the m1 config is registered: update this test with the entry number"
+    assert m1.corpus_dir.parent == REPO_ROOT / "corpus" / "live"
+    assert {(h.id, h.slots, h.rule) for h in m1.hypotheses} == {("H-M1L1", 1, "prefix"), ("H-M1LD", 4, "threshold")}
     seal = load_seal_config(REPO_ROOT / "config" / "seal.toml", REPO_ROOT)
     for root in seal.artifact_roots:
         assert root.path.is_dir(), f"{root.path} must exist in a fresh clone: the seal writer fails closed on it"
