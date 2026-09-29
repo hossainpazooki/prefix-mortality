@@ -2,7 +2,8 @@
 
 Read `README.md` for what this is. `ledger/ledger.md` is the record and is append-only by numbered
 entry; entry 0001 carries the scope, the claim under test and the registration rules, entry 0002
-the controls' rules for llama.cpp, and entries 0003 and 0004 their outcomes.
+the controls' rules for llama.cpp, entries 0003 and 0004 their outcomes, and entry 0005 their
+closure and the one-slot rule.
 
 ## Rules
 - The chassis is copied from lag-ladder, not shared. Never import `lag_ladder`, `linear_ceiling` or
@@ -55,5 +56,6 @@ in the fixture's provenance, so editing it turns `tests/test_base_prefix.py` red
 No hypothesis is registered. The controls (ledger 0002) ran on llama.cpp with two models and passed
 on both: at the server's defaults every write and scramble reused 0 (ledger 0003); with the server
 started with `--parallel 1` they reused the shared head and stayed within the bound (ledger 0004).
-Why four slots and one differ is not established. Next: the operator rules the controls closed or
-not, then the first cause is designed and registered.
+Ledger 0005 reads the cause in source (idle slots are cleared at the defaults), closes the controls,
+and rules that an experiment depending on partial reuse runs with `--parallel 1`. Next: design and
+register the first cause.
