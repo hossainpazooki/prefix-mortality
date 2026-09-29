@@ -1,8 +1,17 @@
 """A stand-in for a llama.cpp server, for tests only.
 
-It follows the two rules read from the pinned source: reuse is the longest common token prefix with
-what the single slot holds, and a prompt that is wholly held still has its last token processed. The
-other modes break one of those on purpose, so a test can show the controls going red.
+It follows what was read in the pinned source (ledger entries 0002 and 0005):
+  * reuse is the longest common token prefix with what the chosen slot holds, and a prompt that is
+    wholly held still has its last token processed;
+  * a request is given the slot whose prompt it resembles by more than `similarity` of its own
+    length, else the least recently used slot;
+  * a slot about to lose more than half of its prompt is copied to a cache first, and a cached
+    prompt is restored only if at least a quarter of it would be kept;
+  * when a request starts, every other slot is copied to the cache and cleared.
+
+With one slot the last rule has nothing to clear. The other modes break a rule on purpose, so a test
+can show a driver going red. This file is written from the same reading as the drivers it tests: a
+pass shows they agree with the reading, not that the reading is right.
 """
 import json
 import re
@@ -14,13 +23,23 @@ MODES = ("faithful", "no_cache", "sticky", "no_fields", "clock")
 _PIECE = re.compile(r"\s+|\w+|[^\w\s]")
 
 
+def _lcp(a: list[int], b: list[int]) -> int:
+    n = 0
+    while n < min(len(a), len(b)) and a[n] == b[n]:
+        n += 1
+    return n
+
+
 class Engine:
-    def __init__(self, mode: str = "faithful", build_info: str = "b11235-6c7a87f"):
+    def __init__(self, mode: str = "faithful", build_info: str = "b11235-6c7a87f", slots: int = 1,
+                 similarity: float = 0.10):
         assert mode in MODES, mode
-        self.mode, self.build_info = mode, build_info
-        self.slot: list[int] = []
+        self.mode, self.build_info, self.similarity = mode, build_info, similarity
+        self.slots: list[list[int]] = [[] for _ in range(slots)]
+        self.last_used = [-1] * slots
+        self.cache: list[list[int]] = []
         self.ids: dict[str, int] = {}
-        self.renders = 0
+        self.renders = self.requests = 0
 
     def render(self, body: dict) -> str:
         self.renders += 1
@@ -33,18 +52,49 @@ class Engine:
     def tokenize(self, text: str) -> list[dict]:
         return [{"id": self.ids.setdefault(p, len(self.ids) + 1), "piece": p} for p in _PIECE.findall(text)]
 
+    def _choose(self, ids: list[int]) -> int:
+        """The slot for this prompt, after the cache has been given and asked what the source says."""
+        best, where = 0.0, None
+        for i, held in enumerate(self.slots):
+            sim = _lcp(held, ids) / len(ids) if held else 0.0
+            if sim > best and sim > self.similarity:
+                best, where = sim, i
+        if where is None:
+            where, save = min(range(len(self.slots)), key=lambda i: self.last_used[i]), True
+        else:
+            save = _lcp(self.slots[where], ids) / len(self.slots[where]) < 0.5
+        if save:
+            held = self.slots[where]
+            if held:
+                self.cache.append(list(held))
+            keep = _lcp(held, ids) / len(held) if held else -1.0
+            sim, found = _lcp(held, ids) / len(ids), None
+            for c in self.cache:
+                k, s = _lcp(c, ids) / len(c), _lcp(c, ids) / len(ids)
+                if k >= 0.25 and keep < k and sim < s:
+                    keep, sim, found = k, s, c
+            if found is not None:
+                self.cache.remove(found)
+                self.slots[where] = found
+        return where
+
     def chat(self, body: dict) -> dict:
         ids = [t["id"] for t in self.tokenize(self.render(body))]
-        n, reuse = len(ids), 0
-        while reuse < min(n, len(self.slot)) and ids[reuse] == self.slot[reuse]:
-            reuse += 1
+        n = len(ids)
+        where = self._choose(ids)
+        reuse = _lcp(self.slots[where], ids)
         if reuse == n and n > 0:
             reuse -= 1
         if self.mode == "no_cache":
             reuse = 0
         if self.mode == "sticky":
             reuse = n - 1
-        self.slot = ids
+        self.requests += 1
+        self.slots[where], self.last_used[where] = ids, self.requests
+        for i, held in enumerate(self.slots):           # every idle slot is copied to the cache and cleared
+            if i != where and held:
+                self.cache.append(held)
+                self.slots[i] = []
         out = {"choices": [{"message": {"role": "assistant", "content": "ok"}}],
                "usage": {"prompt_tokens": n, "completion_tokens": 1, "total_tokens": n + 1,
                          "prompt_tokens_details": {"cached_tokens": reuse}},
@@ -68,7 +118,7 @@ def _handler(engine: Engine):
             self.wfile.write(data)
 
         def do_GET(self):
-            self._reply({"build_info": engine.build_info, "total_slots": 1,
+            self._reply({"build_info": engine.build_info, "total_slots": len(engine.slots),
                          "default_generation_settings": {"n_ctx": 8192}})
 
         def do_POST(self):
@@ -83,8 +133,8 @@ def _handler(engine: Engine):
 
 
 @contextmanager
-def serve(mode: str = "faithful", build_info: str = "b11235-6c7a87f"):
-    engine = Engine(mode, build_info)
+def serve(mode: str = "faithful", build_info: str = "b11235-6c7a87f", slots: int = 1):
+    engine = Engine(mode, build_info, slots)
     server = ThreadingHTTPServer(("127.0.0.1", 0), _handler(engine))
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
