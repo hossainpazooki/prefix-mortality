@@ -31,9 +31,10 @@ If either fails, the instrument cannot see a death and no table is produced.
 The record-keeping, the starting prefix and the two controls exist. The controls have run on one
 serving engine with two models and passed on both, at the server's defaults and again with one slot.
 Reuse of part of a prompt is on record with one slot only; at its defaults the engine clears an idle
-slot, which the ledger reads from its source. The controls are closed. No experiment is registered
-and no cause has been measured. `ledger/ledger.md` is the record of what has been registered and
-measured, and it says what has not.
+slot, which the ledger reads from its source. The controls are closed. One cause, the position of
+an edit, is registered as two hypotheses, one per server configuration, and has not been run. No
+cause has been measured. `ledger/ledger.md` is the record of what has been registered and measured,
+and it says what has not.
 
 ## How the record stays auditable
 

@@ -48,9 +48,10 @@ Fetched as raw text on 2026-09-28; the hash identifies what was read.
 | canonical JSON bytes + sha256 helpers | `src/lag_ladder/hashing.py` | `src/prefix_mortality/hashing.py` | verbatim (package name) |
 | the one seeded generator | `…/rng.py` | `…/rng.py` | verbatim |
 | pre-run seal (write / require / verify) | `…/seal.py` | `…/seal.py` | verbatim; a "pair" is an experiment id |
-| ledger lint (structure, chain, block diff, cell provenance) | `…/ledger_check.py` | `…/ledger_check.py` | code unchanged |
+| ledger lint (structure, chain, block diff, cell provenance) | `…/ledger_check.py` | `…/ledger_check.py` | code unchanged; `REQUIRED_IDS` is this repo's |
 | scope-sentence lint | `…/lint_scope.py` | `…/lint_scope.py` | mechanism verbatim; the sentence is this repo's |
-| TOML → frozen config | `…/config.py` | `…/config.py` | seal loader verbatim; controls and engines loaders new |
+| TOML → frozen config | `…/config.py` | `…/config.py` | seal loader verbatim; controls, m1 and engines loaders new |
 | CI job | `.github/workflows/ci.yml` | same | package name; manifest step added |
-| tests | `tests/{conftest,test_hashing,test_rng,test_seal,test_ledger_check}.py` | same names | package name |
+| tests | `tests/{conftest,test_hashing,test_rng,test_seal}.py` | same names | package name |
+| tests | `tests/test_ledger_check.py` | same name | package name; the cases on built ledgers run with no required id, and one case checks this repo's ids |
 | tests, adapted | `tests/{test_config,test_lint_scope,test_imports}.py` | same names | this repo's sentence, pins and loaders |
