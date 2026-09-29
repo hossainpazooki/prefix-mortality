@@ -29,10 +29,10 @@ If either fails, the instrument cannot see a death and no table is produced.
 ## Status
 
 The record-keeping, the starting prefix and the two controls exist. The controls have run on one
-serving engine with two models and passed on both; the scramble's bound was met only at its floor,
-and a repetition that tests it is registered and not run. No experiment is registered and no cause
-has been measured. `ledger/ledger.md` is the record of what has been registered and measured, and it
-says what has not.
+serving engine with two models and passed on both, at the server's defaults and again with one slot.
+Reuse of part of a prompt is on record with one slot only, and why the defaults differ is not
+established. No experiment is registered and no cause has been measured. `ledger/ledger.md` is the
+record of what has been registered and measured, and it says what has not.
 
 ## How the record stays auditable
 

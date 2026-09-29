@@ -2,7 +2,7 @@
 
 Read `README.md` for what this is. `ledger/ledger.md` is the record and is append-only by numbered
 entry; entry 0001 carries the scope, the claim under test and the registration rules, entry 0002
-the controls' rules for llama.cpp, and entry 0003 their first outcome.
+the controls' rules for llama.cpp, and entries 0003 and 0004 their outcomes.
 
 ## Rules
 - The chassis is copied from lag-ladder, not shared. Never import `lag_ladder`, `linear_ceiling` or
@@ -53,6 +53,7 @@ in the fixture's provenance, so editing it turns `tests/test_base_prefix.py` red
 
 ## State
 No hypothesis is registered. The controls (ledger 0002) ran on llama.cpp with two models and passed
-on both (ledger 0003); every write and scramble reused 0, so the bound was met only at its floor.
-Ledger 0003 registers one repetition with the server started with `--parallel 1`; it has not been
-run. Next: run it on both models, `summarize`, and state the outcome in a ledger entry.
+on both: at the server's defaults every write and scramble reused 0 (ledger 0003); with the server
+started with `--parallel 1` they reused the shared head and stayed within the bound (ledger 0004).
+Why four slots and one differ is not established. Next: the operator rules the controls closed or
+not, then the first cause is designed and registered.
