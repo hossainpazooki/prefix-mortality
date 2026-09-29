@@ -112,3 +112,48 @@ These rules state rule 1 of entry 0001 for this engine. "Reads what the first re
 | One unrecorded pair of requests per model was sent before this entry, to confirm the field names. | Nothing from it is evidence and no figure from it appears here. The rules are those of `src/prefix_mortality/summarize.py` as committed at `454e181`, before that contact. |
 
 **Status.** The controls are `[STRETCH]`: registered, not run.
+
+### 0003 — 2026-09-29 — Controls pass on both models; a one-slot repetition is registered
+
+prior-entries-sha256: ba245546231ed73daed1dbf9e46ef2ed34ab9becff4228f72e4be480303d66c1
+
+**Outcome** `[BASELINE]`. The controls registered by 0002 ran at commit `9fa3226`. Their records and
+requests are committed at `6fd42e0`. Every figure below is from `summarize --run` on those files, or
+from the `server` field of the records.
+
+| | `qwen` | `llama` |
+|---|---|---|
+| run | `20260929T205253Z-qwen` | `20260929T205508Z-llama` |
+| outcome | PASS | PASS |
+| requests | 15 | 15 |
+| read: reuse is *n* − 1 | 5 of 5 | 5 of 5 |
+| write: reuse | 0 in 5 of 5 | 0 in 5 of 5 |
+| scramble: reuse | 0 in 5 of 5 | 0 in 5 of 5 |
+| *n* | 4,868 to 4,872 | 5,644 to 5,650 |
+| *h* | 31 to 35 | 47 to 53 |
+| largest gap, scramble *n* against write *n* | 3 | 6 |
+| slots, as the server reported | 4 | 4 |
+| context, as the server reported | 40,960 | 50,944 |
+| fields not reported | None. | None. |
+
+**What the outcome does not show.** The bound of *h* was met only at its floor of 0. No write and no
+scramble reused a token, so the bound never faced a value that could have exceeded it. The server
+reported 4 slots and each run sent 10 fresh prompts, so at least 6 per run were served by a slot that
+had already served a request. All of them reused 0. Whether such a slot still held its earlier prompt
+when the new one arrived is not recorded, and why nothing of a shared template head was reused is not
+established.
+
+**Registers** one repetition of the controls with the server started with `--parallel 1`. That flag
+is the only override. Engine, models, parameters and rules are those of 0002.
+
+| question | how it is answered |
+|---|---|
+| Does a write or a scramble that meets a held prompt reuse its shared head, and stay within *h*? | With one slot, every request after the first is served by the slot that holds the previous prompt. The results entry states the reuse of every request. |
+| Was the run made with one slot? | Each record stores the number of slots the server reported. A run whose records do not say 1 is not this repetition. |
+| What would leave the question open? | A reuse of 0 on every write and scramble. The bound would then be untested on this engine with one slot as well as with four. |
+
+Unrecorded requests were sent to a one-slot server before this entry. Nothing from them is evidence
+and no figure from them appears here.
+
+**Status.** The controls at the server's defaults are `[BASELINE]`. The one-slot repetition is
+`[STRETCH]`: registered, not run.
