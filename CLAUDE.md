@@ -1,7 +1,8 @@
 # prefix-mortality — repo brief
 
 Read `README.md` for what this is. `ledger/ledger.md` is the record and is append-only by numbered
-entry; entry 0001 carries the scope, the claim under test and the registration rules.
+entry; entry 0001 carries the scope, the claim under test and the registration rules, and entry 0002
+the controls' rules for llama.cpp.
 
 ## Rules
 - The chassis is copied from lag-ladder, not shared. Never import `lag_ladder`, `linear_ceiling` or
@@ -51,6 +52,7 @@ in the fixture's provenance, so editing it turns `tests/test_base_prefix.py` red
 `render_tau2_prefix.py`. `results/` — gitignored past its placeholder.
 
 ## State
-Nothing has run against an engine and no hypothesis is registered. The controls are built and tested
-against a stand-in server only. Next: bring the pinned engine up with `probe`, register the controls
-by a ledger entry, run them on both models.
+No hypothesis is registered and nothing is measured. The controls are registered by ledger 0002 on
+llama.cpp with two models, and have not been run; the engine was brought up with `probe`, which
+records nothing. Next: run the controls on both models, `summarize`, and state the outcome in a
+ledger entry.
