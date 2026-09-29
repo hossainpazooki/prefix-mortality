@@ -201,3 +201,38 @@ with one slot only.
 
 **Status.** The two controls are `[BASELINE]` on both models, at the server's defaults and with one
 slot. No hypothesis is registered.
+
+### 0005 — 2026-09-29 — Why four slots reused nothing; the controls are closed
+
+prior-entries-sha256: 2ece93bd004b76c3ba27eb5d9ac2a9527f01a89f93452179557db3b7f8757dd7
+
+**Cause of the zeros in 0003.** Read in llama.cpp at the pinned commit
+`6c7a87f7e5e5cd75b8a641c3471f2dee84a6ed17`, in `tools/server/README.md`, `tools/server/server-context.cpp`
+and `tools/server/server-task.cpp`. It is a reading of source, not a measurement.
+
+| default of the server | what it does | where it is read |
+|---|---|---|
+| The number of slots is automatic, and the slots then share one buffer. | The records of 0003 say 4 slots. | README, `--parallel` and `--kv-unified`. |
+| `--cache-idle-slots` is enabled. | When a request starts on one slot, every idle slot is copied to the prompt cache in memory and, with a shared buffer, cleared. | README, `--cache-idle-slots`; `server-context.cpp`, the block tagged `TAG_IDLE_SLOT_CLEAR`. |
+| A request is given the slot whose prompt it resembles only above a similarity of 0.10. | A prompt with a fresh nonce at its head resembles none, and is given the least recently used slot, which has been cleared. | README, `--slot-prompt-similarity`; `server-context.cpp`, `get_available_slot`. |
+| A prompt is restored from the cache only if at least a quarter of it would be kept. | A prompt that shares only a template head with a cached one restores nothing. | `server-task.cpp`, `server_prompt_cache::load`. |
+
+So at the defaults a write or a scramble starts from an empty slot and reuses 0, as 0003 recorded.
+With `--parallel 1` no slot is idle when a request starts and the buffer is not shared, so the slot
+keeps its prompt and the next request reuses the head the two share, as 0004 recorded.
+
+One unrecorded run with the server's logging raised was made after 0004. Nothing from it is evidence
+and no figure from it appears here.
+
+**What this reading predicts and no run has tested.** At the defaults the reuse after a change to a
+prompt depends on the two thresholds above as well as on where the change is. NOT MEASURED.
+
+**Ruled by the operator, 2026-09-29.**
+
+1. The controls are closed on llama.cpp `b11235` for both models.
+2. An experiment that depends on reuse of part of a prompt runs on a server started with
+   `--parallel 1`. Its registering entry names the flag, and a run whose records do not say 1 slot
+   is not that experiment.
+
+**Status.** The controls are closed, `[BASELINE]`. No hypothesis is registered. The eight causes of
+0001 are `[FUTURE]`.
