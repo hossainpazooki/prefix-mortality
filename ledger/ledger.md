@@ -16,8 +16,8 @@ numerator nor a denominator. It is never written as a zero.
 
 | id | statement | decided by | verdict |
 |---|---|---|---|
-
-No hypothesis is registered yet.
+| H-M1L1 | On llama.cpp `b11235` started with `--parallel 1`, a request that differs from the prompt the slot holds reuses exactly the tokens before the first one that differs. | entry 0006 | unresolved |
+| H-M1LD | On llama.cpp `b11235` at its defaults, the same request reuses those tokens when they are more than 0.10 of its length, and none otherwise. | entry 0006 | unresolved |
 
 ## Entries
 
@@ -236,3 +236,55 @@ prompt depends on the two thresholds above as well as on where the change is. NO
 
 **Status.** The controls are closed, `[BASELINE]`. No hypothesis is registered. The eight causes of
 0001 are `[FUTURE]`.
+
+### 0006 — 2026-09-29 — Edit position registered on llama.cpp: H-M1L1 and H-M1LD
+
+prior-entries-sha256: eeadbe3f9daf6916ea61a0a74f67ce200170456f8e525d7a5f2b5f0021d9d6de
+
+**Registers** `config/m1.toml`, now `registered_by = "0006"`, and two hypotheses, each with its own
+verdict cell. Engine, models and machine are those of 0002. The request parameters are those of
+`config/controls.toml`.
+
+**Ids.** Rule 2 of 0001 gives `H-M<n><letter>`. One character is added for the server's
+configuration: `1` for one slot, `D` for the defaults. Ruled by the operator on 2026-09-29: the two
+configurations are separate hypotheses, and the two models are cells inside each.
+
+| id | server | the records must say | predicted reuse of the edited request |
+|---|---|---|---|
+| `H-M1L1` | Started with `--parallel 1`. | 1 slot. | *d*. |
+| `H-M1LD` | Started with no flag but the model. | 4 slots. | *d* when *d* / *n* is above 0.10, and 0 otherwise. |
+
+*d* is the number of leading tokens the base prompt and the edited prompt have in common, under the
+server's own tokenizer, each prompt as the server renders it. *n* is the token count of the edited
+prompt. The 0.10 is the server's `--slot-prompt-similarity` at its default (entry 0005).
+
+**A trial** is two requests under one fresh nonce: the base request, then the same request with one
+word replaced by `zebra`, a word that occurs nowhere in the base prefix. The 13 sites are the word at
+0, 0.1, 0.24, 0.27, 0.32, 0.5, 0.75 and 0.999 of the system text's length; the first word of the
+description of tools 0, 4, 9 and 13; and the first word of the user message. Each site is tried 5
+times: 65 trials and 130 requests per model, per hypothesis.
+
+**What decides.**
+
+| case | rule |
+|---|---|
+| A trial matches. | The edited request's reuse equals its prediction, the server's two counts add up to *n*, and its two reuse fields agree. |
+| `HELD` | Every counted trial of both models matches. |
+| `NOT CONFIRMED` | At least one counted trial does not match. The results entry states the prediction and the reuse of every trial. |
+| A trial is not counted. | Its *d* / *n* lies within 0.002 of 0.10, under `H-M1LD` only. It is reported. |
+| A control fails. | The base request reuses more than *h*, the tokens that start before the end of the nonce. The run stops, and no verdict follows from it. |
+| NOT MEASURABLE | The server does not report a field. The verdict stays `unresolved`. |
+| The records say another number of slots. | The run is not that experiment. |
+
+A prediction is a function of the two stored prompts and the rule above, and of nothing else.
+`summarize_m1` recomputes it from the stored tokens and refuses a record that carries another value.
+
+**Known before the run.**
+
+| fact | consequence |
+|---|---|
+| The prediction for the defaults rests on the reading of source in 0005. | If the reading is wrong or incomplete, `H-M1LD` is NOT CONFIRMED, and the results entry states what was observed. |
+| The server's properties do not say whether its slots share a buffer or whether idle slots are cleared. | The records cannot tell a server at its defaults from one started with four slots by flag. The run is started with no flag but the model. |
+| Unrecorded requests of this kind were sent to both configurations before this entry. | Nothing from them is evidence and no figure from them appears here. The rules and the sites are those committed at `a0e31df`, before that contact. |
+
+**Status.** `H-M1L1` and `H-M1LD` are `[STRETCH]`: registered, not run. `H-M1L1` runs first.

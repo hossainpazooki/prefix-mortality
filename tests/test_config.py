@@ -198,7 +198,7 @@ def test_m1_config_refuses_a_file_that_names_no_site_or_no_hypothesis(tmp_path):
 def test_repo_configs_load():
     from prefix_mortality import ENGINE_SHA, REPO_ROOT
     m1 = load_m1_config(REPO_ROOT / "config" / "m1.toml", REPO_ROOT)
-    assert m1.registered_by == "", "the m1 config is registered: update this test with the entry number"
+    assert m1.registered_by == "0006"
     assert m1.corpus_dir.parent == REPO_ROOT / "corpus" / "live"
     assert {(h.id, h.slots, h.rule) for h in m1.hypotheses} == {("H-M1L1", 1, "prefix"), ("H-M1LD", 4, "threshold")}
     seal = load_seal_config(REPO_ROOT / "config" / "seal.toml", REPO_ROOT)

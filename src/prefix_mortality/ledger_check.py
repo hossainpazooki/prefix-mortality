@@ -30,7 +30,9 @@ from pathlib import Path
 
 from prefix_mortality import REPO_ROOT
 
-REQUIRED_IDS: tuple[str, ...] = ()     # grows with each registering entry (the entry names the id it adds)
+REQUIRED_IDS: tuple[str, ...] = (      # grows with each registering entry (the entry names the id it adds)
+    "H-M1L1", "H-M1LD",                # entry 0006
+)
 VERDICTS = ("unresolved", "HELD", "NOT CONFIRMED", "WITHDRAWN", "SUPERSEDED", "SHELVED", "UNESTIMABLE")
 CHAIN_REQUIRED_FROM = 2
 

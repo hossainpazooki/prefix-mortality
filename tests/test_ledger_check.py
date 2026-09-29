@@ -4,7 +4,7 @@ import re
 
 import pytest
 
-from prefix_mortality import REPO_ROOT
+from prefix_mortality import REPO_ROOT, ledger_check
 from prefix_mortality.ledger_check import (
     CHAIN_REQUIRED_FROM, REQUIRED_IDS, VERDICTS, chain_hash, check, check_against, ledger_at, parse_ledger,
 )
@@ -48,15 +48,27 @@ def test_check_flags_duplicate_entry_and_bad_verdict():
     assert any("duplicate" in p for p in problems) and any("verdict" in p for p in problems)
 
 
-def test_required_ids_start_empty_and_are_checked_when_named():
-    assert REQUIRED_IDS == ()
-    from prefix_mortality import ledger_check
-    old = ledger_check.REQUIRED_IDS
-    try:
-        ledger_check.REQUIRED_IDS = ("H-P9",)
-        assert any("H-P9" in p for p in check(GOOD))
-    finally:
-        ledger_check.REQUIRED_IDS = old
+@pytest.fixture(autouse=True)
+def _required_ids(request, monkeypatch):
+    """The ledgers built in this file register H-P1 and H-P2, not this repo's ids. Only the tests of
+    the repo's own ledger run with the repo's list."""
+    if "repo_" not in request.node.name:
+        monkeypatch.setattr(ledger_check, "REQUIRED_IDS", ())
+
+
+def test_required_ids_are_checked_when_named(monkeypatch):
+    assert check(GOOD) == []
+    monkeypatch.setattr(ledger_check, "REQUIRED_IDS", ("H-P9",))
+    assert any("H-P9" in p for p in check(GOOD))
+
+
+def test_repo_required_ids_are_the_registered_hypotheses_and_each_has_a_row():
+    from prefix_mortality.config import load_m1_config
+    assert REQUIRED_IDS == ledger_check.REQUIRED_IDS == ("H-M1L1", "H-M1LD")
+    m1 = load_m1_config(REPO_ROOT / "config" / "m1.toml", REPO_ROOT)
+    assert set(REQUIRED_IDS) == {h.id for h in m1.hypotheses}
+    rows = parse_ledger((REPO_ROOT / "ledger" / "ledger.md").read_text(encoding="utf-8"))["hypotheses"]
+    assert set(REQUIRED_IDS) <= set(rows)
 
 
 # --- chain (check 2) --------------------------------------------------------------------------

@@ -1,8 +1,8 @@
 # Edit position (M1) on llama.cpp: one word replaced at a named site of the base request.
 #
-# UNREGISTERED. `registered_by` is empty until a numbered ledger entry fixes these values, and the
-# driver refuses to run while it is empty. Request parameters (tokens to generate, temperature, nonce
-# length, user message) are those of config/controls.toml.
+# Registered by ledger entry 0006, which fixes these values. A change to any of them needs a new
+# entry; the driver refuses to run while `registered_by` is empty. Request parameters (tokens to
+# generate, temperature, nonce length, user message) are those of config/controls.toml.
 [m1]
 repetitions = 5                       # trials per site, per model
 replacement = "zebra"                 # occurs nowhere in the base prefix
@@ -15,7 +15,7 @@ similarity_threshold = 0.10           # llama.cpp --slot-prompt-similarity, its 
 threshold_margin = 0.002              # a trial this close to the threshold is reported and not counted
 corpus_dir = "corpus/live/m1"
 results_dir = "results/m1"
-registered_by = ""
+registered_by = "0006"
 
 # One hypothesis per server configuration. `slots` is what the server must report; a run whose
 # records say otherwise is not that experiment. `rule` is how the reuse of the edited request is
