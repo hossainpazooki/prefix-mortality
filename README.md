@@ -50,3 +50,8 @@ python3.12 -m venv .venv
 .venv/bin/python -m pip install -e ".[dev]"     # Windows: .venv/Scripts/python.exe
 .venv/bin/python -m pytest -q
 ```
+
+## License
+
+Apache-2.0; see `LICENSE`. The starting prefix under `corpus/base_prefix/` comes from tau2-bench,
+which is MIT; see `NOTICE`.
