@@ -33,11 +33,16 @@ closure and the one-slot rule.
 .venv/Scripts/python.exe -m prefix_mortality.controls probe --url URL    # bring an engine up; records nothing
 .venv/Scripts/python.exe -m prefix_mortality.controls run --url URL --family qwen --model-path FILE
 .venv/Scripts/python.exe -m prefix_mortality.summarize --run RUN_ID      # recomputes from disk; refuses on mismatch
+.venv/Scripts/python.exe -m prefix_mortality.m1 probe --url URL --hypothesis H-M1L1 --sites system-0.240,user
+.venv/Scripts/python.exe -m prefix_mortality.m1 run --url URL --hypothesis H-M1L1 --family qwen --model-path FILE
+.venv/Scripts/python.exe -m prefix_mortality.summarize_m1 --run RUN_ID
 ```
 On macOS/Linux the interpreter is `.venv/bin/python`. The project pins Python 3.12.
 
-`controls run` refuses until a ledger entry registers `config/controls.toml` and
-`config/engines.toml`. After a run, `manifest write`, then commit the new files under `corpus/`.
+A driver's `run` refuses until a ledger entry registers its config: `config/controls.toml` and
+`config/engines.toml` for the controls, and `config/m1.toml` as well for edit position. `m1 run`
+also refuses a server that does not report the number of slots its hypothesis requires. After a
+run, `manifest write`, then commit the new files under `corpus/`.
 
 `tools/render_tau2_prefix.py` is not run by this venv: it needs an interpreter with tau2 installed
 from a checkout at the pinned commit, with the package versions in
@@ -46,9 +51,11 @@ in the fixture's provenance, so editing it turns `tests/test_base_prefix.py` red
 
 ## Layout
 `src/prefix_mortality/` — `hashing` · `rng` · `seal` · `ledger_check` · `lint_scope` (chassis) ·
-`config` (seal, controls, engines) · `nonce` · `manifest` · `llamacpp` (engine client) · `record`
-(request log) · `controls` (driver) · `summarize` (the rules, and the recomputation).
-`config/` — `seal.toml`, `controls.toml`, `engines.toml`. `ledger/` — `ledger.md`, `predictions/`.
+`config` (seal, controls, m1, engines) · `nonce` · `manifest` · `llamacpp` (engine client) · `record`
+(request log) · `controls` (driver) · `summarize` (the rules, and the recomputation) · `edits` (one
+word replaced at a named site) · `m1` (driver) · `summarize_m1` (its rules, and the recomputation).
+`config/` — `seal.toml`, `controls.toml`, `m1.toml`, `engines.toml`. `ledger/` — `ledger.md`,
+`predictions/`.
 `corpus/` — `base_prefix/tau2-airline/`, `live/`, `requests/`, `MANIFEST.json`. `tools/` —
 `render_tau2_prefix.py`. `results/` — gitignored past its placeholder.
 
@@ -57,5 +64,8 @@ No hypothesis is registered. The controls (ledger 0002) ran on llama.cpp with tw
 on both: at the server's defaults every write and scramble reused 0 (ledger 0003); with the server
 started with `--parallel 1` they reused the shared head and stayed within the bound (ledger 0004).
 Ledger 0005 reads the cause in source (idle slots are cleared at the defaults), closes the controls,
-and rules that an experiment depending on partial reuse runs with `--parallel 1`. Next: design and
-register the first cause.
+and rules that an experiment depending on partial reuse runs with `--parallel 1`. Edit position is
+built and tested against a stand-in server only; `config/m1.toml` is unregistered and no edit has
+been sent to an engine. Next: `m1 probe` on the engine, then the entry that registers `H-M1L1` and
+`H-M1LD`; that entry also adds their rows to the hypotheses table and their ids to
+`ledger_check.REQUIRED_IDS`.
