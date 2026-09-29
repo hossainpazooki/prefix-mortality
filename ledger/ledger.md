@@ -157,3 +157,47 @@ and no figure from them appears here.
 
 **Status.** The controls at the server's defaults are `[BASELINE]`. The one-slot repetition is
 `[STRETCH]`: registered, not run.
+
+### 0004 — 2026-09-29 — The one-slot repetition passes; the bound is met above its floor
+
+prior-entries-sha256: 3ed86e31dfa3124157736da078d8eb885d3e727a83d0ede9fca9dc706298d074
+
+**Outcome** `[BASELINE]`. The repetition registered by 0003 ran at commit `3b56280`. Its records and
+requests are committed at `666595b`. Every figure below is from `summarize --run` on those files, or
+from the `server` field of the records.
+
+| | `qwen` | `llama` |
+|---|---|---|
+| run | `20260929T211825Z-qwen` | `20260929T212012Z-llama` |
+| outcome | PASS | PASS |
+| requests | 15 | 15 |
+| slots, as the server reported | 1 | 1 |
+| read: reuse is *n* − 1 | 5 of 5 | 5 of 5 |
+| write and scramble: reuse above 0 | 9 of 10 | 9 of 10 |
+| write and scramble: reuse at most *h* | 10 of 10 | 10 of 10 |
+| *n* | 4,866 to 4,872 | 5,645 to 5,655 |
+| *h* | 30 to 35 | 48 to 55 |
+| largest gap, scramble *n* against write *n* | 4 | 7 |
+| context, as the server reported | 40,960 | 50,944 |
+| fields not reported | None. | None. |
+
+Reuse of each write and each scramble, against the *h* of the same request:
+
+| repetition | `qwen` write | `qwen` scramble | `llama` write | `llama` scramble |
+|---|---|---|---|---|
+| 1 | 0 of 35 | 5 of 35 | 0 of 52 | 31 of 49 |
+| 2 | 4 of 32 | 4 of 32 | 31 of 50 | 31 of 49 |
+| 3 | 7 of 34 | 4 of 34 | 32 of 48 | 31 of 50 |
+| 4 | 4 of 30 | 4 of 33 | 31 of 51 | 32 of 50 |
+| 5 | 4 of 34 | 4 of 33 | 33 of 51 | 32 of 55 |
+
+**What it shows.** The question of 0003 is answered for one slot. A write or a scramble that follows
+another prompt reuses the head the two share, 4 to 7 tokens on `qwen` and 31 to 33 on `llama`, and
+stays within *h*. The only request of each run that reused 0 is its first.
+
+**What stays open.** With four slots the same kind of request reused 0 (entry 0003). What differs
+between one slot and four is not established. Reuse of part of a prompt is on record for this engine
+with one slot only.
+
+**Status.** The two controls are `[BASELINE]` on both models, at the server's defaults and with one
+slot. No hypothesis is registered.
