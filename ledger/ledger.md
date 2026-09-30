@@ -17,7 +17,7 @@ numerator nor a denominator. It is never written as a zero.
 | id | statement | decided by | verdict |
 |---|---|---|---|
 | H-M1L1 | On llama.cpp `b11235` started with `--parallel 1`, a request that differs from the prompt the slot holds reuses exactly the tokens before the first one that differs. | entry 0006 | HELD |
-| H-M1LD | On llama.cpp `b11235` at its defaults, the same request reuses those tokens when they are more than 0.10 of its length, and none otherwise. | entry 0006 | unresolved |
+| H-M1LD | On llama.cpp `b11235` at its defaults, the same request reuses those tokens when they are more than 0.10 of its length, and none otherwise. | entry 0006 | HELD |
 
 ## Entries
 
@@ -339,3 +339,136 @@ one kind of edit, and one request at a time. One slot is not how this server sta
 the same edits reuse at the defaults is `H-M1LD`, which a later entry states.
 
 **Status.** `H-M1L1` is `[BASELINE]`. `H-M1LD` is `[STRETCH]`: registered, outcome not stated.
+
+### 0008 — 2026-09-29 — Rule 5: what earns [VALIDATED]
+
+prior-entries-sha256: 36c501bf9004b9ba81131d863fbe11dc1350ce9c65d3545f7b480809ec931d94
+
+**Rule for every registration**, added to the four of 0001. Ruled by the operator on 2026-09-29.
+
+5. A result is `[BASELINE]` when it is stated. It becomes `[VALIDATED]` only by a later entry, never
+   by an edit, and that entry names the refuter, what it was given to read, the brief it was given,
+   what it tried, and what survived. The refuter did not write the code, the records or the entry
+   under test, and works from the committed records and requests, the entries and the pinned source,
+   and from nothing else. A refuter that finds nothing after a real attempt is stated the same way as
+   one that finds something. A replication on another machine, or by another person, is stated in its
+   own entry under the same rule.
+
+**Why.** Every check so far was made by the author of the code it checks: the driver, the summarizer,
+the stand-in server and the recount were written from one reading of the engine's source, so their
+agreement shows consistency, not truth. The header's phrase "an independent attempt to refute it"
+needed to say who is independent.
+
+**A check on the instrument, by the author.** It grants nothing under rule 5 and is recorded so that
+a refuter can start from it. From the `timings_raw` field of the committed records: the time the
+server spent on a prompt against the tokens it says it processed.
+
+| run | ms per processed token | fit | fewest tokens processed | median ms for those | median ms, 4,000 or more |
+|---|---|---|---|---|---|
+| `20260929T234127Z-qwen-H-M1L1` | 1.50 | 0.995 | 8, in 5 requests | 97 | 7,553 |
+| `20260929T235847Z-llama-H-M1L1` | 1.54 | 0.995 | 8, in 5 requests | 97 | 8,922 |
+| `20260930T003318Z-qwen-H-M1LD` | 1.51 | 0.996 | 8, in 5 requests | 96 | 7,669 |
+| `20260930T005103Z-llama-H-M1LD` | 1.56 | 0.997 | 8, in 5 requests | 97 | 9,097 |
+| the four controls runs | 1.56 to 1.60 | 0.9998 or more | 1, in 5 requests each | 41 to 42 | 7,645 to 9,089 |
+
+The fit is the squared correlation of a straight line through each run's requests. A request the
+server reports as processed in full took eight to nine seconds; one it reports as reused all but
+eight tokens took a tenth of a second, and one reused all but one token, a twenty-fifth. The reuse the
+server reports is work it did not do. This is a check that the counter means what the entries take
+it to mean; it measures no latency and none of these figures is a result.
+
+**Status.** Rule 5 is in force from this entry. No result is `[VALIDATED]`.
+
+### 0009 — 2026-09-29 — H-M1LD held: at the defaults, an early edit ends the whole prefix
+
+prior-entries-sha256: 2fc80702aead06c8571e662c7c591da13121b53116c84224075f2ca947435807
+
+verdict: H-M1LD = HELD
+
+**Outcome** `[BASELINE]`. The runs registered by 0006 for `H-M1LD` were made at commit `d36bf8c`, on
+a server started with no flag but the model. Their records and requests are committed at `76d5d7a`.
+Every figure below is from `summarize_m1 --run` on those files, or from the `server` field of the
+records.
+
+| | `qwen` | `llama` |
+|---|---|---|
+| run | `20260930T003318Z-qwen-H-M1LD` | `20260930T005103Z-llama-H-M1LD` |
+| outcome | ALL MATCH | ALL MATCH |
+| trials counted | 65 | 65 |
+| trials matching | 65 | 65 |
+| trials not counted | 0 | 0 |
+| trials that reused 0 | 15 | 20 |
+| trials that reused exactly *d* | 50 | 45 |
+| trials that reused anything else | 0 | 0 |
+| base request reuse | 0 in 65 of 65 | 0 in 65 of 65 |
+| slots, as the server reported | 4 | 4 |
+| context, as the server reported | 40,960 | 50,944 |
+| *n* | 4,866 to 4,874 | 5,644 to 5,652 |
+| fields not reported | None. | None. |
+
+Where each site fell, as *d* / *n*, and what the edited request reused:
+
+| site | `qwen`, share | `qwen`, reused | `llama`, share | `llama`, reused | trials matching |
+|---|---|---|---|---|---|
+| `system-0.000` | 0.007 to 0.008 | 0 | 0.009 to 0.010 | 0 | 10 of 10 |
+| `system-0.100` | 0.044 to 0.045 | 0 | 0.040 | 0 | 10 of 10 |
+| `system-0.240` | 0.094 | 0 | 0.083 to 0.084 | 0 | 10 of 10 |
+| `system-0.270` | 0.105 to 0.106 | 510 to 516 | 0.092 to 0.093 | 0 | 10 of 10 |
+| `system-0.320` | 0.124 | 603 to 606 | 0.109 to 0.110 | 613 to 619 | 10 of 10 |
+| `system-0.500` | 0.192 to 0.193 | 936 to 940 | 0.167 to 0.168 | 945 to 951 | 10 of 10 |
+| `system-0.750` | 0.276 to 0.277 | 1,343 to 1,349 | 0.239 to 0.240 | 1,352 to 1,354 | 10 of 10 |
+| `system-0.999` | 0.358 to 0.359 | 1,744 to 1,750 | 0.310 to 0.311 | 1,748 to 1,755 | 10 of 10 |
+| `tool-00` | 0.370 to 0.371 | 1,802 to 1,807 | 0.324 to 0.325 | 1,831 to 1,838 | 10 of 10 |
+| `tool-04` | 0.617 | 3,002 to 3,007 | 0.600 | 3,388 to 3,392 | 10 of 10 |
+| `tool-09` | 0.749 | 3,647 to 3,651 | 0.742 | 4,190 to 4,195 | 10 of 10 |
+| `tool-13` | 0.971 | 4,726 to 4,729 | 0.978 | 5,519 to 5,524 | 10 of 10 |
+| `user` | 0.998 | 4,861 to 4,864 | 0.999 | 5,640 to 5,643 | 10 of 10 |
+
+**Verdict.** Every counted trial of both models matches. By the rule of 0006, `H-M1LD` is `HELD`.
+
+**What the runs bracket and do not locate.** The highest share that reused nothing was 0.0945 on
+`qwen` and 0.0929 on `llama`; the lowest that reused *d* was 0.1048 and 0.1086. The change happens
+between those values, which is consistent with the 0.10 read from the source, and no trial fell
+between them. The same site, `system-0.270`, kept its prefix on `qwen` and lost it on `llama`: the
+edit is at the same place in the text, and a smaller share of the longer prompt.
+
+**What it does not show.** The limits of 0007, and one more: a request at a time, so no other
+conversation held a slot. What the defaults do to a prefix when other requests are being served is
+eviction under load, `[FUTURE]`.
+
+**Status.** `H-M1L1` and `H-M1LD` are `[BASELINE]`. The position of an edit is measured on this
+engine in both configurations.
+
+### 0010 — 2026-09-29 — 0007 survived a refuter: H-M1L1 is [VALIDATED]
+
+prior-entries-sha256: f399f9db8ee90d744aa5dd8138b4b18f433fa6ecd2378a6ea9c6f503ecfa23ef
+
+**Under rule 5** (entry 0008). The result of 0007 was given to a refuter that did not write the code,
+the records or the entry. The operator ruled that one pass is enough.
+
+| | |
+|---|---|
+| refuter | A separate language-model session running an adversarial brief. It had no access to the session that produced the code and the entries. It is of the same model family as the author, so it is independent of the code and the records, not of the tooling. |
+| what it read | An export of commit `76d5d7a`, the whole tree, and llama.cpp at the pinned commit, `tools/server/`. It was denied git, so it could not check the commit hashes 0007 names. It opened the ledger, the configs, the manifest, the records and the requests; it opened nothing under `src/` or `tests/` and imported nothing from the package. |
+| the brief | Find a reading of the committed records under which 0007 is wrong. Refute two things separately: that the figures follow from the records, and that the records mean what the entry says. Recompute with your own code. Report what you tried even where it failed. It was pointed at off-by-one in *d*, special tokens, request hashes, nonce reuse, the edit's size and place, exclusions, whether time tracks the counter, whether the reuse could have come from anything but the preceding request, and whether the pinned source contradicts the one-slot account. |
+| verdict | Figures: NOT REFUTED. Meaning: NOT REFUTED. "Every figure in entry 0007 recomputed from the records; no sentence found false." |
+
+**What it tried and what survived**, from its report.
+
+| tried | found |
+|---|---|
+| Every figure of both tables recomputed with its own code. | 130 records, 65 trials, 65 nonces and 130 requests per run; *d* equals the reuse in 65 of 65 per model; the 26 per-site cells and the *n* ranges match; *h* is 27 to 36 and 46 to 54, which 0007 does not state. |
+| Whether a site's range is the nonce. | *d* − *h* is one constant per site. Exact. |
+| The request files' names. | Each is the sha256 of the body as sent, not of the file. 260 of 260. |
+| The edit. | One word became `zebra` in every trial, at the place the site names; `zebra` is in no base prompt. |
+| A special token. | Llama's token lists begin with a token the rendered text omits. Harmless: *n*, *d* and the server's counts all include it, and `usage.prompt_tokens` equals the stored count in 130 of 130. |
+| Whether the counter is work skipped. | From the pinned source, `cache_n` is the common prefix with the slot's tokens, and only the rest is decoded. From the records, 1.55 to 1.6 ms per processed token; an 8-token request took about 97 ms against 7,600 to 8,900 for its base. |
+| Whether the two reuse fields are two measurements. | They are one value reported twice. Agreement between them tests transport, not the count. 0002 and 0006 do not claim otherwise. |
+| Whether the reuse came from the preceding request. | In the pinned source the one-slot server clears no idle slot, and the memory cache swaps a prompt in only when it keeps a quarter of it and is strictly better than the slot's, which no request here could be. In the records, each base request's reuse equals its common prefix with the preceding edited prompt, 64 of 64 per run. |
+| The strongest counter-case. | A request that is a strict prefix of the held prompt differs from it and would reuse *n* − 1, not *n*. Untested and outside the registered sites; the hypothesis as worded would cover it. 0007's limit "one kind of edit" is what keeps it honest. |
+
+**Consequences.** `H-M1L1` is `[VALIDATED]`. The counter-case is a registered limit: `H-M1L1` speaks
+for edits inside the prompt, not for a request that is a prefix of the held one. The agreement of
+the two reuse fields is a check on transport and is read as such from here on.
+
+**Status.** `H-M1L1` `[VALIDATED]`; `H-M1LD` `[BASELINE]`, no refuter yet.
