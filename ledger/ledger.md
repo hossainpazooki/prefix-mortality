@@ -16,7 +16,7 @@ numerator nor a denominator. It is never written as a zero.
 
 | id | statement | decided by | verdict |
 |---|---|---|---|
-| H-M1L1 | On llama.cpp `b11235` started with `--parallel 1`, a request that differs from the prompt the slot holds reuses exactly the tokens before the first one that differs. | entry 0006 | unresolved |
+| H-M1L1 | On llama.cpp `b11235` started with `--parallel 1`, a request that differs from the prompt the slot holds reuses exactly the tokens before the first one that differs. | entry 0006 | HELD |
 | H-M1LD | On llama.cpp `b11235` at its defaults, the same request reuses those tokens when they are more than 0.10 of its length, and none otherwise. | entry 0006 | unresolved |
 
 ## Entries
@@ -288,3 +288,54 @@ A prediction is a function of the two stored prompts and the rule above, and of 
 | Unrecorded requests of this kind were sent to both configurations before this entry. | Nothing from them is evidence and no figure from them appears here. The rules and the sites are those committed at `a0e31df`, before that contact. |
 
 **Status.** `H-M1L1` and `H-M1LD` are `[STRETCH]`: registered, not run. `H-M1L1` runs first.
+
+### 0007 — 2026-09-29 — H-M1L1 held: with one slot, reuse is the position of the edit
+
+prior-entries-sha256: 5f726bab5bdaf12d6cd22a191b88a262e9e20ab3764c2534a6c710ab62a4e9d4
+
+verdict: H-M1L1 = HELD
+
+**Outcome** `[BASELINE]`. The runs registered by 0006 for `H-M1L1` were made at commit `d36bf8c`, on
+a server started with `--parallel 1`. Their records and requests are committed at `be52eca`. Every
+figure below is from `summarize_m1 --run` on those files, or from the `server` field of the records.
+
+| | `qwen` | `llama` |
+|---|---|---|
+| run | `20260929T234127Z-qwen-H-M1L1` | `20260929T235847Z-llama-H-M1L1` |
+| outcome | ALL MATCH | ALL MATCH |
+| trials counted | 65 | 65 |
+| trials matching | 65 | 65 |
+| trials not counted | 0 | 0 |
+| base request within *h* | 65 of 65 | 65 of 65 |
+| slots, as the server reported | 1 | 1 |
+| context, as the server reported | 40,960 | 50,944 |
+| *n* | 4,864 to 4,873 | 5,644 to 5,652 |
+| fields not reported | None. | None. |
+
+Tokens reused by the edited request. In every trial it is the prediction, *d*:
+
+| site | `qwen` | `llama` | trials matching |
+|---|---|---|---|
+| `system-0.000` | 29 to 36 | 50 to 53 | 10 of 10 |
+| `system-0.100` | 217 to 220 | 226 to 231 | 10 of 10 |
+| `system-0.240` | 460 to 463 | 469 to 474 | 10 of 10 |
+| `system-0.270` | 511 to 514 | 519 to 523 | 10 of 10 |
+| `system-0.320` | 604 to 606 | 611 to 615 | 10 of 10 |
+| `system-0.500` | 936 to 938 | 944 to 949 | 10 of 10 |
+| `system-0.750` | 1,345 to 1,349 | 1,350 to 1,356 | 10 of 10 |
+| `system-0.999` | 1,743 to 1,747 | 1,751 to 1,753 | 10 of 10 |
+| `tool-00` | 1,802 to 1,806 | 1,834 to 1,838 | 10 of 10 |
+| `tool-04` | 3,003 to 3,009 | 3,388 to 3,392 | 10 of 10 |
+| `tool-09` | 3,647 to 3,650 | 4,188 to 4,193 | 10 of 10 |
+| `tool-13` | 4,726 to 4,729 | 5,521 to 5,525 | 10 of 10 |
+| `user` | 4,860 to 4,865 | 5,636 to 5,643 | 10 of 10 |
+
+A site's range is the nonce: its length in tokens differs from trial to trial.
+
+**Verdict.** Every counted trial of both models matches. By the rule of 0006, `H-M1L1` is `HELD`.
+
+**What it does not show.** One engine build, two models of one size, one machine, one base prefix,
+one kind of edit, and one request at a time. One slot is not how this server starts by default; what
+the same edits reuse at the defaults is `H-M1LD`, which a later entry states.
+
+**Status.** `H-M1L1` is `[BASELINE]`. `H-M1LD` is `[STRETCH]`: registered, outcome not stated.
