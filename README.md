@@ -32,10 +32,12 @@ The record-keeping, the starting prefix and the two controls exist. The controls
 serving engine with two models and passed on both, at the server's defaults and again with one slot.
 Reuse of part of a prompt is on record with one slot only; at its defaults the engine clears an idle
 slot, which the ledger reads from its source. The controls are closed. One cause, the position of
-an edit, is registered as two hypotheses, one per server configuration. With one slot it is
-measured and held on both models: the engine reuses exactly the tokens before the first one that
-differs. At the engine's defaults its outcome is not stated yet. `ledger/ledger.md` is the record of
-what has been registered and measured, and it says what has not.
+an edit, is measured on both models in two server configurations. With one slot the engine reuses
+exactly the tokens before the first one that differs. At its defaults it reuses them only when the
+edit is past about a tenth of the prompt, and nothing otherwise; the ledger brackets where that
+changes and does not locate it. Neither result has yet survived an independent refuter.
+`ledger/ledger.md` is the record of what has been registered and measured, and it says what has
+not.
 
 ## How the record stays auditable
 
