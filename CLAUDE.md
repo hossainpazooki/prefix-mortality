@@ -3,7 +3,8 @@
 Read `README.md` for what this is. `ledger/ledger.md` is the record and is append-only by numbered
 entry; entry 0001 carries the scope, the claim under test and the registration rules, entry 0002
 the controls' rules for llama.cpp, entries 0003 and 0004 their outcomes, entry 0005 their closure
-and the one-slot rule, and entry 0006 the two hypotheses on edit position.
+and the one-slot rule, entry 0006 the two hypotheses on edit position, and entry 0007 the first
+verdict.
 
 ## Rules
 - The chassis is copied from lag-ladder, not shared. Never import `lag_ladder`, `linear_ceiling` or
@@ -65,6 +66,6 @@ on both: at the server's defaults every write and scramble reused 0 (ledger 0003
 started with `--parallel 1` they reused the shared head and stayed within the bound (ledger 0004).
 Ledger 0005 reads the cause in source (idle slots are cleared at the defaults), closes the controls,
 and rules that an experiment depending on partial reuse runs with `--parallel 1`. Ledger 0006
-registers edit position as `H-M1L1` (one slot) and `H-M1LD` (the defaults); neither has been run,
-and the driver was brought up with `m1 probe`, which records nothing. Next: run `H-M1L1` on both
-models, `summarize_m1`, commit the records, state the verdict in a ledger entry; then `H-M1LD`.
+registers edit position as `H-M1L1` (one slot) and `H-M1LD` (the defaults). `H-M1L1` is HELD on both
+models (ledger 0007): every trial reused exactly the tokens before the first one that differed.
+Next: the records of the `H-M1LD` run, `summarize_m1`, and its verdict in a ledger entry.
