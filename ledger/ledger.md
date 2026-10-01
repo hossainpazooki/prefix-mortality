@@ -472,3 +472,37 @@ for edits inside the prompt, not for a request that is a prefix of the held one.
 the two reuse fields is a check on transport and is read as such from here on.
 
 **Status.** `H-M1L1` `[VALIDATED]`; `H-M1LD` `[BASELINE]`, no refuter yet.
+
+### 0011 — 2026-10-01 — 0009 survived a refuter: H-M1LD is [VALIDATED]
+
+prior-entries-sha256: c79383e4d96dcb66d682bc36ca498dd860b85cce2360de3ac9d187b886870ffe
+
+**Under rule 5** (entry 0008). The result of 0009 was given to a second refuter, as independent of the
+author as the first: a separate language-model session of the same model family, with no access to
+the session that produced the code and the entries, nor to the first refuter's work.
+
+| | |
+|---|---|
+| what it read | An export of commit `d6e2821`, the whole tree, and llama.cpp at the pinned commit, `tools/server/`. It opened the ledger, the three configs, the manifest, the two records files and the 260 requests; nothing under `src/` or `tests/`; it imported nothing from the package. It was denied git, so it could not check the commit hashes 0009 names. |
+| the brief | Find a reading of the committed records under which 0009 is wrong. Refute separately that the figures follow from the records and that the records mean what the entry says. Named attacks: the 0.002 margin, the server's single-precision comparison at the threshold, a reuse that is neither 0 nor *d*, request hashes, nonce reuse, the edit's size, duplicate or missing records, whether the zeros could come from anything but slot assignment, whether the non-zeros could come from the memory cache, whether the pinned source predicts the cliff for a four-slot default server, whether four slots in the records is enough to know the defaults, and whether the bracket is honestly stated. |
+| verdict | Figures: NOT REFUTED. Meaning: NOT REFUTED. "Every figure of both tables and the bracket sentence recomputed from the 260 records and 260 stored requests with my own code; no sentence found false." |
+
+**What it tried and what survived**, from its report.
+
+| tried | found |
+|---|---|
+| Every figure of both tables, with its own code. | All match, including the 26 share cells at three decimals and the two cells nearest a rounding boundary. |
+| The bracket. | Highest share at 0 is 0.094456 on `qwen` and 0.092904 on `llama`; lowest at *d* is 0.104766 and 0.108572; nothing between. |
+| The margin and the server's arithmetic. | The closest trial is 0.0048 from the threshold; an emulation of the server's single-precision comparison disagrees with the entry in 0 trials. |
+| The edit and the records. | One word became `zebra` in every trial; no nonce repeats within or across the two runs; sequence numbers run 1 to 130 with no gap; every recorded prediction equals its recomputation. |
+| Whether the zeros are real. | An edited request that reused 0 took about as long as its base (medians 7,660 against 7,677 ms on `qwen`, 9,102 against 9,105 on `llama`); one that reused *d* scales with the tokens processed. The requests were strictly sequential, at most 0.08 s apart, so no restart intervened. |
+| Whether the source predicts the cliff. | Yes, and it found more: the edited request meets the base's slot intact, so a reuse of 0 needs the slot the least-recently-used choice lands on to be already empty. That happens only with idle-slot clearing, which the server enables only when the slot count is automatic. |
+| Whether the records can tell the defaults from a four-slot flag. | They can, more than 0006 allowed: every base request that followed another request reused 0 (64 of 64 per model), where a server with four slots and no shared buffer would have kept the previous prompt and reused its template head, as the one-slot runs did (0004: 4 to 7 and 31 to 33 tokens). The non-round context of 50,944 on `llama` is consistent with no context flag. |
+| The strongest counter-case. | The hypothesis names 0.10; the data hold equally for any threshold between 0.0945 and 0.1048. The entry says exactly this. |
+
+**Consequences.** `H-M1LD` is `[VALIDATED]`. The limit in 0006 that the records cannot tell the
+defaults from a four-slot flag is withdrawn for these two runs: a base request's reuse of 0, where a
+held slot would have reused the shared head, is evidence that idle slots were cleared.
+
+**Status.** `H-M1L1` and `H-M1LD` are `[VALIDATED]`. The position of an edit is measured and refuted
+without result on this engine in both configurations. No other cause is designed.
