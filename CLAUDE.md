@@ -72,4 +72,5 @@ registers edit position as `H-M1L1` (one slot) and `H-M1LD` (the defaults). Both
 models (ledger 0007, 0009): with one slot every trial reused exactly the tokens before the first one
 that differed; at the defaults it reused them above about a tenth of the prompt and nothing below,
 the change bracketed between 0.0945 and 0.1048 of the prompt. Ledger 0008 adds rule 5: `[VALIDATED]`
-only through an independent refuter's entry. Next: the refuter's entry for 0007, then the next cause.
+only through an independent refuter's entry; 0010 and 0011 record the refuters' passes, and both
+hypotheses are `[VALIDATED]`. Next: the next cause, on the operator's ruling.

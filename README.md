@@ -35,7 +35,7 @@ slot, which the ledger reads from its source. The controls are closed. One cause
 an edit, is measured on both models in two server configurations. With one slot the engine reuses
 exactly the tokens before the first one that differs. At its defaults it reuses them only when the
 edit is past about a tenth of the prompt, and nothing otherwise; the ledger brackets where that
-changes and does not locate it. Neither result has yet survived an independent refuter.
+changes and does not locate it. Both results survived an independent refuter.
 `ledger/ledger.md` is the record of what has been registered and measured, and it says what has
 not.
 
