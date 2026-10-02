@@ -38,6 +38,26 @@ def build_body(cfg: ControlsConfig, system_text: str, tools: list, nonce: str) -
                        "stream": False})
 
 
+_TOOLS_PLACEHOLDER = "__TOOLS__"
+
+
+def build_body_text(cfg: ControlsConfig, system_text: str, tools_text: str, nonce: str,
+                    template_kwargs: dict | None = None) -> bytes:
+    """`build_body` with the `tools` value given as JSON text, embedded byte for byte, and an optional
+    `chat_template_kwargs` object. With the compact text and no kwargs the result equals `build_body`."""
+    body = {"messages": [{"role": "system", "content": f"run {nonce}\n{system_text}"},
+                         {"role": "user", "content": cfg.user_message}],
+            "tools": _TOOLS_PLACEHOLDER, "max_tokens": cfg.max_tokens, "temperature": cfg.temperature,
+            "stream": False}
+    if template_kwargs is not None:
+        body["chat_template_kwargs"] = template_kwargs
+    raw = body_bytes(body).decode("utf-8")
+    marker = json.dumps(_TOOLS_PLACEHOLDER)
+    if raw.count(marker) != 1:
+        raise ValueError(f"the request text contains the tools placeholder {marker}; it cannot be embedded safely")
+    return raw.replace(marker, tools_text, 1).encode("utf-8")
+
+
 def scramble_text(client: Client, rng, system_text: str) -> str:
     """Words drawn at random from the system text's own words, cut to the system text's token length."""
     words = system_text.split()

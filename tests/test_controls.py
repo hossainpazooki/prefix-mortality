@@ -4,10 +4,11 @@ import json
 import pytest
 
 from prefix_mortality.config import load_controls_config, load_engines_config
-from prefix_mortality.controls import Refusal, probe, run
+from prefix_mortality.controls import Refusal, build_body, build_body_text, probe, run
 from prefix_mortality.hashing import sha256_file_bytes
 from prefix_mortality.llamacpp import Client, observed
 from prefix_mortality.record import append, load_request, read, store_request
+from prefix_mortality.serialize import tools_text
 from prefix_mortality.summarize import header_tokens, summarize
 from tests.fake_llamacpp import serve
 
@@ -189,3 +190,51 @@ def test_log_is_append_only_lines_and_refuses_a_non_number(tmp_path):
     with pytest.raises(ValueError):
         append(log, {"seq": 3, "x": float("nan")})
     assert len(read(log)) == 2
+
+
+def _controls_cfg(tmp_path):
+    p = tmp_path / "controls.toml"
+    p.write_text('''
+[controls]
+repetitions = 1
+length_tolerance_tokens = 16
+max_tokens = 1
+temperature = 0.0
+nonce_bytes = 16
+seed = 0
+request_timeout_seconds = 30.0
+user_message = "Hello."
+corpus_dir = "corpus/live/controls"
+results_dir = "results/controls"
+registered_by = "0002"
+''', encoding="utf-8")
+    return load_controls_config(p, tmp_path)
+
+
+def test_build_body_text_with_compact_tools_equals_build_body_byte_for_byte(tmp_path):
+    cfg = _controls_cfg(tmp_path)
+    tools = [{"type": "function", "function": {"name": "a", "description": "Look é up.", "parameters": {"type": "object"}}}]
+    assert build_body_text(cfg, "sys", tools_text(tools), "ab" * 16) == build_body(cfg, "sys", tools, "ab" * 16)
+
+
+def test_build_body_text_embeds_the_text_as_given_and_appends_template_kwargs(tmp_path):
+    cfg = _controls_cfg(tmp_path)
+    text = '[\n  {"type": "function", "function": {"name": "a"}}\n]'
+    body = build_body_text(cfg, "sys", text, "ab" * 16, {"date_string": "01 Oct 2026", "tools_in_user_message": False})
+    raw = body.decode("utf-8")
+    assert text in raw and '"tools":' + text in raw
+    parsed = json.loads(raw)
+    assert list(parsed.keys()) == ["messages", "tools", "max_tokens", "temperature", "stream", "chat_template_kwargs"]
+    assert parsed["chat_template_kwargs"] == {"date_string": "01 Oct 2026", "tools_in_user_message": False}
+    assert "chat_template_kwargs" not in json.loads(build_body_text(cfg, "sys", text, "ab" * 16).decode("utf-8"))
+
+
+def test_build_body_text_refuses_a_placeholder_collision(tmp_path):
+    cfg = _controls_cfg(tmp_path)
+    # quotes inside a JSON string are escaped, so a system text cannot collide with the marker
+    assert build_body_text(cfg, 'the string "__TOOLS__" appears here', "[]", "ab" * 16)
+    # a user message that is exactly the placeholder would: refused
+    p = tmp_path / "controls.toml"
+    p.write_text(p.read_text(encoding="utf-8").replace('user_message = "Hello."', 'user_message = "__TOOLS__"'), encoding="utf-8")
+    with pytest.raises(ValueError, match="placeholder"):
+        build_body_text(load_controls_config(p, tmp_path), "sys", "[]", "ab" * 16)
