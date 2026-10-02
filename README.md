@@ -38,7 +38,7 @@ edit is past about a tenth of the prompt, and nothing otherwise; the ledger brac
 changes and does not locate it. Both results survived an independent refuter. A second cause is
 measured at the defaults: a conversation resent after other requests keeps its whole prefix while the
 engine's prompt cache has room for it and loses all of it when it does not, on both models after the
-twelfth intervening prompt of the same size.
+twelfth intervening prompt of the same size. That result, too, survived an independent refuter.
 `ledger/ledger.md` is the record of what has been registered and measured, and it says what has
 not.
 
