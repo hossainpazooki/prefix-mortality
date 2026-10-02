@@ -635,3 +635,43 @@ server's properties do not report it.
 
 **Status.** `H-M7LD` is `[BASELINE]`, no refuter yet. Two causes are measured on this engine: the
 position of an edit (0007, 0009) and eviction by intervening requests. Six remain `[FUTURE]`.
+
+### 0014 — 2026-10-02 — 0013 survived a refuter: H-M7LD is [VALIDATED]
+
+prior-entries-sha256: a864997323fc4851a66b2d18fcbd64cb58f075bc9e6dc0f1f366d40c4fb9a237
+
+**Under rule 5** (entry 0008). The result of 0013 was given to a third refuter, independent of the
+author in the same way as those of 0010 and 0011: a separate language-model session of the same model
+family, with no access to the session that produced the code and the entries, nor to the earlier
+refuters' work.
+
+| | |
+|---|---|
+| what it read | An export of commit `921c3fc`, the whole tree, and llama.cpp at the pinned commit: `tools/server/`, `common/`, `src/llama-context.cpp`, `src/llama-kv-cache.cpp`, `src/llama-kv-cells.h`. It opened the ledger, the three configs, the manifest, the two record files and the 558 stored requests; nothing under `src/` or `tests/`; it imported nothing from the package. It was denied git, so it could not check the commit hashes 0013 names. |
+| the brief | Find a reading of the committed records under which 0013 is wrong. Refute separately that the figures follow from the records and that the records mean what the entry says. Named attacks: missing, duplicated or disordered records; a resend whose bytes or nonce differ from its anchor's; nonce reuse; a foreign request that is not the base request; the "first *K* − 1" accounting; the recorded prediction against a recomputation; the date inside a trial; the three reuse fields and the counts; another mechanism for a 0 at *K* ≥ 12 (slot choice, the 0.25 restore rule, the similarity threshold, a restart, a shrunk cache); whether *n* − 1 at *K* ≤ 11 could come from the slot rather than the cache; whether the source evicts in arrival order; whether the state blob exceeds tokens × bytes enough to move the *K*; whether the bracket over- or under-claims; whether any field records the cache size. |
+| verdict | Figures: NOT REFUTED. Meaning: NOT REFUTED. "Every figure recomputed from the 558 records and 558 stored requests matches; the pinned source evicts in arrival order at save time, saves and clears idle slots at the defaults, and 'first *K* − 1' follows from save-after-launch." |
+
+**What it tried and what survived**, from its report.
+
+| tried | found |
+|---|---|
+| Every figure of both tables, with its own code. | All match; the recorded prediction fields equal its recomputation in 54 of 54 resends. |
+| The records' shape. | Sequence 1 to 279 in each run, no overlapping timestamps, one local date; the resend's bytes, hash and nonce equal its anchor's in 27 of 27; every foreign body equals the anchor's apart from the nonce, 252 of 252; no nonce repeats within or across runs. |
+| Whether the zeros are real. | A resend that reused *n* − 1 processed its prompt in 41 to 77 ms; every other request took 7.6 to 9.3 s. No gap between consecutive requests exceeds 0.31 s, so no restart intervened. A shrunk cache or a failed restore would have had to coincide in 6 of 6 trials at *K* = 12 on two models. |
+| Whether *n* − 1 at *K* ≥ 1 could come from the slot. | No: after each launch every idle slot is saved and, with a shared buffer, cleared (`server-context.cpp` 2447–2460), so the anchor's slot is empty and cannot be chosen by similarity; the only path to reuse is the cache restore. |
+| Whether the records pin the defaults. | The recorded slot context equals the pool (40,960 is Qwen3's training context); without a shared buffer it would be the pool divided by four (`llama-context.cpp` 291–295). Unified KV is thereby inferred from the records, not from the flag's absence. |
+| The "first *K* − 1" accounting and arrival order. | Each foreign prompt is saved at the next launch; the resend's restore precedes its own launch's saves; `alloc` and `update` pop the front while over the limit (`server-task.cpp` 1750–1757, 1871–1876). Residue of earlier trials sits ahead of the anchor and goes first. |
+| Whether the state blob is bigger than tokens × bytes. | By about 0.7 MiB at *K* = 12: 12 bytes of metadata per cell and per-layer headers, no checkpoints for these models. The *K* and the bracket do not move. |
+| Whether anything records the cache size. | Nothing: `/props` carries no cache-size key. |
+
+**Two limits it added**, kept on record. The source's token pass cannot evict anything the size pass
+has not, when a size limit is set: 0013's "54 of 54" is true and says less than it reads. And the
+title's count is exact for prompts of this size: the eviction fires when the eleventh foreign state is
+saved at the twelfth's launch.
+
+**Consequences.** `H-M7LD` is `[VALIDATED]`. The reading that a four-slot record is the defaults
+(0011) gains a second leg: the recorded slot context is the whole pool, which only a shared buffer
+gives.
+
+**Status.** `H-M1L1`, `H-M1LD` and `H-M7LD` are `[VALIDATED]`. Two causes are measured and refuted
+without result on this engine; six remain `[FUTURE]`.
