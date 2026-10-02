@@ -38,7 +38,11 @@ edit is past about a tenth of the prompt, and nothing otherwise; the ledger brac
 changes and does not locate it. Both results survived an independent refuter. A second cause is
 measured at the defaults: a conversation resent after other requests keeps its whole prefix while the
 engine's prompt cache has room for it and loses all of it when it does not, on both models after the
-twelfth intervening prompt of the same size. That result, too, survived an independent refuter.
+twelfth intervening prompt of the same size. That result, too, survived an independent refuter. Two
+more causes are measured: how the tool schemas are written, where re-indenting or reordering a tool's
+keys changes nothing and reordering the tools or a schema's properties ends the prefix at that point;
+and a chat-template argument, where a date the Llama template prints before anything the client sent
+ends the whole prefix at the defaults, and Qwen's thinking switch costs only the last few tokens.
 `ledger/ledger.md` is the record of what has been registered and measured, and it says what has
 not.
 
