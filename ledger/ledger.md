@@ -868,3 +868,45 @@ the argument is. Other template arguments, and other templates, are not measured
 **Status.** `H-M3L1` and `H-M3LD` are `[BASELINE]`, no refuter yet. Four causes are measured on this
 engine: the position of an edit, eviction by intervening requests, serialization drift and
 templating. Four remain `[FUTURE]`: idle expiry, rebuild, model switch, lifespan on recorded runs.
+
+### 0018 — 2026-10-02 — 0016 and 0017 survived a refuter: H-M2L1, H-M3L1 and H-M3LD are [VALIDATED]
+
+prior-entries-sha256: a5ea49a29c37ef950810e49ea928a6f6ca0a055fbdb8686fa9f9524b2a0b046d
+
+**Under rule 5** (entry 0008). The results of 0016 and 0017 were given together to a fourth refuter,
+independent of the author in the same way as those of 0010, 0011 and 0014: a separate language-model
+session of the same model family, with no access to the session that produced the code and the
+entries, nor to the earlier refuters' work.
+
+| | |
+|---|---|
+| what it read | An export of commit `db0ee11`, the whole tree, and llama.cpp at the pinned commit: `common/chat.cpp`, `common/json.h`, `common/json.cpp`, `common/common.h`, `common/arg.cpp`, `tools/server/server-common.cpp`, `server-context.cpp`, `server-task.cpp`; Qwen3-8B's chat template from its public model card. It opened the ledger, the four configs, the manifest, the six record files and every stored request they name (200), checking each body against its own hash; nothing under `src/` or `tests/`; it imported nothing from the package. It was denied git, so it could not check the commit hashes the entries name. |
+| the brief | For each entry separately, find a reading of the committed records under which it is wrong: the figures (recompute *d* and the render difference from the stored tokens and renders; the recorded predictions against the rules of 0015 including the *n* − 1 correction for identical renders; nonces; counts and fields; bodies differing in nothing but the tools text or the one named argument) and the meaning (the parser rebuild in source and in the renders; the merge order of the template arguments; the Llama date's position; the Qwen tail; whether *n* − 1 could come from anything but the held slot and 0 from anything but the 0.10 rule; whether the sentence about local midnight overreaches; timings as an independent check). |
+| verdict | 0016: figures NOT REFUTED, meaning NOT REFUTED. 0017: figures NOT REFUTED, meaning NOT REFUTED. |
+
+**What it tried and what survived**, from its report.
+
+| tried | found |
+|---|---|
+| Every figure of both entries, with its own code. | All match: 30 of 30 and 10 of 10 per cell; every recorded prediction equals its recomputation; every count adds up and the three reuse fields agree; each of the 100 nonces belongs to exactly one trial; each pair's bodies differ in nothing but the tools text (0016) or the one named argument (0017). |
+| Whether the readings of 0015 describe the renders. | `S1` parses equal; `S2` and `S5` parse equal only when key order is ignored; `S6` parses differently, and its key appears in no render. The renders show the rebuilt order for all three. |
+| Whether the zeros and the *n* − 1 are real. | A request that reused *n* − 1 processed its prompt in 40 to 53 ms; one that reused 0 or 24 took 8.9 to 9.2 s; `S3` 5.2 to 6.5 s, `S4` 2.1 to 2.4 s. |
+| The source behind each reading. | The parser reads only `name`, `description`, `parameters` and rebuilds the tool (`common/chat.cpp` 558–608); the JSON type keeps key order (`common/json.cpp` 14); the template arguments overwrite the server's context after it is built (`chat.cpp` 1293–1296) and a request's override the command line's (`server-common.cpp` 1332–1336); the date comes from the local clock (`chat.cpp` 36–43, 1080–1087); a slot is chosen only above 0.10 (`server-context.cpp` 1601, default at `common/common.h` 696); an identical resend is counted *n* − 1 (3413–3416). |
+| Whether the override is visible in the records. | Every record carries `local_date` 2026-10-02 while every base render prints `01 Oct 2026`. |
+| Where the Llama date sits. | Token pieces 0 to 23 are the header, piece 24 is `01`, the only token that changes; the nonce starts at piece 30. |
+| What the Qwen thinking switch does. | The base render is a strict prefix of the changed render: four pieces are appended, `<think>`, a blank line, `</think>`, a blank line, and nothing before them changes. |
+| The sentence about local midnight. | Supported by the source and by the argument, which stands in for the same template variable. For a prompt under about 240 tokens the date's share would exceed 0.10, the slot would be chosen and 24 tokens kept. |
+
+**Four precisions it added**, kept on record. 0017's "changes the last four tokens" should read
+"appends four tokens after the generation prompt": the base render is a prefix of the changed one.
+"The 24th token" counts from zero, as the character positions in these entries do; counted from one
+it is the 25th, and the date spans five tokens. 0016 measured an extra key on a tool's `function`
+only; the source drops an extra key at the top of a tool as well, and that is read, not measured.
+The local-midnight sentence holds for prompts of this size; a prompt short enough for the date to be
+a tenth of it would keep the 24 tokens.
+
+**Consequences.** `H-M2L1`, `H-M3L1` and `H-M3LD` are `[VALIDATED]`.
+
+**Status.** Six hypotheses on this engine, all `[VALIDATED]`: `H-M1L1`, `H-M1LD`, `H-M7LD`,
+`H-M2L1`, `H-M3L1`, `H-M3LD`. Four causes are measured and refuted without result; four remain
+`[FUTURE]`.
