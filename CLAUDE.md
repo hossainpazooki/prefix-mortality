@@ -6,8 +6,8 @@ the controls' rules for llama.cpp, entries 0003 and 0004 their outcomes, entry 0
 and the one-slot rule, entry 0006 the two hypotheses on edit position, entries 0007 and 0009 their
 verdicts, entry 0008 rule 5 on `[VALIDATED]`, entries 0010 and 0011 the refuters' passes, and entry
 0012 the hypothesis on eviction by intervening requests, entry 0013 its verdict, entry 0014 the
-refuter's pass, entry 0015 the hypotheses on serialization drift and templating, and entries 0016
-and 0017 their verdicts.
+refuter's pass, entry 0015 the hypotheses on serialization drift and templating, entries 0016 and
+0017 their verdicts, and entry 0018 the refuter's pass on both.
 
 ## Rules
 - The chassis is copied from lag-ladder, not shared. Never import `lag_ladder`, `linear_ceiling` or
@@ -100,4 +100,6 @@ are `H-M2L1` (one slot) and `H-M3L1`, `H-M3LD` (one slot, defaults), registered 
 HELD on both models (0016, 0017): re-indenting or reordering a tool's keys changes nothing, reordering
 the tools or a schema's properties ends the prefix at that point; Llama's template date, the 24th
 token, ends the whole prefix at the defaults, and Qwen's thinking switch costs the last four tokens.
-All three are `[BASELINE]`, no refuter yet. Four causes remain `[FUTURE]`.
+All three are `[VALIDATED]` (ledger 0018), so every hypothesis on this engine is. Four causes remain
+`[FUTURE]`: idle expiry, rebuild, model switch, lifespan on recorded runs; the next is the operator's
+ruling.

@@ -43,6 +43,7 @@ more causes are measured: how the tool schemas are written, where re-indenting o
 keys changes nothing and reordering the tools or a schema's properties ends the prefix at that point;
 and a chat-template argument, where a date the Llama template prints before anything the client sent
 ends the whole prefix at the defaults, and Qwen's thinking switch costs only the last few tokens.
+Every result on this engine has survived an independent refuter.
 `ledger/ledger.md` is the record of what has been registered and measured, and it says what has
 not.
 
