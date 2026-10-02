@@ -5,7 +5,7 @@ entry; entry 0001 carries the scope, the claim under test and the registration r
 the controls' rules for llama.cpp, entries 0003 and 0004 their outcomes, entry 0005 their closure
 and the one-slot rule, entry 0006 the two hypotheses on edit position, entries 0007 and 0009 their
 verdicts, entry 0008 rule 5 on `[VALIDATED]`, entries 0010 and 0011 the refuters' passes, and entry
-0012 the hypothesis on eviction by intervening requests.
+0012 the hypothesis on eviction by intervening requests and entry 0013 its verdict.
 
 ## Rules
 - The chassis is copied from lag-ladder, not shared. Never import `lag_ladder`, `linear_ceiling` or
@@ -80,6 +80,7 @@ that differed; at the defaults it reused them above about a tenth of the prompt 
 the change bracketed between 0.0945 and 0.1048 of the prompt. Ledger 0008 adds rule 5: `[VALIDATED]`
 only through an independent refuter's entry; 0010 and 0011 record the refuters' passes, and both
 hypotheses are `[VALIDATED]`. Eviction by intervening requests (M7: an anchor, K foreign requests one
-at a time, the anchor again) is registered as `H-M7LD` by ledger 0012, at the defaults only: the
-resend is predicted to reuse *n* − 1 while the anchor and the first *K* − 1 foreign prompts fit in the
-8192 MiB prompt cache, and 0 after. Registered, not run.
+at a time, the anchor again) is `H-M7LD`, registered by ledger 0012 at the defaults only and HELD on
+both models (ledger 0013): the resend reused *n* − 1 at every *K* up to 11 and 0 from *K* = 12, where
+the anchor and the first *K* − 1 foreign prompts stop fitting in the 8192 MiB prompt cache. It is
+`[BASELINE]`; no refuter yet.
