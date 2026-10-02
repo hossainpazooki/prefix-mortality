@@ -19,9 +19,9 @@ numerator nor a denominator. It is never written as a zero.
 | H-M1L1 | On llama.cpp `b11235` started with `--parallel 1`, a request that differs from the prompt the slot holds reuses exactly the tokens before the first one that differs. | entry 0006 | HELD |
 | H-M1LD | On llama.cpp `b11235` at its defaults, the same request reuses those tokens when they are more than 0.10 of its length, and none otherwise. | entry 0006 | HELD |
 | H-M7LD | On llama.cpp `b11235` at its defaults, a request identical to one served earlier reuses *n* − 1 tokens when the KV states of the earlier request and of the foreign requests served between them, one at a time, fit in the 8192 MiB prompt cache, and 0 when they do not. | entry 0012 | HELD |
-| H-M2L1 | On llama.cpp `b11235` started with `--parallel 1`, a request whose tool schemas are written differently reuses exactly the common token prefix of its rendered prompt with the base request's, and *n* − 1 when the two render identically. | entry 0015 | unresolved |
-| H-M3L1 | On llama.cpp `b11235` started with `--parallel 1`, a request that differs from the held prompt only in a chat-template argument reuses exactly the common token prefix of the two rendered prompts, and *n* − 1 when they render identically. | entry 0015 | unresolved |
-| H-M3LD | On llama.cpp `b11235` at its defaults, the same request reuses that prefix when it is more than 0.10 of its length, and none otherwise. | entry 0015 | unresolved |
+| H-M2L1 | On llama.cpp `b11235` started with `--parallel 1`, a request whose tool schemas are written differently reuses exactly the common token prefix of its rendered prompt with the base request's, and *n* − 1 when the two render identically. | entry 0015 | HELD |
+| H-M3L1 | On llama.cpp `b11235` started with `--parallel 1`, a request that differs from the held prompt only in a chat-template argument reuses exactly the common token prefix of the two rendered prompts, and *n* − 1 when they render identically. | entry 0015 | HELD |
+| H-M3LD | On llama.cpp `b11235` at its defaults, the same request reuses that prefix when it is more than 0.10 of its length, and none otherwise. | entry 0015 | HELD |
 
 ## Entries
 
@@ -764,3 +764,107 @@ from the stored tokens and refuse a record that carries another value.
 
 **Status.** `H-M2L1`, `H-M3L1` and `H-M3LD` are `[STRETCH]`: registered, not run. Order: `H-M2L1`
 on `qwen` then `llama`; `H-M3L1` on both; `H-M3LD` on both.
+
+### 0016 — 2026-10-02 — H-M2L1 held: the server normalises a tool's shape and keeps its order
+
+prior-entries-sha256: 4e499f82f59a7e62a8cf0a4f2dc42c3879ebc5413e330ad2040f9d16a0dc77b4
+
+verdict: H-M2L1 = HELD
+
+**Outcome** `[BASELINE]`. The runs registered by 0015 for `H-M2L1` were made at commit `649864b`, on
+a server started with `--parallel 1`. Their records and requests are committed at `019a041`. Every
+figure below is from `summarize_m2 --run` on those files, or from the `server` field of the records.
+
+| | `qwen` | `llama` |
+|---|---|---|
+| run | `20261002T202530Z-qwen-H-M2L1` | `20261002T203125Z-llama-H-M2L1` |
+| outcome | ALL MATCH | ALL MATCH |
+| trials counted | 30 | 30 |
+| trials matching | 30 | 30 |
+| readings disagreeing with the render | 0 | 0 |
+| base request reuse | 0 to 6, within *h* of 28 to 36 | 0 to 32, within *h* of 46 to 52 |
+| slots, as the server reported | 1 | 1 |
+| context, as the server reported | 40,960 | 50,944 |
+| *n*, over all 60 requests | 4,864 to 4,872 | 5,643 to 5,649 |
+| fields not reported | None. | None. |
+
+What each re-serialization did to the render, and what the changed request reused:
+
+| change | render | `qwen`, *d* / *n* | `qwen`, reused | `llama`, *d* / *n* | `llama`, reused | trials matching |
+|---|---|---|---|---|---|---|
+| `S1` spacing only | identical | 1.000 | *n* − 1 | 1.000 | *n* − 1 | 10 of 10 |
+| `S2` `type`/`function` swapped, tool 4 | identical | 1.000 | *n* − 1 | 1.000 | *n* − 1 | 10 of 10 |
+| `S3` tools 0 and 1 swapped | differs at character 8,293 / 8,578 | 0.368 to 0.369 | 1,792 to 1,798 | 0.323 to 0.324 | 1,825 to 1,827 | 10 of 10 |
+| `S4` `properties` reversed, tool 10 | differs at character 15,740 / 22,753 | 0.779 | 3,790 to 3,794 | 0.774 | 4,365 to 4,371 | 10 of 10 |
+| `S5` `description` after `parameters` | identical | 1.000 | *n* − 1 | 1.000 | *n* − 1 | 10 of 10 |
+| `S6` unknown key on `function` | identical | 1.000 | *n* − 1 | 1.000 | *n* − 1 | 10 of 10 |
+
+**Verdict.** Every counted trial of both models matches. By the rule of 0015, `H-M2L1` is `HELD`.
+
+**What it shows.** The engine's parser, read in 0015, does what was read: a client may re-indent its
+JSON, reorder the keys of a tool or of its `function`, or carry extra keys there, and the rendered
+prompt does not change, so the prefix lives; a client that reorders its tools, or the keys inside a
+tool's `parameters`, changes the render from that point and the prefix ends there. The position is
+exactly where the render first differs, on both models, in 20 of 20 such trials.
+
+**What it does not show.** The defaults are not run: every kept change here lands at 0.32 of the
+prompt or later, far above 0.10, so `H-M1LD` says the defaults reuse the same *d*. Other engines'
+parsers, and re-serializations of the messages rather than the tools, are not measured.
+
+**Status.** `H-M2L1` is `[BASELINE]`, no refuter yet.
+
+### 0017 — 2026-10-02 — H-M3L1 and H-M3LD held: a template argument ends the prefix where the template prints it
+
+prior-entries-sha256: 517d07784a0f699b4ad38116631cf411f819874b35f37347733beb80359da24a
+
+verdict: H-M3L1 = HELD
+verdict: H-M3LD = HELD
+
+**Outcome** `[BASELINE]`. The runs registered by 0015 for `H-M3L1` and `H-M3LD` were made at commit
+`649864b`, on a server started with `--parallel 1` and on one started with no flag but the model.
+Their records and requests are committed at `019a041`. Every figure below is from `summarize_m3 --run`
+on those files, or from the `server` field of the records.
+
+| | `qwen`, one slot | `llama`, one slot | `qwen`, defaults | `llama`, defaults |
+|---|---|---|---|---|
+| run | `20261002T203754Z-qwen-H-M3L1` | `20261002T203948Z-llama-H-M3L1` | `20261002T204246Z-qwen-H-M3LD` | `20261002T204441Z-llama-H-M3LD` |
+| outcome | ALL MATCH | ALL MATCH | ALL MATCH | ALL MATCH |
+| trials counted / matching | 10 / 10 | 10 / 10 | 10 / 10 | 10 / 10 |
+| trials not counted | 0 | 0 | 0 | 0 |
+| base request reuse | 0 to 5, within *h* | 0 to 32, within *h* | 0 | 0 |
+| slots, as the server reported | 1 | 1 | 4 | 4 |
+| context, as the server reported | 40,960 | 50,944 | 40,960 | 50,944 |
+| *n*, over all 20 requests | 4,867 to 4,875 | 5,643 to 5,651 | 4,867 to 4,876 | 5,645 to 5,652 |
+| fields not reported | None. | None. | None. | None. |
+
+What each argument did to the render, and what the changed request reused:
+
+| change | model | render | *d* | *d* / *n* | reused, one slot | reused, defaults |
+|---|---|---|---|---|---|---|
+| `T1` date | `qwen` | identical | *n* | 1.000 | *n* − 1 | *n* − 1 |
+| `T1` date | `llama` | differs at character 116 | 24 | 0.0042 to 0.0043 | 24 | 0 |
+| `T2` thinking off | `qwen` | differs at character 19,691 | *n* − 4 | 0.9992 | *n* − 4 | *n* − 4 |
+| `T2` thinking off | `llama` | identical | *n* | 1.000 | *n* − 1 | *n* − 1 |
+
+Each row is 5 of 5 trials in each configuration.
+
+**Verdict.** Every counted trial of both models matches in both configurations. By the rule of 0015,
+`H-M3L1` and `H-M3LD` are `HELD`.
+
+**What it shows.** On Llama 3.1 the date is the 24th token of the prompt, before anything the client
+sent. A change to it keeps 24 tokens with one slot and nothing at the defaults, where 0.004 of the
+prompt is under the 0.10 the engine needs to choose the slot. The runs fixed the date by argument so
+that they would not depend on the clock; without the argument the server prints the local date, so on
+this model at the defaults every cached prefix ends at local midnight with no change by the client,
+the limit 0009 named and this entry measures through the argument that stands in for the clock. On
+Qwen3 the date argument changes nothing. Turning thinking off on Qwen3 changes the last four tokens
+of the render, after the user message, and keeps everything before them in both configurations; on
+Llama 3.1 it changes nothing.
+
+**What it does not show.** The rollover itself (two requests across a real midnight) is not measured;
+the argument is. Other template arguments, and other templates, are not measured. The one argument
+0015 names and does not set, `tools_in_user_message`, is not measured here.
+
+**Status.** `H-M3L1` and `H-M3LD` are `[BASELINE]`, no refuter yet. Four causes are measured on this
+engine: the position of an edit, eviction by intervening requests, serialization drift and
+templating. Four remain `[FUTURE]`: idle expiry, rebuild, model switch, lifespan on recorded runs.
