@@ -12,6 +12,14 @@ It follows what was read in the pinned source (ledger entries 0002 and 0005):
     entry fits; an entry is tokens x bytes per token (ledger entry 0011's successor reads this);
   * a request of at least the slot context in tokens is refused, as the server refuses it.
 
+  * before rendering, a tool is rebuilt as the server does: `type`, then `function` with `name`,
+    `description` (default empty) and `parameters` (default empty object), other keys dropped, the
+    order inside `parameters` kept;
+  * two template modes beyond `generic`: `llama` prints a date line first (`date_string`, default
+    "26 Jul 2024") and puts the tools in the first non-system message unless `tools_in_user_message`
+    is false, refusing when there is none; `qwen` appends an empty think block to the generation
+    prompt when `enable_thinking` is false. Each ignores the other's arguments.
+
 With one slot the clearing rule has nothing to clear. The other modes break a rule on purpose, so a test
 can show a driver going red. This file is written from the same reading as the drivers it tests: a
 pass shows they agree with the reading, not that the reading is right.
@@ -37,14 +45,32 @@ class ContextExceeded(ValueError):
     pass
 
 
+class TemplateError(ValueError):
+    pass
+
+
+TEMPLATES = ("generic", "llama", "qwen")
+
+
+def _rebuild_tool(t: dict) -> dict:
+    """What common_chat_tools_parse_oaicompat + _to_json_oaicompat do at the pin."""
+    fn = t.get("function")
+    if not isinstance(fn, dict) or "name" not in fn:
+        raise TemplateError(f"Missing tool function: {json.dumps(t)}")
+    return {"type": "function", "function": {"name": fn["name"], "description": fn.get("description", ""),
+                                             "parameters": fn.get("parameters", {})}}
+
+
 class Engine:
     def __init__(self, mode: str = "faithful", build_info: str = "b11235-6c7a87f", slots: int = 1,
                  similarity: float = 0.10, cache_limit_bytes: int | None = None, bytes_per_token: int = 1,
-                 n_ctx: int = 8192, report_n_ctx: bool = True):
+                 n_ctx: int = 8192, report_n_ctx: bool = True, template: str = "generic"):
         assert mode in MODES, mode
         self.mode, self.build_info, self.similarity = mode, build_info, similarity
         self.cache_limit_bytes, self.bytes_per_token = cache_limit_bytes, bytes_per_token
         self.n_ctx, self.report_n_ctx = n_ctx, report_n_ctx
+        assert template in TEMPLATES, template
+        self.template = template
         self.slots: list[list[int]] = [[] for _ in range(slots)]
         self.last_used = [-1] * slots
         self.cache: list[list[int]] = []
@@ -63,10 +89,27 @@ class Engine:
     def render(self, body: dict) -> str:
         self.renders += 1
         clock = f"tick {self.renders}\n" if self.mode == "clock" else ""
+        kwargs = body.get("chat_template_kwargs") or {}
         system = "".join(m["content"] for m in body["messages"] if m["role"] == "system")
-        user = "".join(m["content"] for m in body["messages"] if m["role"] == "user")
-        tools = "\n".join(json.dumps(t) for t in body.get("tools") or [])
-        return f"<|system|>\n{clock}{system}\n<tools>\n{tools}\n</tools>\n<|user|>\n{user}\n<|assistant|>\n"
+        rest = [m for m in body["messages"] if m["role"] != "system"]
+        tools = [json.dumps(_rebuild_tool(t)) for t in body.get("tools") or []]
+        tools_block = "<tools>\n" + "\n".join(tools) + "\n</tools>\n"
+        if self.template == "llama":
+            date = kwargs.get("date_string", "26 Jul 2024")
+            out = f"<|system|>\nToday Date: {date}\n\n{clock}{system}\n"
+            if tools and kwargs.get("tools_in_user_message", True):
+                if not rest:
+                    raise TemplateError("Cannot put tools in the first user message when there's no first user message!")
+                first, rest = rest[0], rest[1:]
+                out += "<|user|>\n" + "\n".join(tools) + "\n" + first["content"] + "\n"
+            else:
+                out += tools_block
+            return out + "".join(f"<|{m['role']}|>\n{m['content']}\n" for m in rest) + "<|assistant|>\n"
+        out = f"<|system|>\n{clock}{system}\n{tools_block}" + "".join(f"<|{m['role']}|>\n{m['content']}\n" for m in rest)
+        out += "<|assistant|>\n"
+        if self.template == "qwen" and kwargs.get("enable_thinking", True) is False:
+            out += "<think>\n\n</think>\n\n"
+        return out
 
     def tokenize(self, text: str) -> list[dict]:
         return [{"id": self.ids.setdefault(p, len(self.ids) + 1), "piece": p} for p in _PIECE.findall(text)]
@@ -146,15 +189,17 @@ def _handler(engine: Engine):
 
         def do_POST(self):
             body = json.loads(self.rfile.read(int(self.headers["Content-Length"])).decode("utf-8"))
-            if self.path == "/apply-template":
-                self._reply({"prompt": engine.render(body)})
-            elif self.path == "/tokenize":
-                self._reply({"tokens": engine.tokenize(body["content"])})
-            else:
-                try:
+            try:
+                if self.path == "/apply-template":
+                    self._reply({"prompt": engine.render(body)})
+                elif self.path == "/tokenize":
+                    self._reply({"tokens": engine.tokenize(body["content"])})
+                else:
                     self._reply(engine.chat(body))
-                except ContextExceeded as e:
-                    self._reply({"error": {"code": 400, "message": str(e), "type": "exceed_context_size_error"}}, 400)
+            except ContextExceeded as e:
+                self._reply({"error": {"code": 400, "message": str(e), "type": "exceed_context_size_error"}}, 400)
+            except TemplateError as e:
+                self._reply({"error": {"code": 400, "message": str(e), "type": "invalid_request_error"}}, 400)
     return Handler
 
 
