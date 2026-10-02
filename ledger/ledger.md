@@ -18,6 +18,7 @@ numerator nor a denominator. It is never written as a zero.
 |---|---|---|---|
 | H-M1L1 | On llama.cpp `b11235` started with `--parallel 1`, a request that differs from the prompt the slot holds reuses exactly the tokens before the first one that differs. | entry 0006 | HELD |
 | H-M1LD | On llama.cpp `b11235` at its defaults, the same request reuses those tokens when they are more than 0.10 of its length, and none otherwise. | entry 0006 | HELD |
+| H-M7LD | On llama.cpp `b11235` at its defaults, a request identical to one served earlier reuses *n* − 1 tokens when the KV states of the earlier request and of the foreign requests served between them, one at a time, fit in the 8192 MiB prompt cache, and 0 when they do not. | entry 0012 | unresolved |
 
 ## Entries
 
@@ -506,3 +507,68 @@ held slot would have reused the shared head, is evidence that idle slots were cl
 
 **Status.** `H-M1L1` and `H-M1LD` are `[VALIDATED]`. The position of an edit is measured and refuted
 without result on this engine in both configurations. No other cause is designed.
+
+### 0012 — 2026-10-01 — Eviction by intervening requests registered on llama.cpp: H-M7LD
+
+prior-entries-sha256: b8be788427ed94be2f83cfd0fba86db602876fb4fab892acfdc2d23997503387
+
+**Registers** `config/m7.toml`, now `registered_by = "0012"`, and one hypothesis. Engine, models and
+machine are those of 0002, the server at its defaults as under `H-M1LD`, the request parameters
+those of `config/controls.toml`.
+
+**Id.** `M7` is the seventh cause of 0001, `D` the defaults as in 0006. Ruled by the operator on
+2026-10-01: one hypothesis, at the defaults only; the one-slot configuration is named below as not
+measured.
+
+| id | server | the records must say | predicted reuse of the resend |
+|---|---|---|---|
+| `H-M7LD` | Started with no flag but the model. | 4 slots, and a slot context that every request fits. | *n* − 1 when the states of the anchor and of the first *K* − 1 foreign prompts fit together in 8192 MiB, and 0 otherwise. |
+
+A prompt's state is its token count times the bytes one token's keys and values take: layers × 2 ×
+KV heads × head width × 2 bytes, read from each model file's header on 2026-10-01 and fixed in the
+config (Qwen3-8B 36 × 2 × 8 × 128 × 2 = 147,456; Llama-3.1-8B 32 × 2 × 8 × 128 × 2 = 131,072). The
+8192 MiB is the server's `--cache-ram` at its default (`common/arg.cpp` at the pin). The *K*-th
+foreign prompt is still in its slot when the resend arrives, so it is not counted.
+
+**The reading**, continuing 0005 (`tools/server/server-context.cpp` and `server-task.cpp` at the
+pin). At the defaults a slot's prompt is saved to the RAM prompt cache and the slot cleared when a
+request launches elsewhere. The cache keeps entries in arrival order and, before adding one, drops
+the oldest until the new one fits under its size limit. A request restores a cached prompt when it
+shares at least a quarter of it. So the anchor's copy outlives *K* − 1 foreign prompts if they fit
+beside it, and its resend then reuses *n* − 1, the identical-resend rule of 0003; otherwise the copy
+is gone and the resend reuses 0. The source has a second pass over a token total; for these prompts it
+binds at the same *K* as the size rule. The records carry the slot context that pass uses, and
+`summarize_m7` reports per trial which pass would have bound. Only the size rule predicts.
+
+**A trial** is *K* + 2 requests under *K* + 1 fresh nonces: an anchor (the base request), *K* foreign
+requests (the base request, each under its own nonce) served one at a time, then the anchor's bytes
+again. *K* runs over 0, 1, 4, 8, 10, 11, 12, 13 and 16, three times each: 27 trials and 279 requests
+per model. The anchor and every foreign request are controls inside the trial: at the defaults a
+fresh prompt reuses 0 (0003, 0009).
+
+**What decides.**
+
+| case | rule |
+|---|---|
+| A trial matches. | The resend's reuse equals its prediction, and every request's two counts add up to *n* and its two reuse fields agree. |
+| `HELD` | Every counted trial of both models matches. |
+| `NOT CONFIRMED` | At least one counted trial does not match. The results entry states, per model, the largest *K* whose resend reused *n* − 1 and the smallest whose resend reused 0. |
+| A control fails. | The anchor or a foreign request reuses anything but 0; the resend is not the anchor's bytes; a nonce repeats. The run stops, and no verdict follows from it. |
+| NOT MEASURABLE | The server does not report a field, or no slot context; a request has at least as many tokens as the slot context, which the server refuses; the local date changed inside a trial, which a template may carry. The verdict stays `unresolved`. |
+| The records say another number of slots, or more than one slot context. | The run is not that experiment. |
+
+A prediction is a function of the stored token counts and the two registered constants, and of
+nothing else. The driver writes it before the resend is sent; `summarize_m7` recomputes it from the
+stored tokens and refuses a record that carries another value.
+
+**Known before the run.**
+
+| fact | consequence |
+|---|---|
+| The server's properties do not report the cache size. | The run is started with no flag but the model; 8192 MiB is read, not recorded. A cliff elsewhere than predicted is a result about that reading. |
+| Four slots in the records are read as the defaults (0011), and the slot context is recorded. | What 0006 could not tell, these records can. |
+| The server's own logs of the four runs of 0007 and 0009, read on 2026-10-01 (not committed artifacts), show the cache at its limit, dropping entries of 684 to 686 MiB on `qwen` and 705 to 707 MiB on `llama`, and the runs complete. | The sizes agree with the constants above. The cache size is not changed. A limit the server lowers under memory pressure would show as an early cliff and be reported. |
+| Unrecorded requests of this kind were sent to the `qwen` server before this entry, at *K* = 1 and *K* = 12. | Nothing from them is evidence and no figure from them appears here. The rule and the schedule are those committed at `51ad5c7`, before that contact. |
+| Not measured: the one-slot configuration, where the source reads the cliff one request earlier because the slot's prompt is saved before the cache is searched; and requests in flight at the same time. | The statement says "served between them, one at a time". |
+
+**Status.** `H-M7LD` is `[STRETCH]`: registered, not run. `qwen` runs first.

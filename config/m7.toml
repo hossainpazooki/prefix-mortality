@@ -1,16 +1,16 @@
 # Eviction by intervening requests (M7) on llama.cpp at its defaults: an anchor request, K foreign
 # requests served one at a time, then the anchor again byte for byte.
 #
-# UNREGISTERED until a ledger entry fixes these values; the driver refuses to run while
-# `registered_by` is empty. Request parameters (tokens to generate, temperature, nonce length, user
-# message) are those of config/controls.toml.
+# Registered by ledger entry 0012, which fixes these values. A change to any of them needs a new
+# entry; the driver refuses to run while `registered_by` is empty. Request parameters (tokens to
+# generate, temperature, nonce length, user message) are those of config/controls.toml.
 [m7]
 repetitions = 3                                  # trials per K, per model
 k_schedule = [0, 1, 4, 8, 10, 11, 12, 13, 16]    # foreign requests between the anchor and its resend
 cache_ram_mib = 8192                             # llama.cpp --cache-ram, its default at the pinned commit
 corpus_dir = "corpus/live/m7"
 results_dir = "results/m7"
-registered_by = ""
+registered_by = "0012"
 
 # A cached prompt's KV state is tokens x n_layer x 2 (K and V) x n_head_kv x head_dim x bytes_per_value.
 # The four values are the model file's metadata; the file is pinned by sha256 in config/engines.toml.

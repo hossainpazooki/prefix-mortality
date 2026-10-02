@@ -259,7 +259,7 @@ def test_repo_configs_load():
     assert m1.corpus_dir.parent == REPO_ROOT / "corpus" / "live"
     assert {(h.id, h.slots, h.rule) for h in m1.hypotheses} == {("H-M1L1", 1, "prefix"), ("H-M1LD", 4, "threshold")}
     m7 = load_m7_config(REPO_ROOT / "config" / "m7.toml", REPO_ROOT)
-    assert m7.registered_by == "", "UNREGISTERED until a ledger entry fixes it; update this with the entry"
+    assert m7.registered_by == "0012"
     assert m7.k_schedule == (0, 1, 4, 8, 10, 11, 12, 13, 16) and m7.cache_ram_mib == 8192 and m7.repetitions == 3
     assert m7.bytes_per_token("qwen") == 147456 and m7.bytes_per_token("llama") == 131072
     assert [(h.id, h.slots) for h in m7.hypotheses] == [("H-M7LD", 4)]

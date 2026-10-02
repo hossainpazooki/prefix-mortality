@@ -32,6 +32,7 @@ from prefix_mortality import REPO_ROOT
 
 REQUIRED_IDS: tuple[str, ...] = (      # grows with each registering entry (the entry names the id it adds)
     "H-M1L1", "H-M1LD",                # entry 0006
+    "H-M7LD",                          # entry 0012
 )
 VERDICTS = ("unresolved", "HELD", "NOT CONFIRMED", "WITHDRAWN", "SUPERSEDED", "SHELVED", "UNESTIMABLE")
 CHAIN_REQUIRED_FROM = 2
