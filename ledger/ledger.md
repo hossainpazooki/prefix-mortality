@@ -18,7 +18,7 @@ numerator nor a denominator. It is never written as a zero.
 |---|---|---|---|
 | H-M1L1 | On llama.cpp `b11235` started with `--parallel 1`, a request that differs from the prompt the slot holds reuses exactly the tokens before the first one that differs. | entry 0006 | HELD |
 | H-M1LD | On llama.cpp `b11235` at its defaults, the same request reuses those tokens when they are more than 0.10 of its length, and none otherwise. | entry 0006 | HELD |
-| H-M7LD | On llama.cpp `b11235` at its defaults, a request identical to one served earlier reuses *n* − 1 tokens when the KV states of the earlier request and of the foreign requests served between them, one at a time, fit in the 8192 MiB prompt cache, and 0 when they do not. | entry 0012 | unresolved |
+| H-M7LD | On llama.cpp `b11235` at its defaults, a request identical to one served earlier reuses *n* − 1 tokens when the KV states of the earlier request and of the foreign requests served between them, one at a time, fit in the 8192 MiB prompt cache, and 0 when they do not. | entry 0012 | HELD |
 
 ## Entries
 
@@ -572,3 +572,66 @@ stored tokens and refuses a record that carries another value.
 | Not measured: the one-slot configuration, where the source reads the cliff one request earlier because the slot's prompt is saved before the cache is searched; and requests in flight at the same time. | The statement says "served between them, one at a time". |
 
 **Status.** `H-M7LD` is `[STRETCH]`: registered, not run. `qwen` runs first.
+
+### 0013 — 2026-10-02 — H-M7LD held: the twelfth intervening prompt ends the prefix
+
+prior-entries-sha256: b326c4d10f9ffe72f4282b6e41ff3087099a9ff396b585753b76c012633a7fe5
+
+verdict: H-M7LD = HELD
+
+**Outcome** `[BASELINE]`. The runs registered by 0012 were made at commit `c4dbe6f`, on a server
+started with no flag but the model, one after the other on the same day. Their records and requests
+are committed at `8511098`. Every figure below is from `summarize_m7 --run` on those files, or from
+the `server` field of the records.
+
+| | `qwen` | `llama` |
+|---|---|---|
+| run | `20261002T143151Z-qwen-H-M7LD` | `20261002T151650Z-llama-H-M7LD` |
+| outcome | ALL MATCH | ALL MATCH |
+| trials counted | 27 | 27 |
+| trials matching | 27 | 27 |
+| resend reused *n* − 1 | at *K* = 0, 1, 4, 8, 10, 11; 18 of 18 | the same, 18 of 18 |
+| resend reused 0 | at *K* = 12, 13, 16; 9 of 9 | the same, 9 of 9 |
+| resend reused anything else | 0 | 0 |
+| anchor and foreign requests | 0 in 252 of 252 | 0 in 252 of 252 |
+| largest *K* kept, smallest *K* lost | 11, 12 | 11, 12 |
+| slots, as the server reported | 4 | 4 |
+| context, as the server reported | 40,960 | 50,944 |
+| *n*, over all 279 requests | 4,864 to 4,873 | 5,641 to 5,652 |
+| bytes per token, registered | 147,456 | 131,072 |
+| fields not reported | None. | None. |
+
+The modelled cache at each *K*, as the anchor's state plus the first *K* − 1 foreign states, against
+the 8,192 MiB limit:
+
+| *K* | `qwen`, MiB | `llama`, MiB | fits | predicted | reused, both models, 3 of 3 |
+|---|---|---|---|---|---|
+| 0 | 685 | 706 | yes | *n* − 1 | *n* − 1 |
+| 1 | 684 to 685 | 706 | yes | *n* − 1 | *n* − 1 |
+| 4 | 2,738 to 2,739 | 2,823 to 2,824 | yes | *n* − 1 | *n* − 1 |
+| 8 | 5,477 to 5,478 | 5,646 to 5,647 | yes | *n* − 1 | *n* − 1 |
+| 10 | 6,847 to 6,848 | 7,058 to 7,059 | yes | *n* − 1 | *n* − 1 |
+| 11 | 7,531 to 7,532 | 7,764 to 7,765 | yes | *n* − 1 | *n* − 1 |
+| 12 | 8,216 to 8,218 | 8,470 to 8,472 | no | 0 | 0 |
+| 13 | 8,900 to 8,903 | 9,174 to 9,178 | no | 0 | 0 |
+| 16 | 10,954 to 10,955 | 11,292 to 11,294 | no | 0 | 0 |
+
+**Verdict.** Every counted trial of both models matches. By the rule of 0012, `H-M7LD` is `HELD`.
+
+**What the runs bracket and do not locate.** The resend kept its whole prefix after eleven
+intervening prompts and lost all of it after twelve, on both models; no *K* between 11 and 12 exists,
+so the cliff is located to the request. Where it falls in bytes is bracketed: the cache held 7,532 MiB
+and refused 8,216 on `qwen`, held 7,765 and refused 8,470 on `llama`, which is consistent with the
+8,192 MiB read from the source and not a measurement of it. The source's second eviction pass, on a
+token total against the recorded context, would have evicted at exactly the same trials as the size
+rule in 54 of 54; nothing here tells the two passes apart.
+
+**What it does not show.** Requests were served one at a time; what the defaults do to a prefix while
+other requests are in flight is not measured. The one-slot configuration is not measured: the source
+reads it to lose the prefix one request earlier, because the slot's prompt is saved before the cache
+is searched. The eviction is of a prompt of about 4,870 or 5,650 tokens by prompts of the same size;
+a different mix of sizes moves the count, not the rule. The cache size is read, not recorded: the
+server's properties do not report it.
+
+**Status.** `H-M7LD` is `[BASELINE]`, no refuter yet. Two causes are measured on this engine: the
+position of an edit (0007, 0009) and eviction by intervening requests. Six remain `[FUTURE]`.
