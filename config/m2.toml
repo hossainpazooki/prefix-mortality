@@ -21,7 +21,7 @@ reading = "identical"                 # `type` and `function` swapped at the top
 reading = "differs"                   # tools 0 and 1 swapped
 
 [m2.changes.S4]
-reading = "differs"                   # keys of `properties` reversed inside tool 9's parameters
+reading = "differs"                   # keys of `properties` reversed inside tool 10's parameters
 
 [m2.changes.S5]
 reading = "identical"                 # `description` after `parameters` in every tool

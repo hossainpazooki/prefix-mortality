@@ -9,7 +9,7 @@ computed from the two rendered prompts (ledger 0001, rule 4), never from this mo
   S1  indentation and spacing only (the parsed value is equal)
   S2  `type` and `function` swapped at the top of tool 4
   S3  tools 0 and 1 swapped in the array
-  S4  the keys of `properties` reversed inside tool 9's parameters
+  S4  the keys of `properties` reversed inside tool 10's parameters
   S5  `description` moved after `parameters` in every tool
   S6  an unknown key added to every tool's `function`
 
@@ -58,11 +58,11 @@ def apply(change: str, tools: list) -> str:
             _require_tool(t, 1, change)
             t[0], t[1] = t[1], t[0]
         elif change == "S4":
-            _require_tool(t, 9, change)
-            params = _function(t[9], change).get("parameters")
+            _require_tool(t, 10, change)
+            params = _function(t[10], change).get("parameters")
             props = params.get("properties") if isinstance(params, dict) else None
             if not isinstance(props, dict) or len(props) < 2:
-                raise ValueError(f"change {change}: tool 9 has fewer than two properties to reorder")
+                raise ValueError(f"change {change}: tool 10 has fewer than two properties to reorder")
             params["properties"] = dict(reversed(list(props.items())))
         elif change == "S5":
             for tool in t:

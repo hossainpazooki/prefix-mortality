@@ -12,7 +12,7 @@ TOOLS = [{"type": "function", "function": {"name": f"tool_{i}", "description": f
                                                           "properties": {"id": {"type": "string"},
                                                                          "day": {"type": "string"}},
                                                           "required": ["id"]}}}
-         for i in range(10)]
+         for i in range(11)]
 
 
 def _parsed(text):
@@ -40,7 +40,7 @@ def test_s1_changes_only_whitespace():
 def test_s2_swaps_type_and_function_in_tool_4_only():
     out = _parsed(apply("S2", TOOLS))
     assert list(out[4].keys()) == ["function", "type"]
-    assert all(list(out[i].keys()) == ["type", "function"] for i in range(10) if i != 4)
+    assert all(list(out[i].keys()) == ["type", "function"] for i in range(11) if i != 4)
     assert out[4]["function"] == TOOLS[4]["function"]
 
 
@@ -49,11 +49,11 @@ def test_s3_swaps_the_first_two_tools():
     assert out[0] == TOOLS[1] and out[1] == TOOLS[0] and out[2:] == TOOLS[2:]
 
 
-def test_s4_reverses_the_properties_of_tool_9():
+def test_s4_reverses_the_properties_of_tool_10():
     out = _parsed(apply("S4", TOOLS))
-    assert list(out[9]["function"]["parameters"]["properties"].keys()) == ["day", "id"]
-    assert out[9]["function"]["parameters"]["properties"] == TOOLS[9]["function"]["parameters"]["properties"]
-    assert out[:9] == TOOLS[:9]
+    assert list(out[10]["function"]["parameters"]["properties"].keys()) == ["day", "id"]
+    assert out[10]["function"]["parameters"]["properties"] == TOOLS[10]["function"]["parameters"]["properties"]
+    assert out[:10] == TOOLS[:10]
 
 
 def test_s5_moves_description_after_parameters_in_every_tool():
@@ -74,7 +74,7 @@ def test_s6_adds_an_unknown_key_to_every_function():
     ("S9", TOOLS, "unknown change"),
     ("S2", TOOLS[:4], "carries 4 tools"),
     ("S3", TOOLS[:1], "carries 1 tools"),
-    ("S4", [{"type": "function", "function": {"name": "a", "description": "d", "parameters": {"properties": {"x": {}}}}}] * 10,
+    ("S4", [{"type": "function", "function": {"name": "a", "description": "d", "parameters": {"properties": {"x": {}}}}}] * 11,
      "fewer than two properties"),
 ])
 def test_refusals(change, tools, msg):

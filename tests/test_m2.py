@@ -19,7 +19,7 @@ TOOLS = [{"type": "function", "function": {"name": f"tool_{i}", "description": f
                                            "parameters": {"type": "object",
                                                           "properties": {"id": {"type": "string"}, "day": {"type": "string"}},
                                                           "required": ["id"]}}}
-         for i in range(10)]
+         for i in range(11)]
 CONTROLS = '''
 [controls]
 repetitions = 2
@@ -110,7 +110,7 @@ def test_normalised_changes_reuse_n_minus_1_and_kept_changes_reuse_the_common_pr
         assert t["reading_agrees"] is True
         assert t["base"]["cache_n"] <= t["base"]["h"]
     s3, s4 = (next(t for t in report["trials"] if t["change"] == x) for x in ("S3", "S4"))
-    assert s3["changed"]["first_differing_token"] < s4["changed"]["first_differing_token"], "tool 0 precedes tool 9"
+    assert s3["changed"]["first_differing_token"] < s4["changed"]["first_differing_token"], "tool 0 precedes tool 10"
     records = read(w["m2"].corpus_dir / f"{report['run_id']}.jsonl")
     assert len(records) == 24 and [r["role"] for r in records][:4] == ["base", "changed", "base", "changed"]
     assert all(r["experiment"] == "m2" and r["change"] in ("S1", "S2", "S3", "S4", "S5", "S6") for r in records)
