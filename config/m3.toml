@@ -1,0 +1,36 @@
+# Templating (M3) on llama.cpp: a chat-template argument changes, the messages and tools do not.
+#
+# UNREGISTERED until a ledger entry fixes these values. Request parameters are those of
+# config/controls.toml. `base_kwargs` go on every request as `chat_template_kwargs`; a change
+# replaces one of them on the changed request. `tools_in_user_message = false` puts Llama 3.1's tools
+# in the system block (the template's default puts them in the first user message); Qwen3's template
+# ignores it. `date_string` fixes the date the Llama 3.1 template prints, so the run does not depend
+# on the clock; Qwen3's template prints no date. `enable_thinking` is read by Qwen3's template only.
+[m3]
+repetitions = 5
+similarity_threshold = 0.10           # llama.cpp --slot-prompt-similarity, its default at the pinned commit
+threshold_margin = 0.002
+corpus_dir = "corpus/live/m3"
+results_dir = "results/m3"
+registered_by = ""
+
+[m3.base_kwargs]
+date_string = "01 Oct 2026"
+enable_thinking = true
+tools_in_user_message = false
+
+[m3.changes.T1]
+key = "date_string"
+value = "02 Oct 2026"
+
+[m3.changes.T2]
+key = "enable_thinking"
+value = false
+
+[m3.hypotheses.H-M3L1]                # server started with --parallel 1
+slots = 1
+rule = "prefix"
+
+[m3.hypotheses.H-M3LD]                # server at its defaults
+slots = 4
+rule = "threshold"

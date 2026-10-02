@@ -1,0 +1,36 @@
+# Serialization drift (M2) on llama.cpp: the same tool schemas written differently in the request.
+#
+# UNREGISTERED until a ledger entry fixes these values; the driver refuses to run while
+# `registered_by` is empty. Request parameters are those of config/controls.toml. Each change's
+# `reading` is what the pinned source says the render will do (common/chat.cpp parses a tool into
+# name, description, parameters and rebuilds it in that order; only the order inside `parameters`
+# survives). The reading is reported against the render; the prediction comes from the render alone.
+[m2]
+repetitions = 5
+corpus_dir = "corpus/live/m2"
+results_dir = "results/m2"
+registered_by = ""
+
+[m2.changes.S1]
+reading = "identical"                 # indentation and spacing only
+
+[m2.changes.S2]
+reading = "identical"                 # `type` and `function` swapped at the top of tool 4
+
+[m2.changes.S3]
+reading = "differs"                   # tools 0 and 1 swapped
+
+[m2.changes.S4]
+reading = "differs"                   # keys of `properties` reversed inside tool 9's parameters
+
+[m2.changes.S5]
+reading = "identical"                 # `description` after `parameters` in every tool
+
+[m2.changes.S6]
+reading = "identical"                 # an unknown key on every tool's `function`
+
+# `rule` predicts the changed request's reuse from d (tokens its render shares with the base
+# render) and n (its own length): prefix -> d. `slots` is what the server must report.
+[m2.hypotheses.H-M2L1]                # server started with --parallel 1
+slots = 1
+rule = "prefix"

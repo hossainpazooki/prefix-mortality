@@ -343,6 +343,177 @@ def load_m7_config(path: Path, repo_root: Path) -> M7Config:
     )
 
 
+# --- shared: hypotheses with a slot count and a reuse rule --------------------------------------
+
+@dataclass(frozen=True)
+class RuleHypothesis:
+    id: str
+    slots: int
+    rule: str
+
+
+_RULE_HYPOTHESIS_KEYS = ("slots", "rule")
+
+
+def _rule_hypotheses(c: dict, name: str, pattern: re.Pattern, prefix: str) -> tuple[RuleHypothesis, ...]:
+    out = []
+    for hid, h in (c.get("hypotheses") or {}).items():
+        hname = f"{name}.hypotheses.{hid}"
+        if not pattern.fullmatch(hid):
+            raise ValueError(f"{hname}: an id is {prefix} and one letter or digit for the configuration")
+        _require(h, _RULE_HYPOTHESIS_KEYS, hname)
+        if h["rule"] not in M1_RULES:
+            raise ValueError(f"{hname} rule must be one of {M1_RULES}, got {h['rule']!r}")
+        out.append(RuleHypothesis(id=hid, slots=_int(h, "slots", hname, minimum=1), rule=h["rule"]))
+    if not out:
+        raise ValueError(f"{name} registers no hypothesis")
+    return tuple(out)
+
+
+def _find(items, key: str, what: str, config_name: str, attr: str = "id"):
+    for it in items:
+        if getattr(it, attr) == key:
+            return it
+    raise ValueError(f"{config_name} registers no {what} {key!r}; known: {[getattr(i, attr) for i in items]}")
+
+
+# --- serialization drift (M2) --------------------------------------------------------------------
+
+_M2_ID = re.compile(r"H-M2L[A-Za-z0-9]")
+_M2_CHANGE_IDS = ("S1", "S2", "S3", "S4", "S5", "S6")      # the ids serialize.CHANGES implements
+M2_READINGS = ("identical", "differs")
+
+
+@dataclass(frozen=True)
+class M2Change:
+    id: str
+    reading: str
+
+
+@dataclass(frozen=True)
+class M2Config:
+    """Serialization drift: a list of re-serializations of the tools, each with the reading of what
+    the render will do, run under one hypothesis per server configuration."""
+    repetitions: int
+    changes: tuple[M2Change, ...]
+    corpus_dir: Path
+    results_dir: Path
+    hypotheses: tuple[RuleHypothesis, ...]
+    registered_by: str
+    config_path: Path
+
+    def hypothesis(self, hid: str) -> RuleHypothesis:
+        return _find(self.hypotheses, hid, "hypothesis", self.config_path.name)
+
+    def change(self, cid: str) -> M2Change:
+        return _find(self.changes, cid, "change", self.config_path.name)
+
+
+_M2_KEYS = ("repetitions", "corpus_dir", "results_dir", "registered_by", "changes", "hypotheses")
+
+
+def load_m2_config(path: Path, repo_root: Path) -> M2Config:
+    path = Path(path)
+    name = f"{path.name} [m2]"
+    c = _read(path)["m2"]
+    _require(c, _M2_KEYS, name)
+    changes = []
+    for cid, ch in (c["changes"] or {}).items():
+        cname = f"{name}.changes.{cid}"
+        if cid not in _M2_CHANGE_IDS:
+            raise ValueError(f"{cname}: {cid!r} is not a registered change id; known: {list(_M2_CHANGE_IDS)}")
+        _require(ch, ("reading",), cname)
+        if ch["reading"] not in M2_READINGS:
+            raise ValueError(f"{cname} reading must be one of {M2_READINGS}, got {ch['reading']!r}")
+        changes.append(M2Change(id=cid, reading=ch["reading"]))
+    if not changes:
+        raise ValueError(f"{name} registers no change")
+    root = Path(repo_root)
+    return M2Config(repetitions=_int(c, "repetitions", name, minimum=1), changes=tuple(changes),
+                    corpus_dir=root / c["corpus_dir"], results_dir=root / c["results_dir"],
+                    hypotheses=_rule_hypotheses(c, name, _M2_ID, "H-M2L"),
+                    registered_by=_registered_by(c["registered_by"], name), config_path=path)
+
+
+# --- templating (M3) -----------------------------------------------------------------------------
+
+_M3_ID = re.compile(r"H-M3L[A-Za-z0-9]")
+_M3_CHANGE_ID = re.compile(r"T[0-9]")
+
+
+@dataclass(frozen=True)
+class M3Change:
+    id: str
+    key: str
+    value: str | bool
+
+
+@dataclass(frozen=True)
+class M3Config:
+    """Templating: chat-template arguments on every request, and a list of single-argument changes,
+    run under one hypothesis per server configuration."""
+    repetitions: int
+    base_kwargs: dict
+    changes: tuple[M3Change, ...]
+    similarity_threshold: float
+    threshold_margin: float
+    corpus_dir: Path
+    results_dir: Path
+    hypotheses: tuple[RuleHypothesis, ...]
+    registered_by: str
+    config_path: Path
+
+    def hypothesis(self, hid: str) -> RuleHypothesis:
+        return _find(self.hypotheses, hid, "hypothesis", self.config_path.name)
+
+    def change(self, cid: str) -> M3Change:
+        return _find(self.changes, cid, "change", self.config_path.name)
+
+
+_M3_KEYS = ("repetitions", "similarity_threshold", "threshold_margin", "corpus_dir", "results_dir", "registered_by",
+            "base_kwargs", "changes", "hypotheses")
+
+
+def _kwarg_value(v, where: str):
+    if isinstance(v, bool) or isinstance(v, str):
+        return v
+    raise ValueError(f"{where} must be a string or a boolean, got {v!r}")
+
+
+def load_m3_config(path: Path, repo_root: Path) -> M3Config:
+    path = Path(path)
+    name = f"{path.name} [m3]"
+    c = _read(path)["m3"]
+    _require(c, _M3_KEYS, name)
+    threshold, margin = _number(c, "similarity_threshold", name), _number(c, "threshold_margin", name)
+    if not 0 < threshold < 1:
+        raise ValueError(f"{name} similarity_threshold must be between 0 and 1, got {threshold!r}")
+    base = {k: _kwarg_value(v, f"{name}.base_kwargs.{k}") for k, v in (c["base_kwargs"] or {}).items()}
+    if not base:
+        raise ValueError(f"{name} base_kwargs is empty; a change needs a base value to replace")
+    changes = []
+    for cid, ch in (c["changes"] or {}).items():
+        cname = f"{name}.changes.{cid}"
+        if not _M3_CHANGE_ID.fullmatch(cid):
+            raise ValueError(f"{cname}: {cid!r} is not a registered change id (T and one digit)")
+        _require(ch, ("key", "value"), cname)
+        key = _text(ch, "key", cname)
+        if key not in base:
+            raise ValueError(f"{cname} key {key!r} is not in base_kwargs; the change would add an argument, not change one")
+        value = _kwarg_value(ch["value"], f"{cname}.value")
+        if value == base[key]:
+            raise ValueError(f"{cname} value equals the base value {base[key]!r}; the change would change nothing")
+        changes.append(M3Change(id=cid, key=key, value=value))
+    if not changes:
+        raise ValueError(f"{name} registers no change")
+    root = Path(repo_root)
+    return M3Config(repetitions=_int(c, "repetitions", name, minimum=1), base_kwargs=base, changes=tuple(changes),
+                    similarity_threshold=threshold, threshold_margin=margin,
+                    corpus_dir=root / c["corpus_dir"], results_dir=root / c["results_dir"],
+                    hypotheses=_rule_hypotheses(c, name, _M3_ID, "H-M3L"),
+                    registered_by=_registered_by(c["registered_by"], name), config_path=path)
+
+
 # --- engines -------------------------------------------------------------------------------------
 
 @dataclass(frozen=True)

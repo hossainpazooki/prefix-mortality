@@ -2,7 +2,8 @@
 replaced by the controls and engines loaders."""
 import pytest
 
-from prefix_mortality.config import (load_controls_config, load_engines_config, load_m1_config, load_m7_config,
+from prefix_mortality.config import (load_controls_config, load_engines_config, load_m1_config, load_m2_config,
+                                     load_m3_config, load_m7_config,
                                      load_seal_config)
 
 
@@ -263,6 +264,16 @@ def test_repo_configs_load():
     assert m7.k_schedule == (0, 1, 4, 8, 10, 11, 12, 13, 16) and m7.cache_ram_mib == 8192 and m7.repetitions == 3
     assert m7.bytes_per_token("qwen") == 147456 and m7.bytes_per_token("llama") == 131072
     assert [(h.id, h.slots) for h in m7.hypotheses] == [("H-M7LD", 4)]
+    m2 = load_m2_config(REPO_ROOT / "config" / "m2.toml", REPO_ROOT)
+    assert m2.registered_by == "", "UNREGISTERED until a ledger entry fixes it; update this with the entry"
+    assert [c.id for c in m2.changes] == ["S1", "S2", "S3", "S4", "S5", "S6"]
+    assert [(c.id, c.reading) for c in m2.changes if c.reading == "differs"] == [("S3", "differs"), ("S4", "differs")]
+    assert [(h.id, h.slots, h.rule) for h in m2.hypotheses] == [("H-M2L1", 1, "prefix")]
+    m3 = load_m3_config(REPO_ROOT / "config" / "m3.toml", REPO_ROOT)
+    assert m3.registered_by == "", "UNREGISTERED until a ledger entry fixes it; update this with the entry"
+    assert m3.base_kwargs == {"date_string": "01 Oct 2026", "enable_thinking": True, "tools_in_user_message": False}
+    assert [(c.id, c.key, c.value) for c in m3.changes] == [("T1", "date_string", "02 Oct 2026"), ("T2", "enable_thinking", False)]
+    assert {(h.id, h.slots, h.rule) for h in m3.hypotheses} == {("H-M3L1", 1, "prefix"), ("H-M3LD", 4, "threshold")}
     seal = load_seal_config(REPO_ROOT / "config" / "seal.toml", REPO_ROOT)
     for root in seal.artifact_roots:
         assert root.path.is_dir(), f"{root.path} must exist in a fresh clone: the seal writer fails closed on it"
@@ -273,3 +284,102 @@ def test_repo_configs_load():
     assert engine.registered_by == "0002"
     assert engine.commit == ENGINE_SHA
     assert {m.family for m in engine.models} == {"qwen", "llama"}
+
+
+M2 = '''
+[m2]
+repetitions = 5
+corpus_dir = "corpus/live/m2"
+results_dir = "results/m2"
+registered_by = ""
+[m2.changes.S1]
+reading = "identical"
+[m2.changes.S3]
+reading = "differs"
+[m2.hypotheses.H-M2L1]
+slots = 1
+rule = "prefix"
+'''
+
+M3 = '''
+[m3]
+repetitions = 5
+similarity_threshold = 0.10
+threshold_margin = 0.002
+corpus_dir = "corpus/live/m3"
+results_dir = "results/m3"
+registered_by = ""
+[m3.base_kwargs]
+date_string = "01 Oct 2026"
+enable_thinking = true
+tools_in_user_message = false
+[m3.changes.T1]
+key = "date_string"
+value = "02 Oct 2026"
+[m3.changes.T2]
+key = "enable_thinking"
+value = false
+[m3.hypotheses.H-M3L1]
+slots = 1
+rule = "prefix"
+[m3.hypotheses.H-M3LD]
+slots = 4
+rule = "threshold"
+'''
+
+
+def test_m2_config_loads(tmp_path):
+    cfg = load_m2_config(_write(tmp_path, "m2.toml", M2), repo_root=tmp_path)
+    assert cfg.repetitions == 5 and cfg.registered_by == ""
+    assert [(c.id, c.reading) for c in cfg.changes] == [("S1", "identical"), ("S3", "differs")]
+    assert cfg.change("S3").reading == "differs"
+    assert [(h.id, h.slots, h.rule) for h in cfg.hypotheses] == [("H-M2L1", 1, "prefix")]
+    with pytest.raises(ValueError, match="registers no hypothesis"):
+        cfg.hypothesis("H-M2LD")
+    with pytest.raises(ValueError, match="registers no change"):
+        cfg.change("S2")
+
+
+@pytest.mark.parametrize("old, new, msg", [
+    ("[m2.changes.S1]", "[m2.changes.S9]", "not a registered change id"),
+    ('reading = "identical"', 'reading = "same"', "reading must be"),
+    ("[m2.hypotheses.H-M2L1]", "[m2.hypotheses.H-M1L1]", "an id is H-M2L"),
+    ('rule = "prefix"', 'rule = "nearest"', "rule must be one of"),
+    ("repetitions = 5", "repetitions = 0", "repetitions must be an int >= 1"),
+])
+def test_m2_config_refuses_bad_values(tmp_path, old, new, msg):
+    assert M2.count(old) == 1
+    with pytest.raises(ValueError, match=msg):
+        load_m2_config(_write(tmp_path, "m2.toml", M2.replace(old, new)), repo_root=tmp_path)
+
+
+def test_m2_config_refuses_no_change_or_no_hypothesis(tmp_path):
+    none = M2[:M2.index("[m2.changes.S1]")] + "[m2.changes]\n" + M2[M2.index("[m2.hypotheses.H-M2L1]"):]
+    with pytest.raises(ValueError, match="registers no change"):
+        load_m2_config(_write(tmp_path, "m2.toml", none), repo_root=tmp_path)
+    bare = M2[:M2.index("[m2.hypotheses.H-M2L1]")] + "[m2.hypotheses]\n"
+    with pytest.raises(ValueError, match="registers no hypothesis"):
+        load_m2_config(_write(tmp_path, "m2.toml", bare), repo_root=tmp_path)
+
+
+def test_m3_config_loads(tmp_path):
+    cfg = load_m3_config(_write(tmp_path, "m3.toml", M3), repo_root=tmp_path)
+    assert cfg.base_kwargs == {"date_string": "01 Oct 2026", "enable_thinking": True, "tools_in_user_message": False}
+    assert [(c.id, c.key, c.value) for c in cfg.changes] == [("T1", "date_string", "02 Oct 2026"), ("T2", "enable_thinking", False)]
+    assert cfg.similarity_threshold == 0.10 and cfg.threshold_margin == 0.002
+    assert [(h.id, h.slots, h.rule) for h in cfg.hypotheses] == [("H-M3L1", 1, "prefix"), ("H-M3LD", 4, "threshold")]
+    assert cfg.change("T2").value is False
+
+
+@pytest.mark.parametrize("old, new, msg", [
+    ('key = "date_string"', 'key = "colour"', "not in base_kwargs"),
+    ('value = "02 Oct 2026"', 'value = "01 Oct 2026"', "equals the base value"),
+    ("value = false", "value = 3", "must be a string or a boolean"),
+    ("[m3.changes.T1]", "[m3.changes.X1]", "not a registered change id"),
+    ("similarity_threshold = 0.10", "similarity_threshold = 1.5", "between 0 and 1"),
+    ("[m3.hypotheses.H-M3LD]", "[m3.hypotheses.H-M3D]", "an id is H-M3L"),
+])
+def test_m3_config_refuses_bad_values(tmp_path, old, new, msg):
+    assert M3.count(old) == 1
+    with pytest.raises(ValueError, match=msg):
+        load_m3_config(_write(tmp_path, "m3.toml", M3.replace(old, new)), repo_root=tmp_path)
