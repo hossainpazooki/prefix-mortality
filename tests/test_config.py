@@ -2,7 +2,8 @@
 replaced by the controls and engines loaders."""
 import pytest
 
-from prefix_mortality.config import load_controls_config, load_engines_config, load_m1_config, load_seal_config
+from prefix_mortality.config import (load_controls_config, load_engines_config, load_m1_config, load_m7_config,
+                                     load_seal_config)
 
 
 def _write(tmp_path, name, text):
@@ -195,12 +196,73 @@ def test_m1_config_refuses_a_file_that_names_no_site_or_no_hypothesis(tmp_path):
         load_m1_config(_write(tmp_path, "m1.toml", bare), repo_root=tmp_path)
 
 
+M7 = '''
+[m7]
+repetitions = 3
+k_schedule = [0, 1, 12]
+cache_ram_mib = 8192
+corpus_dir = "corpus/live/m7"
+results_dir = "results/m7"
+registered_by = ""
+[m7.kv_geometry.qwen]
+n_layer = 36
+n_head_kv = 8
+head_dim = 128
+bytes_per_value = 2
+[m7.hypotheses.H-M7LD]
+slots = 4
+'''
+
+
+def test_m7_config_loads_and_sizes_a_prompt(tmp_path):
+    cfg = load_m7_config(_write(tmp_path, "m7.toml", M7), repo_root=tmp_path)
+    assert cfg.repetitions == 3 and cfg.k_schedule == (0, 1, 12) and cfg.cache_ram_mib == 8192
+    assert cfg.cache_limit_bytes == 8192 * 1024 * 1024 and cfg.registered_by == ""
+    assert cfg.bytes_per_token("qwen") == 36 * 2 * 8 * 128 * 2 == 147456
+    assert [(h.id, h.slots) for h in cfg.hypotheses] == [("H-M7LD", 4)]
+    with pytest.raises(ValueError, match="registers no hypothesis"):
+        cfg.hypothesis("H-M7L1")
+    with pytest.raises(ValueError, match="no kv_geometry for family"):
+        cfg.bytes_per_token("llama")
+
+
+@pytest.mark.parametrize("old, new, msg", [
+    ("k_schedule = [0, 1, 12]", "k_schedule = [0, 12, 1]", "strictly ascending"),
+    ("k_schedule = [0, 1, 12]", "k_schedule = [-1, 0]", "strictly ascending"),
+    ("k_schedule = [0, 1, 12]", "k_schedule = []", "names no K"),
+    ("cache_ram_mib = 8192", "cache_ram_mib = 0", "cache_ram_mib must be an int >= 1"),
+    ("cache_ram_mib = 8192", "cache_ram_mib = 8192\nextra = 1", "unknown keys"),
+    ("n_layer = 36", "n_layer = 0", "n_layer must be an int >= 1"),
+    ("n_layer = 36\n", "", "is missing"),
+    ("[m7.hypotheses.H-M7LD]", "[m7.hypotheses.H-M7A1]", "an id is H-M7L"),
+    ("slots = 4", "slots = 0", "slots must be an int >= 1"),
+])
+def test_m7_config_refuses_bad_values(tmp_path, old, new, msg):
+    assert M7.count(old) == 1
+    with pytest.raises(ValueError, match=msg):
+        load_m7_config(_write(tmp_path, "m7.toml", M7.replace(old, new)), repo_root=tmp_path)
+
+
+def test_m7_config_refuses_a_file_with_no_geometry_or_no_hypothesis(tmp_path):
+    bare = M7[:M7.index("[m7.kv_geometry.qwen]")] + "[m7.kv_geometry]\n[m7.hypotheses.H-M7LD]\nslots = 4\n"
+    with pytest.raises(ValueError, match="has no kv_geometry"):
+        load_m7_config(_write(tmp_path, "m7.toml", bare), repo_root=tmp_path)
+    none = M7[:M7.index("[m7.hypotheses.H-M7LD]")] + "[m7.hypotheses]\n"
+    with pytest.raises(ValueError, match="registers no hypothesis"):
+        load_m7_config(_write(tmp_path, "m7.toml", none), repo_root=tmp_path)
+
+
 def test_repo_configs_load():
     from prefix_mortality import ENGINE_SHA, REPO_ROOT
     m1 = load_m1_config(REPO_ROOT / "config" / "m1.toml", REPO_ROOT)
     assert m1.registered_by == "0006"
     assert m1.corpus_dir.parent == REPO_ROOT / "corpus" / "live"
     assert {(h.id, h.slots, h.rule) for h in m1.hypotheses} == {("H-M1L1", 1, "prefix"), ("H-M1LD", 4, "threshold")}
+    m7 = load_m7_config(REPO_ROOT / "config" / "m7.toml", REPO_ROOT)
+    assert m7.registered_by == "", "UNREGISTERED until a ledger entry fixes it; update this with the entry"
+    assert m7.k_schedule == (0, 1, 4, 8, 10, 11, 12, 13, 16) and m7.cache_ram_mib == 8192 and m7.repetitions == 3
+    assert m7.bytes_per_token("qwen") == 147456 and m7.bytes_per_token("llama") == 131072
+    assert [(h.id, h.slots) for h in m7.hypotheses] == [("H-M7LD", 4)]
     seal = load_seal_config(REPO_ROOT / "config" / "seal.toml", REPO_ROOT)
     for root in seal.artifact_roots:
         assert root.path.is_dir(), f"{root.path} must exist in a fresh clone: the seal writer fails closed on it"

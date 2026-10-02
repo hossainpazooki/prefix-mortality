@@ -243,6 +243,106 @@ def load_m1_config(path: Path, repo_root: Path) -> M1Config:
     )
 
 
+# --- eviction by intervening requests (M7) -------------------------------------------------------
+
+_M7_ID = re.compile(r"H-M7L[A-Za-z0-9]")
+
+
+@dataclass(frozen=True)
+class KVGeometry:
+    """What sizes a cached prompt: the model file's layer count, KV heads, head width and KV value
+    width in bytes. One token's state is n_layer x 2 x n_head_kv x head_dim x bytes_per_value."""
+    n_layer: int
+    n_head_kv: int
+    head_dim: int
+    bytes_per_value: int
+
+    @property
+    def bytes_per_token(self) -> int:
+        return self.n_layer * 2 * self.n_head_kv * self.head_dim * self.bytes_per_value
+
+
+@dataclass(frozen=True)
+class M7Hypothesis:
+    id: str
+    slots: int
+
+
+@dataclass(frozen=True)
+class M7Config:
+    """Eviction by intervening requests. One schedule of K values, run under one hypothesis per
+    server configuration. Request parameters come from the controls config."""
+    repetitions: int
+    k_schedule: tuple[int, ...]
+    cache_ram_mib: int
+    kv_geometry: tuple[tuple[str, KVGeometry], ...]
+    corpus_dir: Path
+    results_dir: Path
+    hypotheses: tuple[M7Hypothesis, ...]
+    registered_by: str
+    config_path: Path
+
+    @property
+    def cache_limit_bytes(self) -> int:
+        return self.cache_ram_mib * 1024 * 1024
+
+    def geometry(self, family: str) -> KVGeometry:
+        for fam, g in self.kv_geometry:
+            if fam == family:
+                return g
+        raise ValueError(f"{self.config_path.name} has no kv_geometry for family {family!r}; "
+                         f"known: {[f for f, _ in self.kv_geometry]}")
+
+    def bytes_per_token(self, family: str) -> int:
+        return self.geometry(family).bytes_per_token
+
+    def hypothesis(self, hid: str) -> M7Hypothesis:
+        for h in self.hypotheses:
+            if h.id == hid:
+                return h
+        raise ValueError(f"{self.config_path.name} registers no hypothesis {hid!r}; "
+                         f"known: {[h.id for h in self.hypotheses]}")
+
+
+_M7_KEYS = ("repetitions", "k_schedule", "cache_ram_mib", "kv_geometry", "corpus_dir", "results_dir",
+            "registered_by", "hypotheses")
+_M7_GEOMETRY_KEYS = ("n_layer", "n_head_kv", "head_dim", "bytes_per_value")
+_M7_HYPOTHESIS_KEYS = ("slots",)
+
+
+def load_m7_config(path: Path, repo_root: Path) -> M7Config:
+    path = Path(path)
+    name = f"{path.name} [m7]"
+    c = _read(path)["m7"]
+    _require(c, _M7_KEYS, name)
+    schedule = _ascending(c, "k_schedule", name, int, 0, 10_000)
+    if not schedule:
+        raise ValueError(f"{name} k_schedule names no K")
+    geometry = []
+    for family, g in (c["kv_geometry"] or {}).items():
+        gname = f"{name}.kv_geometry.{family}"
+        _require(g, _M7_GEOMETRY_KEYS, gname)
+        geometry.append((family, KVGeometry(*(_int(g, k, gname, minimum=1) for k in _M7_GEOMETRY_KEYS))))
+    if not geometry:
+        raise ValueError(f"{name} has no kv_geometry; nothing sizes a cached prompt")
+    hypotheses = []
+    for hid, h in c["hypotheses"].items():
+        hname = f"{name}.hypotheses.{hid}"
+        if not _M7_ID.fullmatch(hid):
+            raise ValueError(f"{hname}: an id is H-M7L and one letter or digit for the configuration")
+        _require(h, _M7_HYPOTHESIS_KEYS, hname)
+        hypotheses.append(M7Hypothesis(id=hid, slots=_int(h, "slots", hname, minimum=1)))
+    if not hypotheses:
+        raise ValueError(f"{name} registers no hypothesis")
+    root = Path(repo_root)
+    return M7Config(
+        repetitions=_int(c, "repetitions", name, minimum=1), k_schedule=schedule,
+        cache_ram_mib=_int(c, "cache_ram_mib", name, minimum=1), kv_geometry=tuple(geometry),
+        corpus_dir=root / c["corpus_dir"], results_dir=root / c["results_dir"],
+        hypotheses=tuple(hypotheses), registered_by=_registered_by(c["registered_by"], name), config_path=path,
+    )
+
+
 # --- engines -------------------------------------------------------------------------------------
 
 @dataclass(frozen=True)

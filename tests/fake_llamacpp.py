@@ -7,9 +7,12 @@ It follows what was read in the pinned source (ledger entries 0002 and 0005):
     length, else the least recently used slot;
   * a slot about to lose more than half of its prompt is copied to a cache first, and a cached
     prompt is restored only if at least a quarter of it would be kept;
-  * when a request starts, every other slot is copied to the cache and cleared.
+  * when a request starts, every other slot is copied to the cache and cleared;
+  * the cache keeps entries in arrival order and, given a byte limit, drops the oldest until a new
+    entry fits; an entry is tokens x bytes per token (ledger entry 0011's successor reads this);
+  * a request of at least the slot context in tokens is refused, as the server refuses it.
 
-With one slot the last rule has nothing to clear. The other modes break a rule on purpose, so a test
+With one slot the clearing rule has nothing to clear. The other modes break a rule on purpose, so a test
 can show a driver going red. This file is written from the same reading as the drivers it tests: a
 pass shows they agree with the reading, not that the reading is right.
 """
@@ -30,16 +33,32 @@ def _lcp(a: list[int], b: list[int]) -> int:
     return n
 
 
+class ContextExceeded(ValueError):
+    pass
+
+
 class Engine:
     def __init__(self, mode: str = "faithful", build_info: str = "b11235-6c7a87f", slots: int = 1,
-                 similarity: float = 0.10):
+                 similarity: float = 0.10, cache_limit_bytes: int | None = None, bytes_per_token: int = 1,
+                 n_ctx: int = 8192, report_n_ctx: bool = True):
         assert mode in MODES, mode
         self.mode, self.build_info, self.similarity = mode, build_info, similarity
+        self.cache_limit_bytes, self.bytes_per_token = cache_limit_bytes, bytes_per_token
+        self.n_ctx, self.report_n_ctx = n_ctx, report_n_ctx
         self.slots: list[list[int]] = [[] for _ in range(slots)]
         self.last_used = [-1] * slots
         self.cache: list[list[int]] = []
         self.ids: dict[str, int] = {}
-        self.renders = self.requests = 0
+        self.renders = self.requests = self.evictions = 0
+
+    def _cache_add(self, ids: list[int]) -> None:
+        """Arrival order; with a limit, the oldest entries go until the new one fits."""
+        if self.cache_limit_bytes is not None:
+            new = len(ids) * self.bytes_per_token
+            while self.cache and sum(len(c) for c in self.cache) * self.bytes_per_token + new > self.cache_limit_bytes:
+                self.cache.pop(0)
+                self.evictions += 1
+        self.cache.append(ids)
 
     def render(self, body: dict) -> str:
         self.renders += 1
@@ -66,7 +85,7 @@ class Engine:
         if save:
             held = self.slots[where]
             if held:
-                self.cache.append(list(held))
+                self._cache_add(list(held))
             keep = _lcp(held, ids) / len(held) if held else -1.0
             sim, found = _lcp(held, ids) / len(ids), None
             for c in self.cache:
@@ -81,6 +100,9 @@ class Engine:
     def chat(self, body: dict) -> dict:
         ids = [t["id"] for t in self.tokenize(self.render(body))]
         n = len(ids)
+        if n >= self.n_ctx:
+            raise ContextExceeded(f"request ({n} tokens) exceeds the available context size ({self.n_ctx} tokens), "
+                                  "try increasing it")
         where = self._choose(ids)
         reuse = _lcp(self.slots[where], ids)
         if reuse == n and n > 0:
@@ -93,7 +115,7 @@ class Engine:
         self.slots[where], self.last_used[where] = ids, self.requests
         for i, held in enumerate(self.slots):           # every idle slot is copied to the cache and cleared
             if i != where and held:
-                self.cache.append(held)
+                self._cache_add(held)
                 self.slots[i] = []
         out = {"choices": [{"message": {"role": "assistant", "content": "ok"}}],
                "usage": {"prompt_tokens": n, "completion_tokens": 1, "total_tokens": n + 1,
@@ -109,17 +131,18 @@ def _handler(engine: Engine):
         def log_message(self, *args):
             pass
 
-        def _reply(self, payload: dict):
+        def _reply(self, payload: dict, status: int = 200):
             data = json.dumps(payload).encode("utf-8")
-            self.send_response(200)
+            self.send_response(status)
             self.send_header("Content-Type", "application/json")
             self.send_header("Content-Length", str(len(data)))
             self.end_headers()
             self.wfile.write(data)
 
         def do_GET(self):
+            settings = {"n_ctx": engine.n_ctx} if engine.report_n_ctx else {}
             self._reply({"build_info": engine.build_info, "total_slots": len(engine.slots),
-                         "default_generation_settings": {"n_ctx": 8192}})
+                         "default_generation_settings": settings})
 
         def do_POST(self):
             body = json.loads(self.rfile.read(int(self.headers["Content-Length"])).decode("utf-8"))
@@ -128,13 +151,16 @@ def _handler(engine: Engine):
             elif self.path == "/tokenize":
                 self._reply({"tokens": engine.tokenize(body["content"])})
             else:
-                self._reply(engine.chat(body))
+                try:
+                    self._reply(engine.chat(body))
+                except ContextExceeded as e:
+                    self._reply({"error": {"code": 400, "message": str(e), "type": "exceed_context_size_error"}}, 400)
     return Handler
 
 
 @contextmanager
-def serve(mode: str = "faithful", build_info: str = "b11235-6c7a87f", slots: int = 1):
-    engine = Engine(mode, build_info, slots)
+def serve(mode: str = "faithful", build_info: str = "b11235-6c7a87f", slots: int = 1, **engine_kw):
+    engine = Engine(mode, build_info, slots, **engine_kw)
     server = ThreadingHTTPServer(("127.0.0.1", 0), _handler(engine))
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
