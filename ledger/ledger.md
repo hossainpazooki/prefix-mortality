@@ -19,6 +19,9 @@ numerator nor a denominator. It is never written as a zero.
 | H-M1L1 | On llama.cpp `b11235` started with `--parallel 1`, a request that differs from the prompt the slot holds reuses exactly the tokens before the first one that differs. | entry 0006 | HELD |
 | H-M1LD | On llama.cpp `b11235` at its defaults, the same request reuses those tokens when they are more than 0.10 of its length, and none otherwise. | entry 0006 | HELD |
 | H-M7LD | On llama.cpp `b11235` at its defaults, a request identical to one served earlier reuses *n* − 1 tokens when the KV states of the earlier request and of the foreign requests served between them, one at a time, fit in the 8192 MiB prompt cache, and 0 when they do not. | entry 0012 | HELD |
+| H-M2L1 | On llama.cpp `b11235` started with `--parallel 1`, a request whose tool schemas are written differently reuses exactly the common token prefix of its rendered prompt with the base request's, and *n* − 1 when the two render identically. | entry 0015 | unresolved |
+| H-M3L1 | On llama.cpp `b11235` started with `--parallel 1`, a request that differs from the held prompt only in a chat-template argument reuses exactly the common token prefix of the two rendered prompts, and *n* − 1 when they render identically. | entry 0015 | unresolved |
+| H-M3LD | On llama.cpp `b11235` at its defaults, the same request reuses that prefix when it is more than 0.10 of its length, and none otherwise. | entry 0015 | unresolved |
 
 ## Entries
 
@@ -675,3 +678,89 @@ gives.
 
 **Status.** `H-M1L1`, `H-M1LD` and `H-M7LD` are `[VALIDATED]`. Two causes are measured and refuted
 without result on this engine; six remain `[FUTURE]`.
+
+### 0015 — 2026-10-02 — Serialization drift and templating registered on llama.cpp: H-M2L1, H-M3L1, H-M3LD
+
+prior-entries-sha256: e747030301fe45acfa3d4f64ec79036bc0d8f5d5e23c6cc6be897096e9a8e86f
+
+**Registers** `config/m2.toml` and `config/m3.toml`, now `registered_by = "0015"`, and three
+hypotheses, each with its own verdict cell. Engine, models and machine are those of 0002; the request
+parameters those of `config/controls.toml`; the server configurations those of 0006, one slot
+(`--parallel 1`) and the defaults.
+
+**Ids.** `M2` and `M3` are the second and third causes of 0001; the configuration character is as in
+0006. Ruled by the operator on 2026-10-02: the two causes share one registering entry because they
+share one build; serialization drift is registered on one slot only, its prediction at the defaults
+following from `H-M1LD`; templating is registered in both configurations.
+
+| id | server | the records must say | predicted reuse of the changed request |
+|---|---|---|---|
+| `H-M2L1` | Started with `--parallel 1`. | 1 slot. | *d*; *n* − 1 when the two renders are identical. |
+| `H-M3L1` | Started with `--parallel 1`. | 1 slot. | *d*; *n* − 1 when the two renders are identical. |
+| `H-M3LD` | Started with no flag but the model. | 4 slots. | *d* when *d* / *n* is above 0.10, and 0 otherwise; *n* − 1 when the renders are identical. |
+
+*d* is the number of leading tokens the base prompt and the changed prompt have in common, under the
+server's own tokenizer, each prompt as the server renders it; *n* is the token count of the changed
+prompt. Identical renders make the changed request a byte-identical resend of the prompt, which this
+engine reuses to *n* − 1 (0003); the prediction says so, in one place, for both experiments.
+
+**The reading**, continuing 0005 (`common/chat.cpp`, `tools/server/server-common.cpp`, and the two
+models' chat templates read from their files, all at the pin). The server parses a request into a
+type that keeps object key order and discards whitespace; it then parses each tool into three fields,
+`name`, `description` (empty if absent) and `parameters` (kept as text and re-parsed), and rebuilds
+the object the template sees as `type`, `function`, `name`, `description`, `parameters`, dropping any
+other key. Only the key order *inside* `parameters`, and the order of the tools, reach the template.
+A request's `chat_template_kwargs` are merged after the server's own template context, so a request
+may set `date_string`, which Llama 3.1's template prints at the head of the system block (the server
+otherwise supplies the local date) and Qwen3's template does not use, and `enable_thinking`, which
+Qwen3's template reads for the generation prompt at the tail and Llama 3.1's does not read.
+
+**Serialization drift: a trial** is two requests under one fresh nonce: the base request, then the
+same request with its `tools` array written differently, one of six registered changes. The change
+is to the request's bytes; each carries the reading of what the render will do, which the summarizer
+reports against the render and which decides nothing.
+
+| change | what is written differently | reading |
+|---|---|---|
+| `S1` | indentation and spacing only | identical render |
+| `S2` | `type` and `function` swapped at the top of tool 4 | identical render |
+| `S3` | tools 0 and 1 swapped | differs at tool 0 |
+| `S4` | the keys of `properties` reversed inside tool 10's parameters | differs inside tool 10 |
+| `S5` | `description` after `parameters` in every tool | identical render |
+| `S6` | an unknown key on every tool's `function` | identical render |
+
+Each change is tried 5 times: 30 trials and 60 requests per model.
+
+**Templating: a trial** is two requests under one fresh nonce whose messages and tools are the same
+bytes. Every request carries `chat_template_kwargs` `{"date_string": "01 Oct 2026", "enable_thinking": true}`;
+the changed request replaces one value: `T1` sets `date_string` to `02 Oct 2026`, `T2` sets
+`enable_thinking` to false. Each change is tried 5 times per configuration: 10 trials and 20 requests
+per model and configuration. The fixed date keeps the run independent of the clock; the entry that
+decides states what the server would print without it.
+
+**What decides.**
+
+| case | rule |
+|---|---|
+| A trial matches. | The changed request's reuse equals its prediction, both requests' counts add up to *n*, and their two reuse fields agree. |
+| `HELD` | Every counted trial of both models matches. |
+| `NOT CONFIRMED` | At least one counted trial does not match. The results entry states the prediction and the reuse of every trial. |
+| A trial is not counted. | Its *d* / *n* lies within 0.002 of 0.10, under `H-M3LD` only. It is reported. |
+| A control fails. | The base request reuses more than *h*, the tokens that start before the end of the nonce; the two bodies differ in anything but the `tools` text (`H-M2L1`) or the `chat_template_kwargs` (`H-M3L1`, `H-M3LD`). The run stops, and no verdict follows from it. |
+| NOT MEASURABLE | The server does not report a field. The verdict stays `unresolved`. |
+| The records say another number of slots. | The run is not that experiment. |
+
+A prediction is a function of the two stored prompts and the rule above, and of nothing else. The
+driver writes it before the changed request is sent; `summarize_m2` and `summarize_m3` recompute it
+from the stored tokens and refuse a record that carries another value.
+
+**Known before the run.**
+
+| fact | consequence |
+|---|---|
+| The readings of `S1` to `S6` are readings of source. | A render that disagrees with a reading is reported as such and changes no outcome; the prediction is from the render. |
+| Llama 3.1's template puts the tools in the first user message, after the nonce, unless `tools_in_user_message` is false; then it puts them before the system text, ahead of the nonce, and consecutive trials share a head of about 0.7 of the prompt. | This experiment does not set that argument, so the nonce leads every prompt as in 0002 to 0013. The argument is reserved for an experiment that must render a conversation without a user turn. |
+| Unrecorded requests of these kinds were sent to both models before this entry, on one slot and at the defaults. | Nothing from them is evidence and no figure from them appears here. The changes, the arguments and the rules are those committed at `3c95d80` and in this entry's commit. |
+
+**Status.** `H-M2L1`, `H-M3L1` and `H-M3LD` are `[STRETCH]`: registered, not run. Order: `H-M2L1`
+on `qwen` then `llama`; `H-M3L1` on both; `H-M3LD` on both.

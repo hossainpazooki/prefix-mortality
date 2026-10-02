@@ -265,13 +265,13 @@ def test_repo_configs_load():
     assert m7.bytes_per_token("qwen") == 147456 and m7.bytes_per_token("llama") == 131072
     assert [(h.id, h.slots) for h in m7.hypotheses] == [("H-M7LD", 4)]
     m2 = load_m2_config(REPO_ROOT / "config" / "m2.toml", REPO_ROOT)
-    assert m2.registered_by == "", "UNREGISTERED until a ledger entry fixes it; update this with the entry"
+    assert m2.registered_by == "0015"
     assert [c.id for c in m2.changes] == ["S1", "S2", "S3", "S4", "S5", "S6"]
     assert [(c.id, c.reading) for c in m2.changes if c.reading == "differs"] == [("S3", "differs"), ("S4", "differs")]
     assert [(h.id, h.slots, h.rule) for h in m2.hypotheses] == [("H-M2L1", 1, "prefix")]
     m3 = load_m3_config(REPO_ROOT / "config" / "m3.toml", REPO_ROOT)
-    assert m3.registered_by == "", "UNREGISTERED until a ledger entry fixes it; update this with the entry"
-    assert m3.base_kwargs == {"date_string": "01 Oct 2026", "enable_thinking": True, "tools_in_user_message": False}
+    assert m3.registered_by == "0015"
+    assert m3.base_kwargs == {"date_string": "01 Oct 2026", "enable_thinking": True}
     assert [(c.id, c.key, c.value) for c in m3.changes] == [("T1", "date_string", "02 Oct 2026"), ("T2", "enable_thinking", False)]
     assert {(h.id, h.slots, h.rule) for h in m3.hypotheses} == {("H-M3L1", 1, "prefix"), ("H-M3LD", 4, "threshold")}
     seal = load_seal_config(REPO_ROOT / "config" / "seal.toml", REPO_ROOT)

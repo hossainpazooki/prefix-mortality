@@ -1,7 +1,7 @@
 # Serialization drift (M2) on llama.cpp: the same tool schemas written differently in the request.
 #
-# UNREGISTERED until a ledger entry fixes these values; the driver refuses to run while
-# `registered_by` is empty. Request parameters are those of config/controls.toml. Each change's
+# Registered by ledger entry 0015, which fixes these values. A change to any of them needs a new
+# entry; the driver refuses to run while `registered_by` is empty. Request parameters are those of config/controls.toml. Each change's
 # `reading` is what the pinned source says the render will do (common/chat.cpp parses a tool into
 # name, description, parameters and rebuilds it in that order; only the order inside `parameters`
 # survives). The reading is reported against the render; the prediction comes from the render alone.
@@ -9,7 +9,7 @@
 repetitions = 5
 corpus_dir = "corpus/live/m2"
 results_dir = "results/m2"
-registered_by = ""
+registered_by = "0015"
 
 [m2.changes.S1]
 reading = "identical"                 # indentation and spacing only

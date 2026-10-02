@@ -36,7 +36,6 @@ registered_by = "{registered}"
 [m3.base_kwargs]
 date_string = "01 Oct 2026"
 enable_thinking = true
-tools_in_user_message = false
 [m3.changes.T1]
 key = "date_string"
 value = "02 Oct 2026"
@@ -115,7 +114,7 @@ def test_records_carry_the_change_and_the_summarizer_checks_only_kwargs_changed(
     assert all(r["experiment"] == "m3" for r in records)
     for r in records:
         body = json.loads(load_request(requests_dir, r["request_sha256"])["body"])
-        assert body["chat_template_kwargs"]["tools_in_user_message"] is False
+        assert set(body["chat_template_kwargs"]) == {"date_string", "enable_thinking"}
     t1 = [r for r in records if r["change"] == "T1"]
     base_body = json.loads(load_request(requests_dir, t1[0]["request_sha256"])["body"])
     changed_body = json.loads(load_request(requests_dir, t1[1]["request_sha256"])["body"])
@@ -170,5 +169,5 @@ def test_probe_reports_each_change_and_records_nothing(tmp_path):
     t1, t2 = out["trials"]
     assert t1["predicted_reuse"] == 0 and t1["match"] and t1["render_diff"] is not None
     assert t2["render_diff"] is None and t2["predicted_reuse"] == t2["prompt_tokens"] - 1 and t2["match"]
-    assert out["base_kwargs"]["tools_in_user_message"] is False and out["server"]["total_slots"] == 4
+    assert out["base_kwargs"] == {"date_string": "01 Oct 2026", "enable_thinking": True} and out["server"]["total_slots"] == 4
     assert not list((w["root"] / "corpus" / "requests").iterdir()) and not list((w["root"] / "corpus" / "live" / "m3").iterdir())
