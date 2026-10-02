@@ -44,14 +44,21 @@ refuter's pass.
 .venv/Scripts/python.exe -m prefix_mortality.m7 probe --url URL --hypothesis H-M7LD --family qwen --ks 1,12
 .venv/Scripts/python.exe -m prefix_mortality.m7 run --url URL --hypothesis H-M7LD --family qwen --model-path FILE
 .venv/Scripts/python.exe -m prefix_mortality.summarize_m7 --run RUN_ID
+.venv/Scripts/python.exe -m prefix_mortality.m2 probe --url URL --hypothesis H-M2L1 --changes S1,S3
+.venv/Scripts/python.exe -m prefix_mortality.m2 run --url URL --hypothesis H-M2L1 --family qwen --model-path FILE
+.venv/Scripts/python.exe -m prefix_mortality.summarize_m2 --run RUN_ID
+.venv/Scripts/python.exe -m prefix_mortality.m3 probe --url URL --hypothesis H-M3LD --changes T1,T2
+.venv/Scripts/python.exe -m prefix_mortality.m3 run --url URL --hypothesis H-M3LD --family qwen --model-path FILE
+.venv/Scripts/python.exe -m prefix_mortality.summarize_m3 --run RUN_ID
 ```
 On macOS/Linux the interpreter is `.venv/bin/python`. The project pins Python 3.12.
 
 A driver's `run` refuses until a ledger entry registers its config: `config/controls.toml` and
-`config/engines.toml` for the controls, and `config/m1.toml` or `config/m7.toml` as well for edit
-position or eviction. `m1 run` and `m7 run` also refuse a server that does not report the number of
-slots its hypothesis requires; `m7 run` refuses one that reports no slot context, and sends no trial
-whose anchor does not fit it. After a run, `manifest write`, then commit the new files under `corpus/`.
+`config/engines.toml` for the controls, and `config/m1.toml`, `config/m2.toml`, `config/m3.toml` or
+`config/m7.toml` as well for edit position, serialization drift, templating or eviction. Every
+experiment's `run` also refuses a server that does not report the number of slots its hypothesis
+requires; `m7 run` refuses one that reports no slot context, and sends no trial whose anchor does not
+fit it. After a run, `manifest write`, then commit the new files under `corpus/`.
 
 `tools/render_tau2_prefix.py` is not run by this venv: it needs an interpreter with tau2 installed
 from a checkout at the pinned commit, with the package versions in
@@ -63,9 +70,11 @@ in the fixture's provenance, so editing it turns `tests/test_base_prefix.py` red
 `config` (seal, controls, m1, m7, engines) · `nonce` · `manifest` · `llamacpp` (engine client) ·
 `record` (request log) · `controls` (driver) · `summarize` (the rules, and the recomputation) · `edits`
 (one word replaced at a named site) · `m1` (driver) · `summarize_m1` (its rules, and the recomputation)
-· `m7` (driver: anchor, K foreign requests, resend) · `summarize_m7` (its rule, and the recomputation).
-`config/` — `seal.toml`, `controls.toml`, `m1.toml`, `m7.toml`, `engines.toml`. `ledger/` —
-`ledger.md`, `predictions/`.
+· `m7` (driver: anchor, K foreign requests, resend) · `summarize_m7` (its rule, and the recomputation)
+· `serialize` (the six re-serializations of the tools) · `pairs` (two-request evaluation shared by M2
+and M3) · `m2`, `summarize_m2` (serialization drift) · `m3`, `summarize_m3` (templating).
+`config/` — `seal.toml`, `controls.toml`, `m1.toml`, `m2.toml`, `m3.toml`, `m7.toml`, `engines.toml`.
+`ledger/` — `ledger.md`, `predictions/`.
 `corpus/` — `base_prefix/tau2-airline/`, `live/`, `requests/`, `MANIFEST.json`. `tools/` —
 `render_tau2_prefix.py`. `results/` — gitignored past its placeholder.
 
@@ -84,4 +93,8 @@ hypotheses are `[VALIDATED]`. Eviction by intervening requests (M7: an anchor, K
 at a time, the anchor again) is `H-M7LD`, registered by ledger 0012 at the defaults only and HELD on
 both models (ledger 0013): the resend reused *n* − 1 at every *K* up to 11 and 0 from *K* = 12, where
 the anchor and the first *K* − 1 foreign prompts stop fitting in the 8192 MiB prompt cache. It is
-`[VALIDATED]` (ledger 0014). Six causes remain `[FUTURE]`; the next is the operator's ruling.
+`[VALIDATED]` (ledger 0014). Serialization drift (M2: six re-serializations of the tools) and
+templating (M3: a date argument and a thinking switch, with Llama's tools placed in the system block)
+are built and tested against the stand-in; `config/m2.toml` and `config/m3.toml` are UNREGISTERED
+until a ledger entry fixes them. Nothing of M2 or M3 has run against an engine. Four causes remain
+`[FUTURE]`.
