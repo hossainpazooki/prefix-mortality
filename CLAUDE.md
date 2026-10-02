@@ -4,7 +4,7 @@ Read `README.md` for what this is. `ledger/ledger.md` is the record and is appen
 entry; entry 0001 carries the scope, the claim under test and the registration rules, entry 0002
 the controls' rules for llama.cpp, entries 0003 and 0004 their outcomes, entry 0005 their closure
 and the one-slot rule, entry 0006 the two hypotheses on edit position, entries 0007 and 0009 their
-verdicts, and entry 0008 rule 5 on `[VALIDATED]`.
+verdicts, entry 0008 rule 5 on `[VALIDATED]`, and entries 0010 and 0011 the refuters' passes.
 
 ## Rules
 - The chassis is copied from lag-ladder, not shared. Never import `lag_ladder`, `linear_ceiling` or
@@ -39,13 +39,17 @@ verdicts, and entry 0008 rule 5 on `[VALIDATED]`.
 .venv/Scripts/python.exe -m prefix_mortality.m1 probe --url URL --hypothesis H-M1L1 --sites system-0.240,user
 .venv/Scripts/python.exe -m prefix_mortality.m1 run --url URL --hypothesis H-M1L1 --family qwen --model-path FILE
 .venv/Scripts/python.exe -m prefix_mortality.summarize_m1 --run RUN_ID
+.venv/Scripts/python.exe -m prefix_mortality.m7 probe --url URL --hypothesis H-M7LD --family qwen --ks 1,12
+.venv/Scripts/python.exe -m prefix_mortality.m7 run --url URL --hypothesis H-M7LD --family qwen --model-path FILE
+.venv/Scripts/python.exe -m prefix_mortality.summarize_m7 --run RUN_ID
 ```
 On macOS/Linux the interpreter is `.venv/bin/python`. The project pins Python 3.12.
 
 A driver's `run` refuses until a ledger entry registers its config: `config/controls.toml` and
-`config/engines.toml` for the controls, and `config/m1.toml` as well for edit position. `m1 run`
-also refuses a server that does not report the number of slots its hypothesis requires. After a
-run, `manifest write`, then commit the new files under `corpus/`.
+`config/engines.toml` for the controls, and `config/m1.toml` or `config/m7.toml` as well for edit
+position or eviction. `m1 run` and `m7 run` also refuse a server that does not report the number of
+slots its hypothesis requires; `m7 run` refuses one that reports no slot context, and sends no trial
+whose anchor does not fit it. After a run, `manifest write`, then commit the new files under `corpus/`.
 
 `tools/render_tau2_prefix.py` is not run by this venv: it needs an interpreter with tau2 installed
 from a checkout at the pinned commit, with the package versions in
@@ -54,11 +58,12 @@ in the fixture's provenance, so editing it turns `tests/test_base_prefix.py` red
 
 ## Layout
 `src/prefix_mortality/` — `hashing` · `rng` · `seal` · `ledger_check` · `lint_scope` (chassis) ·
-`config` (seal, controls, m1, engines) · `nonce` · `manifest` · `llamacpp` (engine client) · `record`
-(request log) · `controls` (driver) · `summarize` (the rules, and the recomputation) · `edits` (one
-word replaced at a named site) · `m1` (driver) · `summarize_m1` (its rules, and the recomputation).
-`config/` — `seal.toml`, `controls.toml`, `m1.toml`, `engines.toml`. `ledger/` — `ledger.md`,
-`predictions/`.
+`config` (seal, controls, m1, m7, engines) · `nonce` · `manifest` · `llamacpp` (engine client) ·
+`record` (request log) · `controls` (driver) · `summarize` (the rules, and the recomputation) · `edits`
+(one word replaced at a named site) · `m1` (driver) · `summarize_m1` (its rules, and the recomputation)
+· `m7` (driver: anchor, K foreign requests, resend) · `summarize_m7` (its rule, and the recomputation).
+`config/` — `seal.toml`, `controls.toml`, `m1.toml`, `m7.toml`, `engines.toml`. `ledger/` —
+`ledger.md`, `predictions/`.
 `corpus/` — `base_prefix/tau2-airline/`, `live/`, `requests/`, `MANIFEST.json`. `tools/` —
 `render_tau2_prefix.py`. `results/` — gitignored past its placeholder.
 
@@ -73,4 +78,6 @@ models (ledger 0007, 0009): with one slot every trial reused exactly the tokens 
 that differed; at the defaults it reused them above about a tenth of the prompt and nothing below,
 the change bracketed between 0.0945 and 0.1048 of the prompt. Ledger 0008 adds rule 5: `[VALIDATED]`
 only through an independent refuter's entry; 0010 and 0011 record the refuters' passes, and both
-hypotheses are `[VALIDATED]`. Next: the next cause, on the operator's ruling.
+hypotheses are `[VALIDATED]`. Eviction by intervening requests (M7: an anchor, K foreign requests one
+at a time, the anchor again) is built and tested against the stand-in; `config/m7.toml` is
+UNREGISTERED until a ledger entry fixes it. Nothing of M7 has run against an engine.
