@@ -5,8 +5,8 @@ entry; entry 0001 carries the scope, the claim under test and the registration r
 the controls' rules for llama.cpp, entries 0003 and 0004 their outcomes, entry 0005 their closure
 and the one-slot rule, entry 0006 the two hypotheses on edit position, entries 0007 and 0009 their
 verdicts, entry 0008 rule 5 on `[VALIDATED]`, entries 0010 and 0011 the refuters' passes, and entry
-0012 the hypothesis on eviction by intervening requests, entry 0013 its verdict and entry 0014 the
-refuter's pass.
+0012 the hypothesis on eviction by intervening requests, entry 0013 its verdict, entry 0014 the
+refuter's pass, and entry 0015 the hypotheses on serialization drift and templating.
 
 ## Rules
 - The chassis is copied from lag-ladder, not shared. Never import `lag_ladder`, `linear_ceiling` or
@@ -94,7 +94,6 @@ at a time, the anchor again) is `H-M7LD`, registered by ledger 0012 at the defau
 both models (ledger 0013): the resend reused *n* − 1 at every *K* up to 11 and 0 from *K* = 12, where
 the anchor and the first *K* − 1 foreign prompts stop fitting in the 8192 MiB prompt cache. It is
 `[VALIDATED]` (ledger 0014). Serialization drift (M2: six re-serializations of the tools) and
-templating (M3: a date argument and a thinking switch, with Llama's tools placed in the system block)
-are built and tested against the stand-in; `config/m2.toml` and `config/m3.toml` are UNREGISTERED
-until a ledger entry fixes them. Nothing of M2 or M3 has run against an engine. Four causes remain
-`[FUTURE]`.
+templating (M3: a date argument and a thinking switch)
+are registered by ledger 0015 as `H-M2L1` (one slot) and `H-M3L1`, `H-M3LD` (one slot, defaults).
+Registered, not run. Four causes remain `[FUTURE]`.
