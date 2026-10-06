@@ -22,6 +22,8 @@ numerator nor a denominator. It is never written as a zero.
 | H-M2L1 | On llama.cpp `b11235` started with `--parallel 1`, a request whose tool schemas are written differently reuses exactly the common token prefix of its rendered prompt with the base request's, and *n* − 1 when the two render identically. | entry 0015 | HELD |
 | H-M3L1 | On llama.cpp `b11235` started with `--parallel 1`, a request that differs from the held prompt only in a chat-template argument reuses exactly the common token prefix of the two rendered prompts, and *n* − 1 when they render identically. | entry 0015 | HELD |
 | H-M3LD | On llama.cpp `b11235` at its defaults, the same request reuses that prefix when it is more than 0.10 of its length, and none otherwise. | entry 0015 | HELD |
+| H-M4LD | On llama.cpp `b11235` at its defaults, a request identical to one served *g* seconds earlier, with nothing served between them, reuses *n* − 1 tokens at every registered *g* (0, 2, 4, 60, 600). | entry 0019 | unresolved |
+| H-M4LS | On llama.cpp `b11235` started with `--sleep-idle-seconds 60`, the same request reuses *n* − 1 tokens after a gap of 20 seconds and 0 after a gap of 100 seconds, the server reporting sleeping in between. | entry 0019 | unresolved |
 
 ## Entries
 
@@ -910,3 +912,77 @@ a tenth of it would keep the 24 tokens.
 **Status.** Six hypotheses on this engine, all `[VALIDATED]`: `H-M1L1`, `H-M1LD`, `H-M7LD`,
 `H-M2L1`, `H-M3L1`, `H-M3LD`. Four causes are measured and refuted without result; four remain
 `[FUTURE]`.
+
+### 0019 — 2026-10-06 — Idle expiry registered on llama.cpp: H-M4LD, H-M4LS
+
+prior-entries-sha256: d42d58370f266a620666c5b0f62ce348c66658bba62430a0676d0521b74a5d93
+
+**Registers** `config/m4.toml`, now `registered_by = "0019"`, and two hypotheses. Engine, models and
+machine are those of 0002, the request parameters those of `config/controls.toml`.
+
+**Id.** `M4` is the fourth cause of 0001, idle expiry; `D` the defaults as in 0006; `S` a server
+started with its idle timer on. Ruled by the operator on 2026-10-03 and 2026-10-06: idle expiry is
+read as time alone, with the server's one timer as the engine event that depends on it; the gaps are
+taken from recorded agent runs, so the corpus was vendored first.
+
+| id | server | the records must say | predicted reuse of the resend after a gap of *g* seconds |
+|---|---|---|---|
+| `H-M4LD` | Started with no flag but the model. | 4 slots, a slot context every request fits, and `is_sleeping` false after every gap. | *n* − 1 at every registered *g*: 0, 2, 4, 60 and 600. |
+| `H-M4LS` | Started with `--sleep-idle-seconds 60` and nothing else. | 4 slots, a slot context every request fits, `is_sleeping` false after a gap of 20 and true after a gap of 100. | *n* − 1 at *g* = 20; 0 at *g* = 100. |
+
+**The reading** (`tools/server/server-queue.cpp` and `server-context.cpp` at the pin). The server has
+one timer. Its loop notes the time of the last task posted, moved forward by the time the slots took,
+and once a second compares the idle time with `--sleep-idle-seconds`; at −1, the default, it never
+sleeps. A slot's last-used time serves only the choice of slot, and the prompt cache has no age.
+Entering sleep frees the contexts, and with them every slot; the reload that follows creates a new,
+empty prompt cache. With nothing served between an anchor and its resend the anchor's slot keeps its
+prompt (0005: a slot is cleared when another request launches), so at the defaults the resend is an
+identical resend into a held slot, *n* − 1 (0003), at any *g*. `GET /props` posts no task: it neither
+moves the timer nor wakes the server, and it reports `is_sleeping`. `POST /apply-template` and
+`POST /tokenize` post no task either, but they wait for a sleeping server to reload; so the driver
+renders and tokenizes the anchor before sending it, and sends nothing but one `GET /props`, at the
+end of the gap, until the resend is answered.
+
+**The gaps.** `corpus/recorded/tau2-airline-claude-3-7-sonnet/` holds fifty of tau2-bench's published
+airline conversations (one trial per task; provenance in the folder). `prefix_mortality.recorded
+stats` reads, from their timestamps, the span from an assistant message to the next message of the
+conversation, which is when the agent's next request leaves and so the time the serving side holds
+that conversation's prefix with nothing arriving: 0.0 s at the median, 1.5 s at the 90th percentile,
+3.9 s at most, over 762 assistant turns. The registered gaps at the defaults are 0 (identity), 2 and 4
+(the 90th percentile and the maximum of that span, rounded up), 60 (the threshold the `S` cell
+uses, measured here with no timer), and 600 (a bound ten minutes beyond anything in the corpus).
+
+**A trial** is two requests under one fresh nonce: the anchor (the base request), a gap of *g*
+seconds, one `GET /props` whose `is_sleeping` the resend's record carries, then the anchor's bytes
+again. `H-M4LD`: *g* over 0, 2, 4, 60 and 600 seconds, twice each: 10 trials and 20 requests per
+model, about 25 minutes. `H-M4LS`: *g* over 20 and 100 seconds, three times each: 6 trials and 12
+requests per model, about 8 minutes and three reloads. The anchor is a control inside the trial: a
+fresh prompt reuses 0 (0003, 0009). A registered gap keeps at least 5 seconds from the threshold, for
+the once-a-second check; the recorded gap, from the anchor's last timestamp to the resend's first,
+must be at least *g* and less than *g* + 5.
+
+**What decides.**
+
+| case | rule |
+|---|---|
+| A trial matches. | The resend's reuse equals its prediction, and every request's two counts add up to *n* and its two reuse fields agree. |
+| `HELD` | Every counted trial of both models matches. Each hypothesis is decided on its own runs. |
+| `NOT CONFIRMED` | At least one counted trial does not match. The results entry states, per model and per gap, how many resends reused *n* − 1 and how many 0. |
+| A control fails. | The anchor reuses anything but 0; the resend is not the anchor's bytes; a record lies between them; the recorded gap is below *g* or at least *g* + 5; `is_sleeping` after the gap disagrees with the prediction (the server did not do what its flag says). The run stops, and no verdict follows from it. |
+| NOT MEASURABLE | The server does not report a field, a slot context or `is_sleeping`; a request has at least as many tokens as the slot context; the local date changed inside a trial. The verdict stays `unresolved`. |
+| The records say another number of slots, more than one slot context, or a gap not registered. | The run is not that experiment. |
+
+A prediction is a function of the registered timer, the registered gap and the anchor's token count,
+and of nothing else. The driver writes it before the resend is sent; `summarize_m4` recomputes it
+and refuses a record that carries another value.
+
+**Known before the run.**
+
+| fact | consequence |
+|---|---|
+| The server's properties do not report `--sleep-idle-seconds`. | The flag is passed on the command line by the run script and read back only through `is_sleeping` after each gap, which the records carry. A server reporting sleeping under `H-M4LD`, or awake after 100 seconds under `H-M4LS`, has failed a control. |
+| `H-M4LD` predicts no death at any gap. | The null is read against a known death: 0013 shows this instrument reading one from twelve requests. "No death from 600 idle seconds" is a bound on this server's defaults at 600 seconds, not a property of caches and not a statement beyond 600. |
+| Unrecorded requests of this kind were sent to the `qwen` server on 2026-10-06, before this entry: at the defaults, gaps of 0 and 30; with the timer at 60, gaps of 20 and 80 with a `/props` read 10 seconds in, a gap of 75 with a `/props` read 30 seconds in, and a gap of 100 with a render 70 seconds in. | Nothing from them is evidence and no figure from them appears here. The rule and the schedule are those committed before registration. |
+| Not measured: a server restart, and a slot saved to disk and restored across one (process events, to be designed with model switch); requests in flight together; the one-slot configuration (its slot is never cleared with nothing between either, so the same rule would be read); gaps beyond 600 seconds. | Stated in the results entry as what the runs do not show. |
+
+**Status.** `H-M4LD` and `H-M4LS` are `[STRETCH]`: registered, not run. `qwen` runs first.

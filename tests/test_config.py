@@ -285,10 +285,10 @@ def test_repo_configs_load():
     assert engine.commit == ENGINE_SHA
     assert {m.family for m in engine.models} == {"qwen", "llama"}
     m4 = load_m4_config(REPO_ROOT / "config" / "m4.toml", REPO_ROOT)
-    assert m4.registered_by == ""            # the registering entry changes this
+    assert m4.registered_by == "0019"
     assert m4.sleep_margin_seconds == 5
     assert [(h.id, h.slots, h.sleep_idle_seconds, h.gaps, h.repetitions) for h in m4.hypotheses] == [
-        ("H-M4LD", 4, -1, (0, 30, 120, 600), 2), ("H-M4LS", 4, 60, (20, 100), 3)]
+        ("H-M4LD", 4, -1, (0, 2, 4, 60, 600), 2), ("H-M4LS", 4, 60, (20, 100), 3)]
 
 
 M2 = '''

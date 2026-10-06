@@ -34,6 +34,7 @@ REQUIRED_IDS: tuple[str, ...] = (      # grows with each registering entry (the 
     "H-M1L1", "H-M1LD",                # entry 0006
     "H-M7LD",                          # entry 0012
     "H-M2L1", "H-M3L1", "H-M3LD",      # entry 0015
+    "H-M4LD", "H-M4LS",                # entry 0019
 )
 VERDICTS = ("unresolved", "HELD", "NOT CONFIRMED", "WITHDRAWN", "SUPERSEDED", "SHELVED", "UNESTIMABLE")
 CHAIN_REQUIRED_FROM = 2
