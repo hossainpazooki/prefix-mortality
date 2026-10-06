@@ -1,0 +1,28 @@
+# Idle expiry (M4) on llama.cpp: an anchor request, a gap of g seconds in which nothing but one
+# GET /props is sent (at its end), then the anchor again byte for byte.
+#
+# Registered by a ledger entry, which fixes these values. A change to any of them needs a new entry;
+# the driver refuses to run while `registered_by` is empty. Request parameters (tokens to generate,
+# temperature, nonce length, user message) are those of config/controls.toml.
+[m4]
+sleep_margin_seconds = 5        # a registered gap keeps this far from the sleep threshold, and the
+                                # recorded gap must be at least g and less than g + this: the server
+                                # checks idleness once a second, from the end of the anchor's processing
+corpus_dir = "corpus/live/m4"
+results_dir = "results/m4"
+registered_by = ""
+
+# `slots` is what the server must report. `sleep_idle_seconds` is the server's --sleep-idle-seconds:
+# -1, its default, is no timer. The properties do not report the flag; the run script passes it on
+# the command line and the records read it back only through `is_sleeping` after each gap.
+[m4.hypotheses.H-M4LD]          # server at its defaults
+slots = 4
+sleep_idle_seconds = -1
+gaps = [0, 30, 120, 600]        # seconds between the anchor's answer and the resend
+repetitions = 2                 # trials per gap, per model
+
+[m4.hypotheses.H-M4LS]          # server started with --sleep-idle-seconds 60 and nothing else
+slots = 4
+sleep_idle_seconds = 60
+gaps = [20, 100]
+repetitions = 3

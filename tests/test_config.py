@@ -3,7 +3,7 @@ replaced by the controls and engines loaders."""
 import pytest
 
 from prefix_mortality.config import (load_controls_config, load_engines_config, load_m1_config, load_m2_config,
-                                     load_m3_config, load_m7_config,
+                                     load_m3_config, load_m4_config, load_m7_config,
                                      load_seal_config)
 
 
@@ -284,6 +284,11 @@ def test_repo_configs_load():
     assert engine.registered_by == "0002"
     assert engine.commit == ENGINE_SHA
     assert {m.family for m in engine.models} == {"qwen", "llama"}
+    m4 = load_m4_config(REPO_ROOT / "config" / "m4.toml", REPO_ROOT)
+    assert m4.registered_by == ""            # the registering entry changes this
+    assert m4.sleep_margin_seconds == 5
+    assert [(h.id, h.slots, h.sleep_idle_seconds, h.gaps, h.repetitions) for h in m4.hypotheses] == [
+        ("H-M4LD", 4, -1, (0, 30, 120, 600), 2), ("H-M4LS", 4, 60, (20, 100), 3)]
 
 
 M2 = '''
@@ -383,3 +388,62 @@ def test_m3_config_refuses_bad_values(tmp_path, old, new, msg):
     assert M3.count(old) == 1
     with pytest.raises(ValueError, match=msg):
         load_m3_config(_write(tmp_path, "m3.toml", M3.replace(old, new)), repo_root=tmp_path)
+
+
+M4 = '''
+[m4]
+sleep_margin_seconds = 5
+corpus_dir = "corpus/live/m4"
+results_dir = "results/m4"
+registered_by = ""
+[m4.hypotheses.H-M4LD]
+slots = 4
+sleep_idle_seconds = -1
+gaps = [0, 30, 600]
+repetitions = 2
+[m4.hypotheses.H-M4LS]
+slots = 4
+sleep_idle_seconds = 60
+gaps = [20, 100]
+repetitions = 3
+'''
+
+
+def test_m4_config_loads_two_server_configurations(tmp_path):
+    cfg = load_m4_config(_write(tmp_path, "m4.toml", M4), repo_root=tmp_path)
+    assert cfg.sleep_margin_seconds == 5 and cfg.registered_by == ""
+    assert cfg.corpus_dir == tmp_path / "corpus/live/m4" and cfg.results_dir == tmp_path / "results/m4"
+    ld, ls = cfg.hypotheses
+    assert (ld.id, ld.slots, ld.sleep_idle_seconds, ld.gaps, ld.repetitions, ld.sleeps) == ("H-M4LD", 4, -1, (0, 30, 600), 2, False)
+    assert (ls.id, ls.slots, ls.sleep_idle_seconds, ls.gaps, ls.repetitions, ls.sleeps) == ("H-M4LS", 4, 60, (20, 100), 3, True)
+    assert cfg.hypothesis("H-M4LS") is ls
+    with pytest.raises(ValueError, match="registers no hypothesis 'H-M4L1'"):
+        cfg.hypothesis("H-M4L1")
+
+
+@pytest.mark.parametrize("old, new, msg", [
+    ("gaps = [0, 30, 600]", "gaps = [30, 0, 600]", "strictly ascending"),
+    ("gaps = [0, 30, 600]", "gaps = []", "names no gap"),
+    ("sleep_idle_seconds = -1", "sleep_idle_seconds = 0", "must be -1 .no timer. or an int >= 1"),
+    ("sleep_idle_seconds = -1", "sleep_idle_seconds = -2", "must be -1 .no timer. or an int >= 1"),
+    ("sleep_idle_seconds = -1", "sleep_idle_seconds = true", "must be -1 .no timer. or an int >= 1"),
+    ("gaps = [20, 100]", "gaps = [20, 63]", r"gaps \[63\] are within 5 s of the sleep threshold 60"),
+    ("gaps = [20, 100]", "gaps = [56, 100]", r"gaps \[56\] are within 5 s of the sleep threshold 60"),
+    ("gaps = [20, 100]", "gaps = [20, 60]", r"gaps \[60\] are within 5 s"),
+    ("sleep_margin_seconds = 5", "sleep_margin_seconds = 0", "sleep_margin_seconds must be an int >= 1"),
+    ("repetitions = 2", "repetitions = 0", "repetitions must be an int >= 1"),
+    ("slots = 4\nsleep_idle_seconds = -1", "slots = 0\nsleep_idle_seconds = -1", "slots must be an int >= 1"),
+    ("[m4.hypotheses.H-M4LD]", "[m4.hypotheses.H-M4A1]", "an id is H-M4L"),
+    ('registered_by = ""', 'registered_by = ""\nextra = 1', "unknown keys"),
+    ("repetitions = 3\n", "", "is missing"),
+])
+def test_m4_config_refuses_bad_values(tmp_path, old, new, msg):
+    assert M4.count(old) == 1
+    with pytest.raises(ValueError, match=msg):
+        load_m4_config(_write(tmp_path, "m4.toml", M4.replace(old, new)), repo_root=tmp_path)
+
+
+def test_m4_config_refuses_a_file_with_no_hypothesis(tmp_path):
+    none = M4[:M4.index("[m4.hypotheses.H-M4LD]")] + "[m4.hypotheses]\n"
+    with pytest.raises(ValueError, match="registers no hypothesis"):
+        load_m4_config(_write(tmp_path, "m4.toml", none), repo_root=tmp_path)

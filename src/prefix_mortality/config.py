@@ -514,6 +514,76 @@ def load_m3_config(path: Path, repo_root: Path) -> M3Config:
                     registered_by=_registered_by(c["registered_by"], name), config_path=path)
 
 
+# --- idle expiry (M4) ----------------------------------------------------------------------------
+
+_M4_ID = re.compile(r"H-M4L[A-Za-z0-9]")
+_M4_KEYS = ("sleep_margin_seconds", "corpus_dir", "results_dir", "registered_by", "hypotheses")
+_M4_HYPOTHESIS_KEYS = ("slots", "sleep_idle_seconds", "gaps", "repetitions")
+
+
+@dataclass(frozen=True)
+class M4Hypothesis:
+    """One server configuration: the slots it must report, its idle timer in seconds (-1 for none,
+    the server's default), the gaps to wait before the resend, and how many trials per gap."""
+    id: str
+    slots: int
+    sleep_idle_seconds: int
+    gaps: tuple[int, ...]
+    repetitions: int
+
+    @property
+    def sleeps(self) -> bool:
+        return self.sleep_idle_seconds >= 1
+
+
+@dataclass(frozen=True)
+class M4Config:
+    """Idle expiry. Request parameters come from the controls config."""
+    sleep_margin_seconds: int
+    corpus_dir: Path
+    results_dir: Path
+    hypotheses: tuple[M4Hypothesis, ...]
+    registered_by: str
+    config_path: Path
+
+    def hypothesis(self, hid: str) -> M4Hypothesis:
+        return _find(self.hypotheses, hid, "hypothesis", self.config_path.name)
+
+
+def load_m4_config(path: Path, repo_root: Path) -> M4Config:
+    path = Path(path)
+    name = f"{path.name} [m4]"
+    c = _read(path)["m4"]
+    _require(c, _M4_KEYS, name)
+    margin = _int(c, "sleep_margin_seconds", name, minimum=1)
+    hypotheses = []
+    for hid, h in c["hypotheses"].items():
+        hname = f"{name}.hypotheses.{hid}"
+        if not _M4_ID.fullmatch(hid):
+            raise ValueError(f"{hname}: an id is H-M4L and one letter or digit for the configuration")
+        _require(h, _M4_HYPOTHESIS_KEYS, hname)
+        s = h["sleep_idle_seconds"]
+        if isinstance(s, bool) or not isinstance(s, int) or s == 0 or s < -1:
+            raise ValueError(f"{hname} sleep_idle_seconds must be -1 (no timer) or an int >= 1; the server "
+                             f"refuses 0 and anything below -1; got {s!r}")
+        gaps = _ascending(h, "gaps", hname, int, 0, 86_400)
+        if not gaps:
+            raise ValueError(f"{hname} gaps names no gap")
+        if s >= 1:
+            near = [g for g in gaps if abs(g - s) < margin]
+            if near:
+                raise ValueError(f"{hname}: gaps {near} are within {margin} s of the sleep threshold {s}; the "
+                                 "server checks idleness once a second, so such a gap predicts nothing")
+        hypotheses.append(M4Hypothesis(id=hid, slots=_int(h, "slots", hname, minimum=1), sleep_idle_seconds=s,
+                                       gaps=gaps, repetitions=_int(h, "repetitions", hname, minimum=1)))
+    if not hypotheses:
+        raise ValueError(f"{name} registers no hypothesis")
+    root = Path(repo_root)
+    return M4Config(sleep_margin_seconds=margin, corpus_dir=root / c["corpus_dir"],
+                    results_dir=root / c["results_dir"], hypotheses=tuple(hypotheses),
+                    registered_by=_registered_by(c["registered_by"], name), config_path=path)
+
+
 # --- engines -------------------------------------------------------------------------------------
 
 @dataclass(frozen=True)
