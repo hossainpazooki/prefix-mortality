@@ -10,7 +10,14 @@ It follows what was read in the pinned source (ledger entries 0002 and 0005):
   * when a request starts, every other slot is copied to the cache and cleared;
   * the cache keeps entries in arrival order and, given a byte limit, drops the oldest until a new
     entry fits; an entry is tokens x bytes per token (ledger entry 0011's successor reads this);
-  * a request of at least the slot context in tokens is refused, as the server refuses it.
+  * a request of at least the slot context in tokens is refused, as the server refuses it;
+  * with `sleep_idle_seconds` >= 1, a server idle for that long (checked whenever it is asked
+    anything, as the real one checks once a second) enters sleep: slots and cache are gone, and the
+    next request that needs the model reloads it, with a new cache. GET /props is not a request of
+    that kind: it reports `is_sleeping` and moves nothing. /apply-template and /tokenize wake a
+    sleeping server but do not move an awake one's timer; a chat does both;
+  * `expire_after_seconds` is a death no server at the pin has: a slot that forgets by time without
+    sleeping. It exists so a test can show the driver reading one.
 
   * before rendering, a tool is rebuilt as the server does: `type`, then `function` with `name`,
     `description` (default empty) and `parameters` (default empty object), other keys dropped, the
@@ -27,6 +34,7 @@ pass shows they agree with the reading, not that the reading is right.
 import json
 import re
 import threading
+import time
 from contextlib import contextmanager
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
@@ -64,18 +72,47 @@ def _rebuild_tool(t: dict) -> dict:
 class Engine:
     def __init__(self, mode: str = "faithful", build_info: str = "b11235-6c7a87f", slots: int = 1,
                  similarity: float = 0.10, cache_limit_bytes: int | None = None, bytes_per_token: int = 1,
-                 n_ctx: int = 8192, report_n_ctx: bool = True, template: str = "generic"):
+                 n_ctx: int = 8192, report_n_ctx: bool = True, template: str = "generic",
+                 sleep_idle_seconds: int = -1, clock=time.monotonic, expire_after_seconds: float | None = None):
         assert mode in MODES, mode
         self.mode, self.build_info, self.similarity = mode, build_info, similarity
         self.cache_limit_bytes, self.bytes_per_token = cache_limit_bytes, bytes_per_token
         self.n_ctx, self.report_n_ctx = n_ctx, report_n_ctx
         assert template in TEMPLATES, template
         self.template = template
+        self.sleep_idle_seconds, self.clock, self.expire_after_seconds = sleep_idle_seconds, clock, expire_after_seconds
+        self.sleeping, self.reloads = False, 0
+        self.last_task = clock()
         self.slots: list[list[int]] = [[] for _ in range(slots)]
         self.last_used = [-1] * slots
         self.cache: list[list[int]] = []
         self.ids: dict[str, int] = {}
         self.renders = self.requests = self.evictions = 0
+
+    def _forget(self) -> None:
+        self.slots = [[] for _ in self.slots]
+        self.cache = []
+
+    def _tick(self) -> None:
+        """What the server's loop does once a second, done whenever the stand-in is asked anything."""
+        idle = self.clock() - self.last_task
+        if self.sleep_idle_seconds >= 1 and not self.sleeping and idle >= self.sleep_idle_seconds:
+            self.sleeping = True
+            self._forget()
+        if self.expire_after_seconds is not None and idle >= self.expire_after_seconds:
+            self._forget()
+
+    def _wake(self) -> None:
+        """A call that needs the model: a sleeping server reloads it, with new slots and a new cache,
+        and its timer restarts."""
+        if self.sleeping:
+            self.sleeping = False
+            self.reloads += 1
+            self.last_task = self.clock()
+
+    def is_sleeping(self) -> bool:
+        self._tick()
+        return self.sleeping
 
     def _cache_add(self, ids: list[int]) -> None:
         """Arrival order; with a limit, the oldest entries go until the new one fits."""
@@ -87,6 +124,8 @@ class Engine:
         self.cache.append(ids)
 
     def render(self, body: dict) -> str:
+        self._tick()
+        self._wake()
         self.renders += 1
         clock = f"tick {self.renders}\n" if self.mode == "clock" else ""
         kwargs = body.get("chat_template_kwargs") or {}
@@ -112,6 +151,8 @@ class Engine:
         return out
 
     def tokenize(self, text: str) -> list[dict]:
+        self._tick()
+        self._wake()
         return [{"id": self.ids.setdefault(p, len(self.ids) + 1), "piece": p} for p in _PIECE.findall(text)]
 
     def _choose(self, ids: list[int]) -> int:
@@ -141,6 +182,8 @@ class Engine:
         return where
 
     def chat(self, body: dict) -> dict:
+        self._tick()
+        self._wake()
         ids = [t["id"] for t in self.tokenize(self.render(body))]
         n = len(ids)
         if n >= self.n_ctx:
@@ -155,6 +198,7 @@ class Engine:
         if self.mode == "sticky":
             reuse = n - 1
         self.requests += 1
+        self.last_task = self.clock()                    # a chat is a task: it restarts the idle timer
         self.slots[where], self.last_used[where] = ids, self.requests
         for i, held in enumerate(self.slots):           # every idle slot is copied to the cache and cleared
             if i != where and held:
@@ -185,7 +229,7 @@ def _handler(engine: Engine):
         def do_GET(self):
             settings = {"n_ctx": engine.n_ctx} if engine.report_n_ctx else {}
             self._reply({"build_info": engine.build_info, "total_slots": len(engine.slots),
-                         "default_generation_settings": settings})
+                         "default_generation_settings": settings, "is_sleeping": engine.is_sleeping()})
 
         def do_POST(self):
             body = json.loads(self.rfile.read(int(self.headers["Content-Length"])).decode("utf-8"))
