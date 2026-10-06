@@ -128,6 +128,7 @@ def test_at_the_defaults_every_gap_keeps_the_prefix(tmp_path):
         assert s["server_sleeps"] is False and t["is_sleeping"] is False
         assert t["observed_gap_seconds"] == t["gap_seconds"]
     assert clock.slept == list(GAPS_LD) * 2, "the driver waited exactly the registered gaps"
+    assert engine.props_reads == 1 + 2 * len(GAPS_LD), "one GET /props for the gate, then exactly one per gap"
     assert report["bracket"] == {"largest_gap_kept": 600, "smallest_gap_lost": None, "other_readings": []}
     assert [(g["gap_seconds"], g["counted"], g["kept"], g["lost"], g["slept"]) for g in report["by_gap"]] == [
         (0, 2, 2, 0, 0), (30, 2, 2, 0, 0), (600, 2, 2, 0, 0)]
@@ -249,6 +250,10 @@ def test_the_summarizer_reads_the_gap_the_sleep_state_and_the_date_from_the_reco
         changed(lambda rs: [r["server"].update(total_slots=1) for r in rs])
     with pytest.raises(ValueError, match="repeated resend record"):
         changed(lambda rs: rs[0].update(role="resend"))
+    other_nonce = changed(lambda rs: rs[1].update(nonce=rs[2]["nonce"]))              # the resend names another trial's nonce
+    assert other_nonce["failures"] == ["repetition 1 gap 20 s: resend_is_the_anchor is false"]
+    other_bytes = changed(lambda rs: rs[1].update(request_sha256=rs[2]["request_sha256"]))   # another trial's stored request
+    assert other_bytes["failures"] == ["repetition 1 gap 20 s: resend_is_the_anchor is false"]
 
 
 def test_summarize_refuses_a_changed_record_a_changed_prediction_and_a_changed_config(tmp_path):

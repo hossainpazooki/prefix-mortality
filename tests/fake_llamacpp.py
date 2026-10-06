@@ -87,7 +87,7 @@ class Engine:
         self.last_used = [-1] * slots
         self.cache: list[list[int]] = []
         self.ids: dict[str, int] = {}
-        self.renders = self.requests = self.evictions = 0
+        self.renders = self.requests = self.evictions = self.props_reads = 0
 
     def _forget(self) -> None:
         self.slots = [[] for _ in self.slots]
@@ -227,6 +227,7 @@ def _handler(engine: Engine):
             self.wfile.write(data)
 
         def do_GET(self):
+            engine.props_reads += 1
             settings = {"n_ctx": engine.n_ctx} if engine.report_n_ctx else {}
             self._reply({"build_info": engine.build_info, "total_slots": len(engine.slots),
                          "default_generation_settings": settings, "is_sleeping": engine.is_sleeping()})

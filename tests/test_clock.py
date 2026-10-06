@@ -3,6 +3,7 @@ lacks: a driver that called a method only the fake has would pass every stand-in
 the engine."""
 import inspect
 import re
+import time
 
 from prefix_mortality.clock import REAL, STAMP, Clock, seconds_between
 from tests.fake_clock import FakeClock
@@ -29,3 +30,9 @@ def test_the_real_clock_stamps_dates_and_waits():
     assert re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z", a) and STAMP.endswith("Z")
     assert re.fullmatch(r"\d{4}-\d{2}-\d{2}", REAL.today())
     assert REAL.now_utc().utcoffset().total_seconds() == 0
+
+
+def test_the_real_clock_really_waits():
+    t0 = time.perf_counter()
+    REAL.sleep(0.3)
+    assert time.perf_counter() - t0 >= 0.3
