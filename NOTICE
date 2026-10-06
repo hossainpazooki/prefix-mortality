@@ -12,8 +12,11 @@ b7ea9074c1cba482b30687fecdb5c8425fd6f619.
 What it covers: corpus/base_prefix/tau2-airline/system.txt, which contains
 tau2-bench's airline policy and agent instruction, and
 corpus/base_prefix/tau2-airline/tools.json, which is generated from its
-airline tool definitions. Every request stored under corpus/requests/ and
-every record that reproduces that text is covered as well.
+airline tool definitions; and corpus/recorded/tau2-airline-claude-3-7-sonnet/,
+fifty of the simulations in its published airline result file for the
+claude-3-7-sonnet agent, re-serialized with one field dropped. Every request
+stored under corpus/requests/ and every record that reproduces that text is
+covered as well.
 
 tau2-bench is distributed under the MIT License, reproduced here:
 

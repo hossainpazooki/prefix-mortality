@@ -80,6 +80,14 @@
       "bytes": 423823,
       "sha256": "8e7c10157b83d926ab6a6104fb3f0ebf790e5aa1627edd1d0354a2e2c14df7e4"
     },
+    "recorded/tau2-airline-claude-3-7-sonnet/provenance.json": {
+      "bytes": 1619,
+      "sha256": "48ccc77949b15deec82f7494b5483016e5481eb77ad83174e24d10981e9b9444"
+    },
+    "recorded/tau2-airline-claude-3-7-sonnet/simulations.json": {
+      "bytes": 1283295,
+      "sha256": "0a15fc13ff4aaae82349c3566b6e168b332b66f1b7f3873f8d995a96b4654e58"
+    },
     "requests/0019ae8915cce297447a5f8ce593e05d0e4cce174259e5a9a022d75efd0ffdcd.json": {
       "bytes": 127321,
       "sha256": "28118d47249ad0da446f8cfccc8c536605197d9f5f1f23595184dd2c717d0131"

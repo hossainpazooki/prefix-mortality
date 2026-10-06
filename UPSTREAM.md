@@ -15,6 +15,12 @@
   `websockets`, which tau2's package import reaches unconditionally.
 - What it cannot give: the bytes the published result files' runs sent. The fixture is a
   reconstruction at a public commit and is labelled so wherever it is used.
+- Also taken from it, at the same commit: `data/tau2/results/final/claude-3-7-sonnet-20250219_airline_default_gpt-4.1-2025-04-14_4trials.json`
+  (10,551,448 bytes, sha256 `40a2c6a246eab27db5cdefda895fbe7f44be78a23d300817248534aa606d66de`),
+  of which the 50 simulations with `trial == 0` are vendored under
+  `corpus/recorded/tau2-airline-claude-3-7-sonnet/` by `prefix_mortality.recorded extract` with
+  each message's `raw_data` dropped; `provenance.json` there carries the source hash and the
+  output hash. These are trajectories: their `usage` fields carry no cache count.
 
 ## 2. Serving engine — `llama.cpp` (run as a separate process, never linked)
 

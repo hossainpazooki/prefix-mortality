@@ -53,7 +53,7 @@ not.
   every entry hashes the ones above it, and CI refuses an edit to a committed entry.
 - `ledger/predictions/` — sealed pre-run predictions (`python -m prefix_mortality.seal`).
 - `config/*.toml` — every seed and threshold; nothing numeric lives in code.
-- `corpus/` — the base prefix, and later the request log; `corpus/MANIFEST.json` is checked against
+- `corpus/` — the base prefix, fifty recorded tau2-bench conversations with their provenance, and the request log; `corpus/MANIFEST.json` is checked against
   disk in both directions (`python -m prefix_mortality.manifest check`).
 - `UPSTREAM.md` — every pin, and where each copied module came from.
 
