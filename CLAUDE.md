@@ -45,6 +45,9 @@ refuter's pass, entry 0015 the hypotheses on serialization drift and templating,
 .venv/Scripts/python.exe -m prefix_mortality.m7 probe --url URL --hypothesis H-M7LD --family qwen --ks 1,12
 .venv/Scripts/python.exe -m prefix_mortality.m7 run --url URL --hypothesis H-M7LD --family qwen --model-path FILE
 .venv/Scripts/python.exe -m prefix_mortality.summarize_m7 --run RUN_ID
+.venv/Scripts/python.exe -m prefix_mortality.m4 probe --url URL --hypothesis H-M4LS --family qwen --gaps 20,75 --props-at 18
+.venv/Scripts/python.exe -m prefix_mortality.m4 run --url URL --hypothesis H-M4LD --family qwen --model-path FILE
+.venv/Scripts/python.exe -m prefix_mortality.summarize_m4 --run RUN_ID
 .venv/Scripts/python.exe -m prefix_mortality.m2 probe --url URL --hypothesis H-M2L1 --changes S1,S3
 .venv/Scripts/python.exe -m prefix_mortality.m2 run --url URL --hypothesis H-M2L1 --family qwen --model-path FILE
 .venv/Scripts/python.exe -m prefix_mortality.summarize_m2 --run RUN_ID
@@ -55,11 +58,13 @@ refuter's pass, entry 0015 the hypotheses on serialization drift and templating,
 On macOS/Linux the interpreter is `.venv/bin/python`. The project pins Python 3.12.
 
 A driver's `run` refuses until a ledger entry registers its config: `config/controls.toml` and
-`config/engines.toml` for the controls, and `config/m1.toml`, `config/m2.toml`, `config/m3.toml` or
-`config/m7.toml` as well for edit position, serialization drift, templating or eviction. Every
-experiment's `run` also refuses a server that does not report the number of slots its hypothesis
-requires; `m7 run` refuses one that reports no slot context, and sends no trial whose anchor does not
-fit it. After a run, `manifest write`, then commit the new files under `corpus/`.
+`config/engines.toml` for the controls, and `config/m1.toml`, `config/m2.toml`, `config/m3.toml`,
+`config/m4.toml` or `config/m7.toml` as well for edit position, serialization drift, templating, idle
+expiry or eviction. Every experiment's `run` also refuses a server that does not report the number of
+slots its hypothesis requires; `m7 run` and `m4 run` refuse one that reports no slot context, and send
+no trial whose anchor does not fit it. `m4` sends nothing inside a gap but one `GET /props` at its
+end: at the pinned commit a render or a tokenization wakes a sleeping server. After a run, `manifest
+write`, then commit the new files under `corpus/`.
 
 `tools/render_tau2_prefix.py` is not run by this venv: it needs an interpreter with tau2 installed
 from a checkout at the pinned commit, with the package versions in
@@ -68,13 +73,14 @@ in the fixture's provenance, so editing it turns `tests/test_base_prefix.py` red
 
 ## Layout
 `src/prefix_mortality/` — `hashing` · `rng` · `seal` · `ledger_check` · `lint_scope` (chassis) ·
-`config` (seal, controls, m1, m7, engines) · `nonce` · `manifest` · `llamacpp` (engine client) ·
-`record` (request log) · `controls` (driver) · `summarize` (the rules, and the recomputation) · `edits`
+`config` (seal, controls, m1, m2, m3, m4, m7, engines) · `nonce` · `manifest` · `llamacpp` (engine client) ·
+`record` (request log) · `clock` (time as the drivers read it) · `controls` (driver) · `summarize` (the rules, and the recomputation) · `edits`
 (one word replaced at a named site) · `m1` (driver) · `summarize_m1` (its rules, and the recomputation)
 · `m7` (driver: anchor, K foreign requests, resend) · `summarize_m7` (its rule, and the recomputation)
+· `m4` (driver: anchor, a gap, one `GET /props`, resend) · `summarize_m4` (its rule, and the recomputation)
 · `serialize` (the six re-serializations of the tools) · `pairs` (two-request evaluation shared by M2
 and M3) · `m2`, `summarize_m2` (serialization drift) · `m3`, `summarize_m3` (templating).
-`config/` — `seal.toml`, `controls.toml`, `m1.toml`, `m2.toml`, `m3.toml`, `m7.toml`, `engines.toml`.
+`config/` — `seal.toml`, `controls.toml`, `m1.toml`, `m2.toml`, `m3.toml`, `m4.toml`, `m7.toml`, `engines.toml`.
 `ledger/` — `ledger.md`, `predictions/`.
 `corpus/` — `base_prefix/tau2-airline/`, `live/`, `requests/`, `MANIFEST.json`. `tools/` —
 `render_tau2_prefix.py`. `results/` — gitignored past its placeholder.
@@ -100,6 +106,8 @@ are `H-M2L1` (one slot) and `H-M3L1`, `H-M3LD` (one slot, defaults), registered 
 HELD on both models (0016, 0017): re-indenting or reordering a tool's keys changes nothing, reordering
 the tools or a schema's properties ends the prefix at that point; Llama's template date, the 24th
 token, ends the whole prefix at the defaults, and Qwen's thinking switch costs the last four tokens.
-All three are `[VALIDATED]` (ledger 0018), so every hypothesis on this engine is. Four causes remain
-`[FUTURE]`: idle expiry, rebuild, model switch, lifespan on recorded runs; the next is the operator's
-ruling.
+All three are `[VALIDATED]` (ledger 0018), so every hypothesis on this engine is. Idle expiry (M4: an
+anchor, a gap, one `GET /props`, the anchor again) is built as `H-M4LD` (the defaults, gaps of 0 to
+600 s) and `H-M4LS` (`--sleep-idle-seconds 60`, gaps of 20 and 100 s), unregistered: `config/m4.toml`
+has `registered_by = ""` until a ledger entry registers it. Three causes remain `[FUTURE]`: rebuild,
+model switch, lifespan on recorded runs.
