@@ -7,7 +7,8 @@ and the one-slot rule, entry 0006 the two hypotheses on edit position, entries 0
 verdicts, entry 0008 rule 5 on `[VALIDATED]`, entries 0010 and 0011 the refuters' passes, and entry
 0012 the hypothesis on eviction by intervening requests, entry 0013 its verdict, entry 0014 the
 refuter's pass, entry 0015 the hypotheses on serialization drift and templating, entries 0016 and
-0017 their verdicts, and entry 0018 the refuter's pass on both.
+0017 their verdicts, entry 0018 the refuter's pass on both, and entry 0019 the two hypotheses on
+idle expiry.
 
 ## Rules
 - The chassis is copied from lag-ladder, not shared. Never import `lag_ladder`, `linear_ceiling` or
@@ -36,6 +37,7 @@ refuter's pass, entry 0015 the hypotheses on serialization drift and templating,
 .venv/Scripts/python.exe -m prefix_mortality.lint_scope
 .venv/Scripts/python.exe -m prefix_mortality.manifest check # `write` after adding corpus files
 .venv/Scripts/python.exe -m prefix_mortality.ledger_check   # --against <rev> in CI
+.venv/Scripts/python.exe -m prefix_mortality.recorded stats --dir corpus/recorded/tau2-airline-claude-3-7-sonnet
 .venv/Scripts/python.exe -m prefix_mortality.controls probe --url URL    # bring an engine up; records nothing
 .venv/Scripts/python.exe -m prefix_mortality.controls run --url URL --family qwen --model-path FILE
 .venv/Scripts/python.exe -m prefix_mortality.summarize --run RUN_ID      # recomputes from disk; refuses on mismatch
@@ -79,10 +81,12 @@ in the fixture's provenance, so editing it turns `tests/test_base_prefix.py` red
 · `m7` (driver: anchor, K foreign requests, resend) · `summarize_m7` (its rule, and the recomputation)
 · `m4` (driver: anchor, a gap, one `GET /props`, resend) · `summarize_m4` (its rule, and the recomputation)
 · `serialize` (the six re-serializations of the tools) · `pairs` (two-request evaluation shared by M2
-and M3) · `m2`, `summarize_m2` (serialization drift) · `m3`, `summarize_m3` (templating).
+and M3) · `m2`, `summarize_m2` (serialization drift) · `m3`, `summarize_m3` (templating) · `recorded` (the
+vendored tau2 simulations: extract with provenance, load, statistics).
 `config/` — `seal.toml`, `controls.toml`, `m1.toml`, `m2.toml`, `m3.toml`, `m4.toml`, `m7.toml`, `engines.toml`.
 `ledger/` — `ledger.md`, `predictions/`.
-`corpus/` — `base_prefix/tau2-airline/`, `live/`, `requests/`, `MANIFEST.json`. `tools/` —
+`corpus/` — `base_prefix/tau2-airline/`, `recorded/tau2-airline-claude-3-7-sonnet/` (50 simulations +
+`provenance.json`), `live/`, `requests/`, `MANIFEST.json`. `tools/` —
 `render_tau2_prefix.py`. `results/` — gitignored past its placeholder.
 
 ## State
@@ -107,7 +111,10 @@ HELD on both models (0016, 0017): re-indenting or reordering a tool's keys chang
 the tools or a schema's properties ends the prefix at that point; Llama's template date, the 24th
 token, ends the whole prefix at the defaults, and Qwen's thinking switch costs the last four tokens.
 All three are `[VALIDATED]` (ledger 0018), so every hypothesis on this engine is. Idle expiry (M4: an
-anchor, a gap, one `GET /props`, the anchor again) is built as `H-M4LD` (the defaults, gaps of 0 to
-600 s) and `H-M4LS` (`--sleep-idle-seconds 60`, gaps of 20 and 100 s), unregistered: `config/m4.toml`
-has `registered_by = ""` until a ledger entry registers it. Three causes remain `[FUTURE]`: rebuild,
-model switch, lifespan on recorded runs.
+anchor, a gap, one `GET /props`, the anchor again) is `H-M4LD` (the defaults, gaps of 0, 2, 4, 60 and
+600 s) and `H-M4LS` (`--sleep-idle-seconds 60`, gaps of 20 and 100 s), registered by ledger 0019 and not
+yet run. Fifty recorded tau2 airline conversations
+(one trial per task, claude-3-7-sonnet agent) are vendored under `corpus/recorded/` with their provenance;
+`recorded stats` reports their turn counts and the idle the serving side sees between an agent's
+requests (0.0 s median, 1.5 s at the 90th percentile, 3.9 s at most in these runs). Three causes
+remain `[FUTURE]`: rebuild, model switch, lifespan on recorded runs.
