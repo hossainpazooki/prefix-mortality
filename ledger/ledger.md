@@ -1036,3 +1036,42 @@ and the whole cache, and the runs read 0.
 measured on this engine: the position of a byte change (0007, 0009, 0016, 0017), eviction by other
 requests (0013), idle time (this entry: none), and the engine's one timer (this entry). Three causes
 remain `[FUTURE]`: rebuild, model switch, lifespan on recorded runs.
+
+### 0021 — 2026-10-07 — 0020 survived a refuter: H-M4LD and H-M4LS are [VALIDATED]
+
+prior-entries-sha256: 651809f5ced1dd1947e0aba7c6833341f85700f5bc4771e13bac7e132329b250
+
+**Under rule 5** (entry 0008). The results of 0020 were given to a fifth refuter, independent of the
+author as in 0010, 0011, 0014 and 0018: a separate session with no access to the one that produced
+the code and the entries, nor to the earlier refuters' work.
+
+| | |
+|---|---|
+| what it read | An export of commit `d89a89b`, the whole tree; llama.cpp's `server-queue.cpp` and `server-context.cpp` at the pinned commit, fetched by itself. It opened the ledger, the configs, the manifest, the four record files and all 32 stored requests, checking each against its own hash; it parsed `config/m4.toml` itself and imported nothing from the package. Denied git, it could not check the commit hashes the entries name; it verified internal consistency of the records, not that the runs happened as described. |
+| the brief | Recompute every cell of 0020's table from the records and stored requests alone, and each prediction from the registered config; try to break the controls: nonces, hashes, gaps recomputed from raw timestamps against the margin, record order and density, one date per trial, the counts and the two reuse fields, the prediction stored before the resend; re-read the timer machinery at the pin; look for other explanations for the zeros at 100 seconds and the survivals at 600. |
+| verdict | Figures: NOT REFUTED. Meaning: NOT REFUTED. "Every cell of 0020's table reproduces from the raw records and stored requests; zero mismatches. The pinned source supports the reading at every cited line, and the entry's bounds language does not outrun the records." |
+
+**What it tried and what survived**, from its report.
+
+| tried | found |
+|---|---|
+| Every figure of 0020, with its own code. | All four runs reproduce: 10, 10, 6 and 6 of their trials matching; every anchor reused 0; every recomputed gap inside its registered window; the `is_sleeping` pattern exactly as 0020 states; the *n* ranges, slots and contexts as tabled; no field missing in any of the 64 records. |
+| The record files as evidence. | Sequence numbers dense from 1 with timestamps monotonic and no interleaving; 32 distinct requests under 32 distinct nonces, each nonce present in its body; each request file's name equals the hash of its body; token counts, reuse fields and sums agree in all 64 records; the stored predictions equal its own recomputation from the config; every prompt fits the per-slot context. |
+| The strongest counter-cases it could name: a prediction copied into the observation, or a trimmed run. | Both fail: predictions were recomputed independently, and the record counts equal the registered schedule exactly, dense and monotonic. |
+| The source behind the reading. | Only metrics tasks leave the idle timer untouched (`server-queue.cpp` 24–26); a negative setting never sleeps (292–294); the check runs on a one-second wait (289); the timer shifts past slot work (313–316) and resets on wake (349). Entering sleep frees the contexts (`server-context.cpp` 949–963, 965–981); the reload builds a new prompt cache (1371); the properties endpoint bypasses the sleep wait, posts no task and reports the sleeping state (4816–4824); the render and tokenize endpoints go through the wake path (4241–4249, 5071, 5096), which the driver avoids by preparing the anchor first. |
+| Whether anything but the timer could zero the 100-second resends. | Outside traffic cannot be excluded by records alone, but the sleeping state read false at 20 and true at 100 across three trials on each model, with every 20-second resend reusing *n* − 1 in the same runs, leaves no plausible alternative. |
+| Whether the 600-second survivals could come from the cache rather than the held slot. | The records cannot distinguish the two; 0020's prose is mechanism-neutral ("the prefix was whole"), so no overclaim; 0019's slot reading is a source reading and labeled as such. |
+
+**Three precisions it added**, kept on record. The exported tree's config files carried the
+checkout's line endings, and the records' config hashes match after normalizing them; the repository
+hashes configs as text, so a reader hashing raw checkout bytes on Windows will false-alarm. A stored
+request's file name hashes the body field it contains, the bytes sent on the wire, not the file's own
+bytes. And the render and tokenize endpoints do not merely wait out a sleeping server: the wait path
+actively wakes it, which strengthens, not weakens, the rule that the driver sends nothing inside a
+gap.
+
+**Consequences.** `H-M4LD` and `H-M4LS` are `[VALIDATED]`.
+
+**Status.** Eight hypotheses on this engine, all `[VALIDATED]`: `H-M1L1`, `H-M1LD`, `H-M7LD`,
+`H-M2L1`, `H-M3L1`, `H-M3LD`, `H-M4LD`, `H-M4LS`. Five kinds of event are measured and refuted
+without result; three causes remain `[FUTURE]`: rebuild, model switch, lifespan on recorded runs.
