@@ -1,0 +1,45 @@
+# The V instrument: vLLM's CPU backend on the Mac mini, pinned to a commit and built from source
+# (no release artifact exists for Apple silicon). Lives in its own file because every committed
+# llama.cpp record hashes config/engines.toml, which therefore never changes.
+#
+# Registered by the ledger entry named in `registered_by`; the driver refuses to run while it is
+# empty. Request parameters (repetitions, nonce length, tokens to generate, temperature, scramble
+# seed, length tolerance, user message) are those of config/controls.toml.
+[vllm]
+repo = "https://github.com/vllm-project/vllm"
+commit = "b6d8e8afd985f5711eee68e343d2ce908d166488"
+version = "0.31.1rc1.dev8+gb6d8e8afd"   # what GET /version must report; carries the commit
+served_model_name = "qwen3-1.7b"
+dtype = "bfloat16"                       # the chip reports the BF16 feature; recorded, and set by the run script
+max_model_len = 16384
+kvcache_space_gib = 4                    # VLLM_CPU_KVCACHE_SPACE; the CPU backend's documented default
+block_sizes = [16, 128]                  # registered server configurations: 16 = the GPU default readers
+                                         # assume, 128 = this backend's default. One run per block size.
+                                         # The server does not report its block size; the run script
+                                         # passes it, and the records read it back only through the
+                                         # block arithmetic of the readings.
+corpus_dir = "corpus/live/vcontrols"
+results_dir = "results/vcontrols"
+registered_by = ""
+
+# The model is bf16 safetensors, pinned file by file; the driver hashes each local file and refuses
+# on a mismatch. Digests recorded from the download of 2026-10-06 (evidence folder of that date).
+[[vllm.models]]
+family = "qwen17"
+hf_repo = "Qwen/Qwen3-1.7B"              # published by the model's owner; Apache-2.0
+
+[[vllm.models.files]]
+name = "model-00001-of-00002.safetensors"
+sha256 = "169ad53ec313c3a34b06c0809216e4fc072cce444a5d4ff2b59690d064130ed5"
+
+[[vllm.models.files]]
+name = "model-00002-of-00002.safetensors"
+sha256 = "912becff8d60672aa8628ef08c05898d9adf17c2ad4ae3caf99b065622fdeff9"
+
+[[vllm.models.files]]
+name = "config.json"
+sha256 = "1ddb5b89ebc90dcb417a45c213d818577e65976454d29385c8f6140771d95197"
+
+[[vllm.models.files]]
+name = "tokenizer.json"
+sha256 = "aeb13307a71acd8fe81861d94ad54ab689df773318809eed3cbe794b4492dae4"

@@ -4,7 +4,7 @@ import pytest
 
 from prefix_mortality.config import (load_controls_config, load_engines_config, load_m1_config, load_m2_config,
                                      load_m3_config, load_m4_config, load_m7_config,
-                                     load_seal_config)
+                                     load_seal_config, load_vllm_config)
 
 
 def _write(tmp_path, name, text):
@@ -289,6 +289,13 @@ def test_repo_configs_load():
     assert m4.sleep_margin_seconds == 5
     assert [(h.id, h.slots, h.sleep_idle_seconds, h.gaps, h.repetitions) for h in m4.hypotheses] == [
         ("H-M4LD", 4, -1, (0, 2, 4, 60, 600), 2), ("H-M4LS", 4, 60, (20, 100), 3)]
+    v = load_vllm_config(REPO_ROOT / "config" / "vllm.toml", REPO_ROOT)
+    assert v.registered_by == ""            # the registering entry changes this
+    assert v.commit == "b6d8e8afd985f5711eee68e343d2ce908d166488" and v.commit[:7] in v.version
+    assert v.block_sizes == (16, 128) and v.served_model_name == "qwen3-1.7b" and v.dtype == "bfloat16"
+    assert v.kvcache_space_gib == 4 and v.max_model_len == 16384
+    assert [(m.family, len(m.files)) for m in v.models] == [("qwen17", 4)]
+    assert v.corpus_dir == REPO_ROOT / "corpus" / "live" / "vcontrols"
 
 
 M2 = '''
@@ -447,3 +454,53 @@ def test_m4_config_refuses_a_file_with_no_hypothesis(tmp_path):
     none = M4[:M4.index("[m4.hypotheses.H-M4LD]")] + "[m4.hypotheses]\n"
     with pytest.raises(ValueError, match="registers no hypothesis"):
         load_m4_config(_write(tmp_path, "m4.toml", none), repo_root=tmp_path)
+
+
+VLLM = '''
+[vllm]
+repo = "https://github.com/vllm-project/vllm"
+commit = "b6d8e8afd985f5711eee68e343d2ce908d166488"
+version = "0.31.1rc1.dev8+gb6d8e8afd"
+served_model_name = "m"
+dtype = "bfloat16"
+max_model_len = 16384
+kvcache_space_gib = 4
+block_sizes = [16, 128]
+corpus_dir = "corpus/live/vcontrols"
+results_dir = "results/vcontrols"
+registered_by = ""
+[[vllm.models]]
+family = "qwen17"
+hf_repo = "Qwen/Qwen3-1.7B"
+[[vllm.models.files]]
+name = "config.json"
+sha256 = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+'''
+
+
+def test_vllm_config_loads(tmp_path):
+    cfg = load_vllm_config(_write(tmp_path, "vllm.toml", VLLM), repo_root=tmp_path)
+    assert cfg.block_sizes == (16, 128) and cfg.model("qwen17").files[0].name == "config.json"
+    with pytest.raises(ValueError, match="no model family 'x'"):
+        cfg.model("x")
+
+
+@pytest.mark.parametrize("old, new, msg", [
+    ('version = "0.31.1rc1.dev8+gb6d8e8afd"', 'version = "0.31.1"', "does not carry the commit"),
+    ("block_sizes = [16, 128]", "block_sizes = [128, 16]", "strictly ascending"),
+    ("block_sizes = [16, 128]", "block_sizes = []", "names no block size"),
+    ("kvcache_space_gib = 4", "kvcache_space_gib = 0", "must be an int >= 1"),
+    ('sha256 = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"', 'sha256 = "zz"', "not a lowercase hex digest"),
+    ('registered_by = ""', 'registered_by = ""\nextra = 1', "unknown keys"),
+    ('served_model_name = "m"', "", "is missing"),
+])
+def test_vllm_config_refuses_bad_values(tmp_path, old, new, msg):
+    assert VLLM.count(old) == 1
+    with pytest.raises(ValueError, match=msg):
+        load_vllm_config(_write(tmp_path, "vllm.toml", VLLM.replace(old, new)), repo_root=tmp_path)
+
+
+def test_vllm_config_refuses_a_model_with_no_files(tmp_path):
+    none = VLLM[:VLLM.index("[[vllm.models.files]]")]
+    with pytest.raises(ValueError, match=r"is missing \['files'\]"):
+        load_vllm_config(_write(tmp_path, "vllm.toml", none), repo_root=tmp_path)

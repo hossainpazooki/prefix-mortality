@@ -645,3 +645,86 @@ def load_engines_config(path: Path) -> dict[str, EngineConfig]:
             download_sha256=_digest(c, "download_sha256", name, _SHA256), models=tuple(models),
             registered_by=_registered_by(c["registered_by"], name), config_path=path)
     return out
+
+
+# --- vLLM (the V instrument) -----------------------------------------------------------------------
+
+@dataclass(frozen=True)
+class VllmModelFile:
+    name: str
+    sha256: str
+
+
+@dataclass(frozen=True)
+class VllmModel:
+    family: str
+    hf_repo: str
+    files: tuple[VllmModelFile, ...]
+
+
+@dataclass(frozen=True)
+class VllmConfig:
+    """vLLM pinned to a commit and built from source (no release artifact exists for this platform).
+    Lives in its own file: every committed llama.cpp record hashes config/engines.toml, so that file
+    never changes. The server does not report its block size; a run's script passes one of the
+    registered block_sizes and the records read it back only through the block arithmetic."""
+    repo: str
+    commit: str
+    version: str
+    served_model_name: str
+    dtype: str
+    max_model_len: int
+    kvcache_space_gib: int
+    block_sizes: tuple[int, ...]
+    corpus_dir: Path
+    results_dir: Path
+    models: tuple[VllmModel, ...]
+    registered_by: str
+    config_path: Path
+
+    def model(self, family: str) -> VllmModel:
+        return _find(self.models, family, "model family", self.config_path.name, attr="family")
+
+
+_VLLM_KEYS = ("repo", "commit", "version", "served_model_name", "dtype", "max_model_len",
+              "kvcache_space_gib", "block_sizes", "corpus_dir", "results_dir", "registered_by", "models")
+_VLLM_MODEL_KEYS = ("family", "hf_repo", "files")
+_VLLM_FILE_KEYS = ("name", "sha256")
+
+
+def load_vllm_config(path: Path, repo_root: Path) -> VllmConfig:
+    path = Path(path)
+    name = f"{path.name} [vllm]"
+    c = _read(path)["vllm"]
+    _require(c, _VLLM_KEYS, name)
+    blocks = _ascending(c, "block_sizes", name, int, 1, 8192)
+    if not blocks:
+        raise ValueError(f"{name} block_sizes names no block size")
+    models = []
+    for m in c["models"]:
+        mname = f"{name}.models"
+        _require(m, _VLLM_MODEL_KEYS, mname)
+        files = []
+        for f in m["files"]:
+            _require(f, _VLLM_FILE_KEYS, f"{mname}.files")
+            files.append(VllmModelFile(name=_text(f, "name", mname), sha256=_digest(f, "sha256", mname, _SHA256)))
+        if not files:
+            raise ValueError(f"{mname} pins no file; nothing gates the local model")
+        models.append(VllmModel(family=_text(m, "family", mname), hf_repo=_text(m, "hf_repo", mname),
+                                files=tuple(files)))
+    families = [m.family for m in models]
+    if not models or len(set(families)) != len(families):
+        raise ValueError(f"{name} needs at least one model and distinct families, got {families}")
+    version = _text(c, "version", name)
+    commit = _digest(c, "commit", name, _SHA40)
+    if commit[:7] not in version:
+        raise ValueError(f"{name} version {version!r} does not carry the commit {commit[:7]}; "
+                         "the version gate would be vacuous")
+    root = Path(repo_root)
+    return VllmConfig(
+        repo=_text(c, "repo", name), commit=commit, version=version,
+        served_model_name=_text(c, "served_model_name", name), dtype=_text(c, "dtype", name),
+        max_model_len=_int(c, "max_model_len", name, minimum=1),
+        kvcache_space_gib=_int(c, "kvcache_space_gib", name, minimum=1), block_sizes=blocks,
+        corpus_dir=root / c["corpus_dir"], results_dir=root / c["results_dir"], models=tuple(models),
+        registered_by=_registered_by(c["registered_by"], name), config_path=path)
