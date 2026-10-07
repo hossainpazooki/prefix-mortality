@@ -22,8 +22,8 @@ numerator nor a denominator. It is never written as a zero.
 | H-M2L1 | On llama.cpp `b11235` started with `--parallel 1`, a request whose tool schemas are written differently reuses exactly the common token prefix of its rendered prompt with the base request's, and *n* − 1 when the two render identically. | entry 0015 | HELD |
 | H-M3L1 | On llama.cpp `b11235` started with `--parallel 1`, a request that differs from the held prompt only in a chat-template argument reuses exactly the common token prefix of the two rendered prompts, and *n* − 1 when they render identically. | entry 0015 | HELD |
 | H-M3LD | On llama.cpp `b11235` at its defaults, the same request reuses that prefix when it is more than 0.10 of its length, and none otherwise. | entry 0015 | HELD |
-| H-M4LD | On llama.cpp `b11235` at its defaults, a request identical to one served *g* seconds earlier, with nothing served between them, reuses *n* − 1 tokens at every registered *g* (0, 2, 4, 60, 600). | entry 0019 | unresolved |
-| H-M4LS | On llama.cpp `b11235` started with `--sleep-idle-seconds 60`, the same request reuses *n* − 1 tokens after a gap of 20 seconds and 0 after a gap of 100 seconds, the server reporting sleeping in between. | entry 0019 | unresolved |
+| H-M4LD | On llama.cpp `b11235` at its defaults, a request identical to one served *g* seconds earlier, with nothing served between them, reuses *n* − 1 tokens at every registered *g* (0, 2, 4, 60, 600). | entry 0019 | HELD |
+| H-M4LS | On llama.cpp `b11235` started with `--sleep-idle-seconds 60`, the same request reuses *n* − 1 tokens after a gap of 20 seconds and 0 after a gap of 100 seconds, the server reporting sleeping in between. | entry 0019 | HELD |
 
 ## Entries
 
@@ -986,3 +986,53 @@ and refuses a record that carries another value.
 | Not measured: a server restart, and a slot saved to disk and restored across one (process events, to be designed with model switch); requests in flight together; the one-slot configuration (its slot is never cleared with nothing between either, so the same rule would be read); gaps beyond 600 seconds. | Stated in the results entry as what the runs do not show. |
 
 **Status.** `H-M4LD` and `H-M4LS` are `[STRETCH]`: registered, not run. `qwen` runs first.
+
+### 0020 — 2026-10-07 — H-M4LD and H-M4LS held: nothing expires by time; the idle timer ends everything
+
+prior-entries-sha256: f96772b5146477ba9cfa57379f9e0c4f52acff8aa916abdbd56b783dc3e999d9
+
+verdict: H-M4LD = HELD
+
+verdict: H-M4LS = HELD
+
+**Outcome** `[BASELINE]`. The runs registered by 0019 were made at commit `53d4d68`, one after the
+other on the same local day, under `caffeinate`. Their records and requests are committed at
+`6131b90`. Every figure below is from `summarize_m4 --run` on those files, or from the `server`
+field of the records.
+
+| | `qwen`, defaults | `llama`, defaults | `qwen`, timer 60 s | `llama`, timer 60 s |
+|---|---|---|---|---|
+| run | `20261006T233203Z-qwen-H-M4LD` | `20261006T235604Z-llama-H-M4LD` | `20261007T002022Z-qwen-H-M4LS` | `20261007T002804Z-llama-H-M4LS` |
+| outcome | ALL MATCH | ALL MATCH | ALL MATCH | ALL MATCH |
+| trials counted, matching | 10, 10 | 10, 10 | 6, 6 | 6, 6 |
+| resend reused *n* − 1 | at every gap, 10 of 10 | 10 of 10 | at 20 s, 3 of 3 | 3 of 3 |
+| resend reused 0 | none | none | at 100 s, 3 of 3 | 3 of 3 |
+| resend reused anything else | 0 | 0 | 0 | 0 |
+| `is_sleeping` after the gap | false, 10 of 10 | false, 10 of 10 | false at 20 s, true at 100 s | the same |
+| recorded gap, seconds | 0.0, 2.0, 4.0, 60.0, 600.0 | the same | 20.0, 100.0 | the same |
+| anchors reusing 0 | 10 of 10 | 10 of 10 | 6 of 6 | 6 of 6 |
+| slots, context, as the server reported | 4, 40,960 | 4, 50,944 | 4, 40,960 | 4, 50,944 |
+| *n*, over all requests | 4,864 to 4,872 | 5,643 to 5,650 | 4,866 to 4,873 | 5,644 to 5,649 |
+| local date | one, all records | one | one | one |
+| fields not reported | None. | None. | None. | None. |
+
+**Verdict.** Every counted trial of both models matches, in both configurations. By the rule of 0019,
+`H-M4LD` is `HELD` and `H-M4LS` is `HELD`.
+
+**What the runs bound and do not locate.** At the defaults the prefix was whole after 600 idle
+seconds on both models, with the server reporting awake throughout: a bound at ten minutes, well
+beyond the longest idle the recorded agent runs show (3.9 s, 0019), and not a statement about longer
+gaps. With the timer at 60 seconds the prefix was whole at 20 and gone at 100 on both models, with the
+server reporting sleeping before each resend at 100: the death is located between 20 and 100 seconds,
+read at 60 to 61 from the source (0019), not measured finer. Nothing here measures how long the
+reload took; the recorded gap excludes it by construction.
+
+**What it does not show.** A server restart, and a slot saved and restored across one (to be
+registered with model switch). Requests in flight together. The one-slot configuration. Gaps above
+600 seconds. Whether the idle timer's death is partial under any setting: the source frees every slot
+and the whole cache, and the runs read 0.
+
+**Status.** `H-M4LD` and `H-M4LS` are `[BASELINE]`, no refuter yet. Four kinds of event are now
+measured on this engine: the position of a byte change (0007, 0009, 0016, 0017), eviction by other
+requests (0013), idle time (this entry: none), and the engine's one timer (this entry). Three causes
+remain `[FUTURE]`: rebuild, model switch, lifespan on recorded runs.
