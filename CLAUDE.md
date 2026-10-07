@@ -56,13 +56,18 @@ expiry, entry 0020 their verdicts, and entry 0021 the refuter's pass on both.
 .venv/Scripts/python.exe -m prefix_mortality.m3 probe --url URL --hypothesis H-M3LD --changes T1,T2
 .venv/Scripts/python.exe -m prefix_mortality.m3 run --url URL --hypothesis H-M3LD --family qwen --model-path FILE
 .venv/Scripts/python.exe -m prefix_mortality.summarize_m3 --run RUN_ID
+.venv/Scripts/python.exe -m prefix_mortality.vcontrols probe --url URL --pad-words 0   # vLLM; records nothing
+.venv/Scripts/python.exe -m prefix_mortality.vcontrols run --url URL --family qwen17 --block-size 16 --model-dir DIR
+.venv/Scripts/python.exe -m prefix_mortality.summarize_vcontrols --run RUN_ID
 ```
 On macOS/Linux the interpreter is `.venv/bin/python`. The project pins Python 3.12.
 
 A driver's `run` refuses until a ledger entry registers its config: `config/controls.toml` and
 `config/engines.toml` for the controls, and `config/m1.toml`, `config/m2.toml`, `config/m3.toml`,
 `config/m4.toml` or `config/m7.toml` as well for edit position, serialization drift, templating, idle
-expiry or eviction. Every experiment's `run` also refuses a server that does not report the number of
+expiry or eviction; `config/controls.toml` and `config/vllm.toml` for the V controls (vLLM's engine pin
+lives in its own file because every committed llama.cpp record hashes `config/engines.toml`, which
+therefore never changes). Every llama.cpp experiment's `run` also refuses a server that does not report the number of
 slots its hypothesis requires; `m7 run` and `m4 run` refuse one that reports no slot context, and send
 no trial whose anchor does not fit it. `m4` sends nothing inside a gap but one `GET /props` at its
 end: at the pinned commit a render or a tokenization wakes a sleeping server. After a run, `manifest
@@ -75,15 +80,18 @@ in the fixture's provenance, so editing it turns `tests/test_base_prefix.py` red
 
 ## Layout
 `src/prefix_mortality/` — `hashing` · `rng` · `seal` · `ledger_check` · `lint_scope` (chassis) ·
-`config` (seal, controls, m1, m2, m3, m4, m7, engines) · `nonce` · `manifest` · `llamacpp` (engine client) ·
+`config` (seal, controls, m1, m2, m3, m4, m7, engines, vllm) · `nonce` · `manifest` · `llamacpp` (engine client) ·
 `record` (request log) · `clock` (time as the drivers read it) · `controls` (driver) · `summarize` (the rules, and the recomputation) · `edits`
 (one word replaced at a named site) · `m1` (driver) · `summarize_m1` (its rules, and the recomputation)
 · `m7` (driver: anchor, K foreign requests, resend) · `summarize_m7` (its rule, and the recomputation)
 · `m4` (driver: anchor, a gap, one `GET /props`, resend) · `summarize_m4` (its rule, and the recomputation)
 · `serialize` (the six re-serializations of the tools) · `pairs` (two-request evaluation shared by M2
 and M3) · `m2`, `summarize_m2` (serialization drift) · `m3`, `summarize_m3` (templating) · `recorded` (the
-vendored tau2 simulations: extract with provenance, load, statistics).
-`config/` — `seal.toml`, `controls.toml`, `m1.toml`, `m2.toml`, `m3.toml`, `m4.toml`, `m7.toml`, `engines.toml`.
+vendored tau2 simulations: extract with provenance, load, statistics) · `vllm` (the V engine client:
+chat-shaped tokenize + detokenize give the render; reuse read from usage details) · `vcontrols`,
+`summarize_vcontrols` (the V controls: block arithmetic, measured write side).
+`config/` — `seal.toml`, `controls.toml`, `m1.toml`, `m2.toml`, `m3.toml`, `m4.toml`, `m7.toml`,
+`engines.toml`, `vllm.toml`.
 `ledger/` — `ledger.md`, `predictions/`.
 `corpus/` — `base_prefix/tau2-airline/`, `recorded/tau2-airline-claude-3-7-sonnet/` (50 simulations +
 `provenance.json`), `live/`, `requests/`, `MANIFEST.json`. `tools/` —
@@ -118,5 +126,9 @@ awake throughout; with the timer on, *n* − 1 at 20 s and 0 at 100 s with the s
 resend. Both are `[VALIDATED]` (ledger 0021), so every hypothesis on this engine is. Fifty recorded tau2 airline conversations
 (one trial per task, claude-3-7-sonnet agent) are vendored under `corpus/recorded/` with their provenance;
 `recorded stats` reports their turn counts and the idle the serving side sees between an agent's
-requests (0.0 s median, 1.5 s at the 90th percentile, 3.9 s at most in these runs). Three causes
-remain `[FUTURE]`: rebuild, model switch, lifespan on recorded runs.
+requests (0.0 s median, 1.5 s at the 90th percentile, 3.9 s at most in these runs). The V instrument
+(vLLM at a pinned commit, CPU backend on the same machine, Qwen3-1.7B bf16, block sizes 16 and 128) is
+built as `vllm`, `vcontrols` and `summarize_vcontrols` with its own stand-in, unregistered:
+`config/vllm.toml` has `registered_by = ""` until a ledger entry registers it. On V a cache hit is
+block-aligned and capped at *n* − 1, and the write side is measured (`created_cache_tokens`). Three
+causes remain `[FUTURE]`: rebuild, model switch, lifespan on recorded runs.
