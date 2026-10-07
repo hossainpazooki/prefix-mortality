@@ -43,7 +43,10 @@ more causes are measured: how the tool schemas are written, where re-indenting o
 keys changes nothing and reordering the tools or a schema's properties ends the prefix at that point;
 and a chat-template argument, where a date the Llama template prints before anything the client sent
 ends the whole prefix at the defaults, and Qwen's thinking switch costs only the last few tokens.
-Every result on this engine has survived an independent refuter.
+Every result so far on this engine has survived an independent refuter. A fifth kind of event is
+measured: time alone. At the server's defaults a prefix left idle for ten minutes was whole on both
+models, a bound on this server's defaults and not a property of caches; the one idle timer the
+engine has, when switched on, ended everything the first time it fired.
 `ledger/ledger.md` is the record of what has been registered and measured, and it says what has
 not.
 

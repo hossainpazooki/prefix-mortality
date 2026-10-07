@@ -7,8 +7,8 @@ and the one-slot rule, entry 0006 the two hypotheses on edit position, entries 0
 verdicts, entry 0008 rule 5 on `[VALIDATED]`, entries 0010 and 0011 the refuters' passes, and entry
 0012 the hypothesis on eviction by intervening requests, entry 0013 its verdict, entry 0014 the
 refuter's pass, entry 0015 the hypotheses on serialization drift and templating, entries 0016 and
-0017 their verdicts, entry 0018 the refuter's pass on both, and entry 0019 the two hypotheses on
-idle expiry.
+0017 their verdicts, entry 0018 the refuter's pass on both, entry 0019 the two hypotheses on idle
+expiry, and entry 0020 their verdicts.
 
 ## Rules
 - The chassis is copied from lag-ladder, not shared. Never import `lag_ladder`, `linear_ceiling` or
@@ -112,8 +112,10 @@ the tools or a schema's properties ends the prefix at that point; Llama's templa
 token, ends the whole prefix at the defaults, and Qwen's thinking switch costs the last four tokens.
 All three are `[VALIDATED]` (ledger 0018), so every hypothesis on this engine is. Idle expiry (M4: an
 anchor, a gap, one `GET /props`, the anchor again) is `H-M4LD` (the defaults, gaps of 0, 2, 4, 60 and
-600 s) and `H-M4LS` (`--sleep-idle-seconds 60`, gaps of 20 and 100 s), registered by ledger 0019 and not
-yet run. Fifty recorded tau2 airline conversations
+600 s) and `H-M4LS` (`--sleep-idle-seconds 60`, gaps of 20 and 100 s), registered by ledger 0019 and HELD
+on both models (ledger 0020): at the defaults every resend reused *n* − 1 out to 600 s with the server
+awake throughout; with the timer on, *n* − 1 at 20 s and 0 at 100 s with the server asleep before each
+resend. Both are `[BASELINE]`, no refuter yet. Fifty recorded tau2 airline conversations
 (one trial per task, claude-3-7-sonnet agent) are vendored under `corpus/recorded/` with their provenance;
 `recorded stats` reports their turn counts and the idle the serving side sees between an agent's
 requests (0.0 s median, 1.5 s at the 90th percentile, 3.9 s at most in these runs). Three causes
