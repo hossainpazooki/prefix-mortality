@@ -6,15 +6,19 @@ It follows what was read at the pinned commit (config/vllm.toml):
     ("we must recompute the last token to obtain logits", vllm/v1/core/kv_cache_manager.py 290-295),
     so the hit is the largest block multiple strictly below n when everything matches;
   * after a request finishes, every full block of its sequence INCLUDING the generated tokens is
-    stored; `created_cache_tokens` = max(0, min(hashed_total, n) - hit), with hashed_total the
-    largest full-block boundary of the finished sequence (PrefillStats.finalize over
-    estimate_cached_tokens, scheduler.py 2184-2188);
+    stored — but `created_cache_tokens` is finalized at the FIRST output emission, before any
+    generated token is cached, so it reports only the prompt's full blocks that were not a hit:
+    max(0, floor(n / B) * B - hit) (PrefillStats.finalize over estimate_cached_tokens; the
+    generated-inclusive reading was refuted on the live server at the pin, 2026-10-09);
   * `cached_tokens` and `created_cache_tokens` ride in `usage.prompt_tokens_details` only when the
     server enables prompt-token details; without the flag the key is absent;
   * `POST /tokenize` takes the chat shape and returns ids, BPE-internal pieces and the count;
     `POST /detokenize` returns the text; `GET /version` and `GET /v1/models` identify the server.
   * the pieces do not join back to the rendered text (byte-level BPE); the fake fakes that too, by
-    emitting a marker piece for whitespace.
+    emitting a marker piece for whitespace;
+  * a chat whose body carries `tools` under the default "auto" tool choice is refused with HTTP 400
+    unless the server runs a tool-call parser; `tool_choice: "none"` is accepted (observed on the
+    server at the pin, 2026-10-09). /tokenize takes no tool_choice and renders the tools either way.
 
 Modes beyond "faithful" break a rule on purpose so a driver can be shown going red: "no_details"
 omits prompt_tokens_details; "no_cache" serves with the prefix cache off (hit 0, nothing stored);
@@ -85,11 +89,11 @@ class Engine:
         self.requests += 1
         gen = [-self.requests] * GEN_TOKENS                       # generated ids never collide with prompt ids
         seq = ids + gen
-        hashed_total = (len(seq) // self.block_size) * self.block_size
         if self.mode != "no_cache":
             for k in range(1, len(seq) // self.block_size + 1):
                 self.blocks.add(self._chain(seq, k))
-        created = max(0, min(hashed_total, n) - cached)
+        # reported at first emission: only the prompt's full blocks carry a hash by then
+        created = max(0, (n // self.block_size) * self.block_size - cached)
         out = {"choices": [{"message": {"role": "assistant", "content": "ok"}}],
                "usage": {"prompt_tokens": n, "completion_tokens": GEN_TOKENS, "total_tokens": n + GEN_TOKENS,
                          "prompt_tokens_details": {"cached_tokens": cached, "created_cache_tokens": created}}}
@@ -131,6 +135,10 @@ def _handler(engine: Engine):
             elif self.path == "/detokenize":
                 back = {v: k for k, v in engine.ids.items()}
                 self._reply({"prompt": "".join(back[i] for i in body["tokens"])})
+            elif body.get("tools") and body.get("tool_choice") != "none":
+                self._reply({"error": {"message": '"auto" tool choice requires --enable-auto-tool-choice'
+                                                  ' and --tool-call-parser to be set',
+                                       "type": "BadRequestError", "param": None, "code": 400}}, status=400)
             else:
                 self._reply(engine.chat(body))
     return Handler

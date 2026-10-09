@@ -3,21 +3,26 @@
 Nothing here talks to an engine. Every figure is derived again from the records and the stored
 requests they name. The result must equal the report the driver wrote, key by key.
 
-The rules, for a vLLM server at the pinned commit (its source, not an assumption): the prefix cache
-stores full blocks of B tokens; a hit is the longest stored block chain prefixing the prompt, capped
-at the prompt length minus one; after a request, every full block of its sequence including the
-generated tokens is stored, and created counts the stored prompt tokens that were not a hit:
+The rules, for a vLLM server at the pinned commit (its source, confirmed against the live server):
+the prefix cache stores full blocks of B tokens; a hit is the longest stored block chain prefixing
+the prompt, capped at the prompt length minus one; `created_cache_tokens` is finalized at the FIRST
+output emission, when only the prompt's full blocks carry a hash (the first sampled token is not yet
+computed), so it counts the prompt's full blocks that were not a hit and never a generated token:
 
   hit(n)     = the largest multiple of B at most min(stored chain, n - 1)
-  hashed(n)  = floor((n + g) / B) * B, with g the generated tokens (the controls' max_tokens)
-  created(n) = max(0, min(hashed(n), n) - hit)
+  created(n) = max(0, floor(n / B) * B - hit)
+
+(An earlier reading made created include the generated tokens, floor((n + g)/B) * B clipped to n. It
+was refuted on the live server at the pin on 2026-10-09: at n = 4867, block 128, with 128 generated
+tokens forced via min_tokens, the server reported created 4864 = floor(n/B)*B where that reading
+predicted 4867. PrefillStats.finalize runs on the first emitted output, before any decode block.)
 
 So, per repetition, with n the prompt's tokens as the server tokenizes it, run under one block size B
 on a server started fresh for the run:
 
-  write     a first request under a fresh nonce   cached = 0; created = min(hashed(n), n)
-  read      the same bytes again                  cached = floor((n-1)/B)*B; created = min(hashed(n), n) - cached
-  scramble  fresh random system text, own n'      cached = 0; created = min(hashed(n'), n'); n' within tolerance
+  write     a first request under a fresh nonce   cached = 0; created = floor(n/B)*B
+  read      the same bytes again                  cached = floor((n-1)/B)*B; created = floor(n/B)*B - cached
+  scramble  fresh random system text, own n'      cached = 0; created = floor(n'/B)*B; n' within tolerance
 
 The zeros are exact, not bounds, because a block matches only whole: they hold only while the tokens
 shared across different nonces (the template header) are fewer than B, which is checked per
@@ -39,10 +44,9 @@ CONTROLS = ("write", "read", "scramble")
 FIELDS = ("usage_prompt_tokens", "usage_cached_tokens", "usage_created_cache_tokens")
 
 
-def prediction(control: str, n: int, block: int, generated: int) -> dict:
+def prediction(control: str, n: int, block: int) -> dict:
     cached = ((n - 1) // block) * block if control == "read" else 0
-    hashed = ((n + generated) // block) * block
-    return {"cached": cached, "created": max(0, min(hashed, n) - cached)}
+    return {"cached": cached, "created": max(0, (n // block) * block - cached)}
 
 
 def _lcp(a: list[int], b: list[int]) -> int:
@@ -59,8 +63,8 @@ def derive(record: dict, requests_dir: Path) -> dict:
             "ids": [t["id"] for t in stored["tokens"]], **{f: o.get(f) for f in FIELDS}}
 
 
-def _checks(control: str, d: dict, write: dict | None, block: int, generated: int, tolerance: int) -> dict:
-    p = prediction(control, d["n"], block, generated)
+def _checks(control: str, d: dict, write: dict | None, block: int, tolerance: int) -> dict:
+    p = prediction(control, d["n"], block)
     c = {"size_agrees": d["usage_prompt_tokens"] == d["n"],
          "cached_as_predicted": d["usage_cached_tokens"] == p["cached"],
          "created_as_predicted": d["usage_created_cache_tokens"] == p["created"]}
@@ -72,7 +76,7 @@ def _checks(control: str, d: dict, write: dict | None, block: int, generated: in
     return c
 
 
-def evaluate(records: list[dict], requests_dir: Path, block_sizes: tuple[int, ...], generated: int,
+def evaluate(records: list[dict], requests_dir: Path, block_sizes: tuple[int, ...],
              tolerance: int) -> dict:
     if not records:
         raise ValueError("no record to evaluate")
@@ -107,14 +111,14 @@ def evaluate(records: list[dict], requests_dir: Path, block_sizes: tuple[int, ..
             if control != "write" and ("write" not in got or any(got["write"][f] is None for f in FIELDS)):
                 row[control] = {**keep, "checks": None}
                 continue
-            checks = _checks(control, d, got.get("write"), block, generated, tolerance)
+            checks = _checks(control, d, got.get("write"), block, tolerance)
             row[control] = {**keep, "checks": checks}
             failures += [f"repetition {rep} {control}: {k} is false" for k, ok in checks.items() if not ok]
         out.append(row)
 
     verdict = "NOT MEASURABLE" if unmeasurable else ("FAIL" if failures else "PASS")
     return {"run_id": records[0]["run_id"], "family": records[0]["family"], "block_size": block,
-            "generated_tokens": generated, "tolerance_tokens": tolerance, "repetitions": out,
+            "tolerance_tokens": tolerance, "repetitions": out,
             "unmeasurable": unmeasurable, "failures": failures, "verdict": verdict}
 
 
@@ -152,7 +156,7 @@ def summarize(run_id: str, repo_root: Path = REPO_ROOT) -> tuple[dict, str]:
         raise ValueError(f"{rp} does not exist; the driver wrote no report for this run")
     recorded = json.loads(rp.read_text(encoding="utf-8"))
     report = evaluate(records, repo_root / "corpus" / "requests", cfg.block_sizes,
-                      controls.max_tokens, controls.length_tolerance_tokens)
+                      controls.length_tolerance_tokens)
     if report != recorded:
         diff = sorted(k for k in set(report) | set(recorded) if report.get(k) != recorded.get(k))
         raise ValueError(f"the records do not reproduce the driver's report; differing keys: {diff}")

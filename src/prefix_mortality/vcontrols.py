@@ -34,11 +34,13 @@ from prefix_mortality.vllm import Client, EngineError, observed
 
 def build_body(cfg: ControlsConfig, served: str, system_text: str, tools: list, nonce: str,
                user_message: str | None = None) -> bytes:
+    # tool_choice "none": the server refuses tools under the default "auto" choice unless it runs a
+    # tool-call parser; "none" keeps the tools in the rendered prompt without enabling call parsing.
     return body_bytes({"model": served,
                        "messages": [{"role": "system", "content": f"run {nonce}\n{system_text}"},
                                     {"role": "user", "content": user_message or cfg.user_message}],
-                       "tools": tools, "max_tokens": cfg.max_tokens, "temperature": cfg.temperature,
-                       "stream": False})
+                       "tools": tools, "tool_choice": "none", "max_tokens": cfg.max_tokens,
+                       "temperature": cfg.temperature, "stream": False})
 
 
 def scramble_text(client: Client, rng, system_text: str) -> str:
@@ -128,7 +130,7 @@ def run(controls: ControlsConfig, cfg: VllmConfig, family: str, block_size: int,
                    "usage_raw": response.get("usage")}
             append(log, rec)
             records.append(rec)
-        report = evaluate(records, requests_dir, cfg.block_sizes, controls.max_tokens,
+        report = evaluate(records, requests_dir, cfg.block_sizes,
                           controls.length_tolerance_tokens)
         if report["verdict"] != "PASS":
             break

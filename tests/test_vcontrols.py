@@ -12,7 +12,7 @@ from prefix_mortality.hashing import sha256_file_bytes
 from prefix_mortality.record import read
 from prefix_mortality.summarize_vcontrols import evaluate, prediction, summarize
 from prefix_mortality.vcontrols import build_body, probe, run
-from prefix_mortality.vllm import Client, observed
+from prefix_mortality.vllm import Client, EngineError, observed
 from tests.fake_vllm import Engine, serve
 
 SYSTEM = " ".join(f"Rule {i}: an agent must check the booking before it changes flight {i * 7}." for i in range(40))
@@ -91,23 +91,23 @@ def _n(messages_system, user, tools=TOOLS):
 
 
 def test_the_rule_at_and_off_the_boundaries():
-    assert prediction("write", 604, 128, 1) == {"cached": 0, "created": 512}, "the smoke's reading"
-    assert prediction("read", 604, 128, 1) == {"cached": 512, "created": 0}
-    assert prediction("write", 512, 128, 1) == {"cached": 0, "created": 512}, "n a multiple: every block is full"
-    assert prediction("read", 512, 128, 1) == {"cached": 384, "created": 128}, "the hit is capped at n - 1"
-    assert prediction("write", 511, 128, 1) == {"cached": 0, "created": 511}, "n + 1 a multiple: the tail fills with the generated token"
-    assert prediction("read", 511, 128, 1) == {"cached": 384, "created": 127}
-    assert prediction("scramble", 604, 128, 1) == {"cached": 0, "created": 512}
+    assert prediction("write", 604, 128) == {"cached": 0, "created": 512}, "the smoke's reading"
+    assert prediction("read", 604, 128) == {"cached": 512, "created": 0}
+    assert prediction("write", 512, 128) == {"cached": 0, "created": 512}, "n a multiple: every block is full"
+    assert prediction("read", 512, 128) == {"cached": 384, "created": 128}, "the hit is capped at n - 1"
+    assert prediction("write", 511, 128) == {"cached": 0, "created": 384}, "n + 1 a multiple: the last part-block is NOT counted (created is finalized before any generated token is cached; refuted live 2026-10-09)"
+    assert prediction("read", 511, 128) == {"cached": 384, "created": 0}
+    assert prediction("scramble", 604, 128) == {"cached": 0, "created": 512}
 
 
 def test_the_controls_pass_and_the_write_side_is_measured(tmp_path):
     w, report, engine = _run(tmp_path, block=8)
     assert report["verdict"] == "PASS", report["failures"] + report["unmeasurable"]
-    assert report["block_size"] == 8 and report["generated_tokens"] == 1 and len(report["repetitions"]) == 2
+    assert report["block_size"] == 8 and len(report["repetitions"]) == 2
     for row in report["repetitions"]:
         wr, rd, sc = row["write"], row["read"], row["scramble"]
-        assert wr["usage_cached_tokens"] == 0 and wr["usage_created_cache_tokens"] == prediction("write", wr["n"], 8, 1)["created"] > 0
-        assert rd["usage_cached_tokens"] == prediction("read", rd["n"], 8, 1)["cached"] >= rd["n"] - 8
+        assert wr["usage_cached_tokens"] == 0 and wr["usage_created_cache_tokens"] == prediction("write", wr["n"], 8)["created"] > 0
+        assert rd["usage_cached_tokens"] == prediction("read", rd["n"], 8)["cached"] >= rd["n"] - 8
         assert sc["usage_cached_tokens"] == 0 and abs(sc["n"] - wr["n"]) <= 16
         assert all(row[c]["checks"] and all(row[c]["checks"].values()) for c in ("write", "read", "scramble"))
     records = read(w["vllm"].corpus_dir / f"{report['run_id']}.jsonl")
@@ -187,7 +187,7 @@ def test_the_summarizer_recomputes_and_refuses_edits(tmp_path):
     def changed(change):
         records = read(log)
         change(records)
-        return evaluate(records, requests_dir, w["vllm"].block_sizes, 1, 16)
+        return evaluate(records, requests_dir, w["vllm"].block_sizes, 16)
 
     assert changed(lambda rs: None) == report, "untouched records reproduce the report"
     shared = changed(lambda rs: rs[2].update(request_sha256=rs[0]["request_sha256"], nonce=rs[0]["nonce"]))
@@ -230,7 +230,7 @@ def test_probe_reports_the_block_facts_and_records_nothing(tmp_path):
     n = out["prompt_tokens"]
     assert out["n_mod"] == {"8": n % 8, "16": n % 16}
     assert out["write"]["usage_cached_tokens"] == 0
-    assert out["read"]["usage_cached_tokens"] == prediction("read", n, 16, 1)["cached"]
+    assert out["read"]["usage_cached_tokens"] == prediction("read", n, 16)["cached"]
     assert out["fresh_nonce"]["usage_cached_tokens"] == 0, "a fresh nonce shares no full block"
     assert not list((w["root"] / "corpus" / "requests").iterdir()) and not list((w["root"] / "corpus" / "live" / "vcontrols").iterdir())
 
@@ -247,3 +247,16 @@ def test_client_prepare_matches_the_fake_and_observed_never_reads_zero(tmp_path)
     assert observed({"usage": {"prompt_tokens": 9}}) == {
         "usage_prompt_tokens": 9, "usage_cached_tokens": None, "usage_created_cache_tokens": None}
     assert observed({}) == {"usage_prompt_tokens": None, "usage_cached_tokens": None, "usage_created_cache_tokens": None}
+
+
+def test_a_tools_body_without_tool_choice_none_is_refused_like_the_real_server(tmp_path):
+    w = _world(tmp_path)
+    body = build_body(w["controls"], SERVED, SYSTEM, TOOLS, "0" * 32)
+    assert json.loads(body)["tool_choice"] == "none", "the driver always sends tool_choice none with tools"
+    stripped = dict(json.loads(body))
+    del stripped["tool_choice"]
+    with serve(block_size=8) as (url, _):
+        client = Client(url, 30.0)
+        with pytest.raises(EngineError, match="400.*auto.*tool choice"):
+            client.chat(json.dumps(stripped, ensure_ascii=True, separators=(",", ":")).encode("ascii"))
+        assert client.chat(body)["usage"]["prompt_tokens"] > 0, "the same body with tool_choice none is served"
