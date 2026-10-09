@@ -290,9 +290,9 @@ def test_repo_configs_load():
     assert [(h.id, h.slots, h.sleep_idle_seconds, h.gaps, h.repetitions) for h in m4.hypotheses] == [
         ("H-M4LD", 4, -1, (0, 2, 4, 60, 600), 2), ("H-M4LS", 4, 60, (20, 100), 3)]
     v = load_vllm_config(REPO_ROOT / "config" / "vllm.toml", REPO_ROOT)
-    assert v.registered_by == ""            # the registering entry changes this
+    assert v.registered_by == "0022"
     assert v.commit == "b6d8e8afd985f5711eee68e343d2ce908d166488" and v.commit[:7] in v.version
-    assert v.block_sizes == (16, 128) and v.served_model_name == "qwen3-1.7b" and v.dtype == "bfloat16"
+    assert v.block_sizes == (32, 128) and v.served_model_name == "qwen3-1.7b" and v.dtype == "bfloat16"
     assert v.kvcache_space_gib == 4 and v.max_model_len == 16384
     assert [(m.family, len(m.files)) for m in v.models] == [("qwen17", 4)]
     assert v.corpus_dir == REPO_ROOT / "corpus" / "live" / "vcontrols"

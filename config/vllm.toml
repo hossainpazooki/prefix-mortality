@@ -13,14 +13,16 @@ served_model_name = "qwen3-1.7b"
 dtype = "bfloat16"                       # the chip reports the BF16 feature; recorded, and set by the run script
 max_model_len = 16384
 kvcache_space_gib = 4                    # VLLM_CPU_KVCACHE_SPACE; the CPU backend's documented default
-block_sizes = [16, 128]                  # registered server configurations: 16 = the GPU default readers
-                                         # assume, 128 = this backend's default. One run per block size.
-                                         # The server does not report its block size; the run script
-                                         # passes it, and the records read it back only through the
-                                         # block arithmetic of the readings.
+block_sizes = [32, 128]                  # registered server configurations: 128 = this backend's
+                                         # default, 32 = the smallest it accepts (its attention kernel
+                                         # refuses any size that is not a multiple of 32 at the pin,
+                                         # which rules out the GPU default of 16). One run per block
+                                         # size. The server does not report its block size; the run
+                                         # script passes it, and the records read it back only through
+                                         # the block arithmetic of the readings.
 corpus_dir = "corpus/live/vcontrols"
 results_dir = "results/vcontrols"
-registered_by = ""
+registered_by = "0022"
 
 # The model is bf16 safetensors, pinned file by file; the driver hashes each local file and refuses
 # on a mismatch. Digests recorded from the download of 2026-10-06 (evidence folder of that date).

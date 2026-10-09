@@ -1075,3 +1075,63 @@ gap.
 **Status.** Eight hypotheses on this engine, all `[VALIDATED]`: `H-M1L1`, `H-M1LD`, `H-M7LD`,
 `H-M2L1`, `H-M3L1`, `H-M3LD`, `H-M4LD`, `H-M4LS`. Five kinds of event are measured and refuted
 without result; three causes remain `[FUTURE]`: rebuild, model switch, lifespan on recorded runs.
+
+### 0022 — 2026-10-09 — Controls registered on vLLM at a pinned commit, one model, two block sizes
+
+prior-entries-sha256: 8e9389c9128521a217d0e3d5fa61197be3bd5ff269c2684727fe6338d26cbbde
+
+**Registers** `config/vllm.toml`, now `registered_by = "0022"`. `config/controls.toml` is registered
+since entry 0002 and its request parameters carry over unchanged. No hypothesis is registered and no
+verdict cell is added: a control's outcome per block size is PASS, FAIL or NOT MEASURABLE, and a
+later entry states it from `summarize_vcontrols` output.
+
+**Instrument.**
+
+| part | value |
+|---|---|
+| engine | vLLM, commit `b6d8e8afd985f5711eee68e343d2ce908d166488`, built from source on the machine (no release artifact exists for this platform). `GET /version` must report `0.31.1rc1.dev8+gb6d8e8afd`, which carries the commit. |
+| backend | The CPU backend on Apple silicon (experimental upstream). dtype bfloat16; `VLLM_CPU_KVCACHE_SPACE=4`; `--max-model-len 16384`; `--enforce-eager`; `--enable-prompt-tokens-details`. |
+| model, family `qwen17` | `Qwen/Qwen3-1.7B`, bf16 safetensors, four files each pinned by sha256 in `config/vllm.toml`; the driver hashes every local file and refuses a mismatch. |
+| block sizes | 32 and 128, one run per size, the server started fresh per run with `--block-size` passed literally. 128 is this backend's default. 32 is the smallest this backend accepts: its attention kernel refuses any size that is not a multiple of 32 at the pin (`vllm/v1/worker/utils.py`, `select_common_block_size`), which rules out the GPU default of 16. |
+| machine | Apple M6, 16 GB of memory, macOS 27.0.1. |
+
+The server does not report its block size; the run script passes it, and the records read it back
+only through the block arithmetic below. Every chat body carries `tool_choice: "none"`: the server
+refuses a body with tools under its default tool choice unless started with a tool-call parser, and
+"none" leaves the rendered prompt unchanged.
+
+**Parameters**, as in `config/controls.toml`: 5 repetitions per block size, each a write, a read and
+a scramble; one generated token; temperature 0; a fresh 16-byte nonce per repetition ahead of the
+system text, and another for the scramble; scramble words drawn with seed 0; length tolerance 16
+tokens.
+
+**Rules.** *n* is the token count of the prompt as the server tokenizes it (`POST /tokenize` of the
+same body shape); *B* the run's block size. The cache stores full blocks of *B* tokens; a hit is the
+longest stored block chain prefixing the prompt, block-aligned and capped at *n* − 1
+(`vllm/v1/core/kv_cache_manager.py` at the pin); `created_cache_tokens` is finalized at the first
+output emission, before any generated token is cached, so it counts the prompt's full blocks that
+were not a hit (`PrefillStats.finalize` over `estimate_cached_tokens`).
+
+| request | passes when |
+|---|---|
+| write | cached = 0 and created = floor(*n*/*B*)·*B*. |
+| read, the same bytes again | cached = floor((*n* − 1)/*B*)·*B* and created = floor(*n*/*B*)·*B* − cached. |
+| scramble | cached = 0 and created = floor(*n*′/*B*)·*B*, with *n*′ within the tolerance of the write's *n*. |
+| each of the three | The reported prompt size equals the stored request's token count. |
+| a field the server does not report | The run is NOT MEASURABLE. |
+
+The zeros are exact, not bounds: a block matches only whole, and the tokens shared across nonces
+(the template head) are fewer than *B*, checked per repetition as lcp(write, scramble) < *B* from
+the stored token ids. These rules state rule 1 of entry 0001 for this engine. "Reads what the first
+request wrote" is floor((*n* − 1)/*B*)·*B* and not *n*: the hit is block-aligned and the server
+recomputes at least the prompt's last token.
+
+**Known before the run.**
+
+| fact | consequence |
+|---|---|
+| Unrecorded probes of 2026-10-09 exercised both block sizes and both sides of a 128-block boundary. | Nothing from them is evidence and no figure from them appears here. They refuted an earlier reading of created — that it includes the block the generated tokens complete — and the backend's refusal of block 16 was found there. The rules above are those of `src/prefix_mortality/summarize_vcontrols.py` as committed with this entry, after that correction. |
+| Prefix caching is on by default on this backend and the server is started fresh per run. | The cache opens empty; the write of repetition 1 meets nothing. |
+| `/tokenize` token pieces are BPE-internal and do not join to the rendered text. | The rendered prompt is read back through `/detokenize`; the stored ids, not the pieces, carry every check. |
+
+**Status.** The V controls are `[STRETCH]`: registered, not run.

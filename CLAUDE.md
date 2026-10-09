@@ -127,8 +127,13 @@ resend. Both are `[VALIDATED]` (ledger 0021), so every hypothesis on this engine
 (one trial per task, claude-3-7-sonnet agent) are vendored under `corpus/recorded/` with their provenance;
 `recorded stats` reports their turn counts and the idle the serving side sees between an agent's
 requests (0.0 s median, 1.5 s at the 90th percentile, 3.9 s at most in these runs). The V instrument
-(vLLM at a pinned commit, CPU backend on the same machine, Qwen3-1.7B bf16, block sizes 16 and 128) is
-built as `vllm`, `vcontrols` and `summarize_vcontrols` with its own stand-in, unregistered:
-`config/vllm.toml` has `registered_by = ""` until a ledger entry registers it. On V a cache hit is
-block-aligned and capped at *n* − 1, and the write side is measured (`created_cache_tokens`). Three
+(vLLM at a pinned commit, CPU backend on the same machine, Qwen3-1.7B bf16, block sizes 32 and 128) is
+built as `vllm`, `vcontrols` and `summarize_vcontrols` with its own stand-in and registered by ledger
+0022 (`config/vllm.toml`, `registered_by = "0022"`), not yet run. On V a cache hit is block-aligned
+and capped at *n* − 1, and the write side is measured: `created_cache_tokens` counts the prompt's full
+blocks that were not a hit and never a generated token (it is finalized at the first output emission;
+an earlier generated-inclusive reading was refuted on the live server, 2026-10-09). A chat that
+carries tools is sent with `tool_choice: "none"`: the server refuses the default "auto" without a
+tool-call parser. The CPU backend refuses any `--block-size` that is not a multiple of 32 — block 32
+replaced the GPU default 16 by ruling of 2026-10-09. Three
 causes remain `[FUTURE]`: rebuild, model switch, lifespan on recorded runs.
