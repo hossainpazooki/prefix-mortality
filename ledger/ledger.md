@@ -1170,3 +1170,36 @@ is evidence. A registered boundary repetition would close this; none is register
 **Status.** The V controls are `[BASELINE]`: rule 1 of entry 0001 is stated and measured for this
 engine at both registered block sizes. `[VALIDATED]` waits on an independent refuter (rule 5,
 entry 0008).
+
+### 0024 — 2026-10-10 — 0023 survived a refuter: the V controls are [VALIDATED]
+
+prior-entries-sha256: 369ab60e8915da975bd28eff18b4d05e77dfc52c588ea24b7072c0056d0107a8
+
+**Under rule 5** (entry 0008). The results of 0023 were given to a sixth refuter, independent of the
+author as in 0010, 0011, 0014, 0018 and 0021: a separate session with no access to the one that
+produced the code and the entries, nor to the earlier refuters' work.
+
+| | |
+|---|---|
+| what it read | An export of commit `c09b892`, the whole tree. It opened the ledger, the configs, the two record files and all 20 stored requests, recomputed every hash itself, and imported nothing from the package. Denied git, it could not check the commit hashes the entries name; it verified internal consistency of the records, not that the runs happened as described, and it could not re-contact the server, so the usage counters, the version string and the stored tokenizations are trusted as recorded. |
+| the brief | Recompute every cell of 0023's table from the records and stored requests alone under 0022's rules; recompute 0023's chain line and every record's config hashes; confirm or refute the entry's own disclosure that these prompt lengths cannot discriminate the block size; look for undisclosed weaknesses: nonce reuse, non-monotonic order, bodies departing from the registered parameters, record fields contradicting the registration. |
+| verdict | All six claims: NOT REFUTED. "Zero rule failures" across the 30 records; "no undisclosed weakness found". |
+
+**What it tried and what survived**, from its report.
+
+| tried | found |
+|---|---|
+| Every figure of 0023, with its own code. | All 30 records satisfy the registered rules: every read cached = floor((*n* − 1)/*B*)·*B* with created completing floor(*n*/*B*)·*B*; every write and scramble cached 0 with created = floor(*n*/*B*)·*B*; every reported prompt size equals its stored token count; 15 records and 5-of-5 rows per run; *n* spans and the largest scramble gap (4, both runs) as tabled; no observed field null anywhere. |
+| The record files as evidence. | `seq` dense from 1 with `ts_start` monotonic in both runs; exactly 10 distinct nonces per run with no cross-repetition reuse; read and write share one request file per repetition, 10 of 10, and each file's name equals the hash of the body it contains; all 30 bodies carry the registered parameters (one generated token, temperature 0, `tool_choice: "none"`); every record carries the registered model name, dtype, cache space and engine pin. |
+| The chain and the config hashes. | 0023's prior-entries-sha256 reproduces from the normalized entries section exactly; both config hashes reproduce under the repository's text-hash convention in all 30 records — and only under it, since the export carries checkout line endings. |
+| The entry's own disclosure. | Confirmed by recomputation: *n* mod 128 stays below 32 in all 30 requests (largest 8), so the 32- and 128-block arithmetic coincide on every one, and the counters cannot discriminate the block size. Its strongest counter-case is this same point: the block size in the records is what the run script passed, not a server report. 0023 states that accurately and stays `[BASELINE]` on it. |
+| The one boundary that occurred. | The block-32 run's first scramble landed on *n* = 4,864, a multiple of both block sizes, where a full hit would be indistinguishable from the created figure; cached 0 there is what the lcp guard predicts, and the recomputed lcp is 4. |
+
+**Consequences.** The V controls are `[VALIDATED]`: rule 1 of entry 0001 is stated, measured and
+refuter-checked for this engine at both registered block sizes. The block size itself remains
+operator-asserted at these prompt lengths, as 0023 discloses; a registered boundary repetition would
+make it record-witnessed.
+
+**Status.** Two engines carry validated instruments. On llama.cpp, eight hypotheses, all
+`[VALIDATED]`; on vLLM, the controls are `[VALIDATED]` and no hypothesis is registered yet. Three
+causes remain `[FUTURE]`: rebuild, model switch, lifespan on recorded runs.
