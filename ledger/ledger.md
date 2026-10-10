@@ -1135,3 +1135,38 @@ recomputes at least the prompt's last token.
 | `/tokenize` token pieces are BPE-internal and do not join to the rendered text. | The rendered prompt is read back through `/detokenize`; the stored ids, not the pieces, carry every check. |
 
 **Status.** The V controls are `[STRETCH]`: registered, not run.
+
+### 0023 — 2026-10-10 — V controls pass at both block sizes
+
+prior-entries-sha256: c2a508556a40f5acfdfdabf586c9e469a4fabb781db0b3a773904298a23f203d
+
+**Outcome** `[BASELINE]`. The V controls registered by 0022 ran at commit `23c1eb8`, one run per
+registered block size, the server started fresh for each. Their records and requests are committed
+at `8e20ee0`. Every figure below is from `summarize_vcontrols --run` on those files, or from the
+`server` field of the records.
+
+| | block 32 | block 128 |
+|---|---|---|
+| run | `20261010T150245Z-qwen17-b32` | `20261010T151204Z-qwen17-b128` |
+| outcome | PASS | PASS |
+| requests | 15 | 15 |
+| read: cached = floor((*n* − 1)/*B*)·*B*, created completes floor(*n*/*B*)·*B* | 5 of 5 | 5 of 5 |
+| write: cached 0, created = floor(*n*/*B*)·*B* | 5 of 5 | 5 of 5 |
+| scramble: cached 0, length within tolerance | 5 of 5 | 5 of 5 |
+| *n* | 4,864 to 4,872 | 4,867 to 4,871 |
+| largest gap, scramble *n* against write *n* | 4 | 4 |
+| nonce isolation, lcp(write, scramble) < *B* | 5 of 5 | 5 of 5 |
+| engine version, as the server reported | `0.31.1rc1.dev8+gb6d8e8afd` | `0.31.1rc1.dev8+gb6d8e8afd` |
+| fields not reported | None. | None. |
+
+**What the outcome does not show.** At these prompt lengths the records do not witness the block
+size: every *n* fell in a span where *n* mod 128 is below 32, so floor(*n*/32)·32 and
+floor(*n*/128)·128 are the same number for every request, and a server at either block size would
+have produced identical counters. The block size in each record is what the run script passed on the
+server's command line; the server does not report it. The unrecorded probes of 2026-10-09 did land
+prompts on both sides of a 128-block boundary and read the arithmetic there, but nothing from them
+is evidence. A registered boundary repetition would close this; none is registered by this entry.
+
+**Status.** The V controls are `[BASELINE]`: rule 1 of entry 0001 is stated and measured for this
+engine at both registered block sizes. `[VALIDATED]` waits on an independent refuter (rule 5,
+entry 0008).

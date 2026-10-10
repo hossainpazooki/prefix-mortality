@@ -8,7 +8,8 @@ verdicts, entry 0008 rule 5 on `[VALIDATED]`, entries 0010 and 0011 the refuters
 0012 the hypothesis on eviction by intervening requests, entry 0013 its verdict, entry 0014 the
 refuter's pass, entry 0015 the hypotheses on serialization drift and templating, entries 0016 and
 0017 their verdicts, entry 0018 the refuter's pass on both, entry 0019 the two hypotheses on idle
-expiry, entry 0020 their verdicts, and entry 0021 the refuter's pass on both.
+expiry, entry 0020 their verdicts, entry 0021 the refuter's pass on both, entry 0022 the V controls'
+registration on vLLM, and entry 0023 their pass at both block sizes.
 
 ## Rules
 - The chassis is copied from lag-ladder, not shared. Never import `lag_ladder`, `linear_ceiling` or
@@ -129,7 +130,9 @@ resend. Both are `[VALIDATED]` (ledger 0021), so every hypothesis on this engine
 requests (0.0 s median, 1.5 s at the 90th percentile, 3.9 s at most in these runs). The V instrument
 (vLLM at a pinned commit, CPU backend on the same machine, Qwen3-1.7B bf16, block sizes 32 and 128) is
 built as `vllm`, `vcontrols` and `summarize_vcontrols` with its own stand-in and registered by ledger
-0022 (`config/vllm.toml`, `registered_by = "0022"`), not yet run. On V a cache hit is block-aligned
+0022 (`config/vllm.toml`, `registered_by = "0022"`); the controls passed at both block sizes and are
+`[BASELINE]` (ledger 0023) — at these prompt lengths the records do not witness the block size (its
+multiples coincide below *n* mod 128 = 32), which 0023 discloses. On V a cache hit is block-aligned
 and capped at *n* − 1, and the write side is measured: `created_cache_tokens` counts the prompt's full
 blocks that were not a hit and never a generated token (it is finalized at the first output emission;
 an earlier generated-inclusive reading was refuted on the live server, 2026-10-09). A chat that
