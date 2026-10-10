@@ -12,7 +12,7 @@ tool_indexes = [0, 4, 9, 13]          # the first word of that tool's descriptio
 edit_user_message = true              # the first word of the user message
 corpus_dir = "corpus/live/vm1"
 results_dir = "results/vm1"
-registered_by = ""
+registered_by = "0025"
 
 # One hypothesis per server configuration: the block size, the only flag that changes between the
 # registered configurations. The rule is the same formula under both, with B the hypothesis's block:

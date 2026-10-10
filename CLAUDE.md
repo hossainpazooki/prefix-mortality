@@ -9,7 +9,8 @@ verdicts, entry 0008 rule 5 on `[VALIDATED]`, entries 0010 and 0011 the refuters
 refuter's pass, entry 0015 the hypotheses on serialization drift and templating, entries 0016 and
 0017 their verdicts, entry 0018 the refuter's pass on both, entry 0019 the two hypotheses on idle
 expiry, entry 0020 their verdicts, entry 0021 the refuter's pass on both, entry 0022 the V controls'
-registration on vLLM, entry 0023 their pass at both block sizes, and entry 0024 the refuter's pass.
+registration on vLLM, entry 0023 their pass at both block sizes, entry 0024 the refuter's pass, and
+entry 0025 the two hypotheses on edit position on vLLM.
 
 ## Rules
 - The chassis is copied from lag-ladder, not shared. Never import `lag_ladder`, `linear_ceiling` or
@@ -146,6 +147,6 @@ tool-call parser. The CPU backend refuses any `--block-size` that is not a multi
 replaced the GPU default 16 by ruling of 2026-10-09. Edit position on V (`H-M1V32`, `H-M1V128`: one
 word replaced at the same sites as M1, byte-identical across engines by ruling of 2026-10-10; cached
 = floor(min(*d*, *n* − 1)/*B*)·*B*, created completes floor(*n*/*B*)·*B*) is built as `vm1` and
-`summarize_vm1`, unregistered: `config/vm1.toml` has `registered_by = ""` until a ledger entry
-registers it. Three
+`summarize_vm1` and registered by ledger 0025 (`config/vm1.toml`, `registered_by = "0025"`): both
+`[STRETCH]`, not run; `H-M1V32` runs first. Three
 causes remain `[FUTURE]`: rebuild, model switch, lifespan on recorded runs.

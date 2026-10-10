@@ -24,6 +24,8 @@ numerator nor a denominator. It is never written as a zero.
 | H-M3LD | On llama.cpp `b11235` at its defaults, the same request reuses that prefix when it is more than 0.10 of its length, and none otherwise. | entry 0015 | HELD |
 | H-M4LD | On llama.cpp `b11235` at its defaults, a request identical to one served *g* seconds earlier, with nothing served between them, reuses *n* − 1 tokens at every registered *g* (0, 2, 4, 60, 600). | entry 0019 | HELD |
 | H-M4LS | On llama.cpp `b11235` started with `--sleep-idle-seconds 60`, the same request reuses *n* − 1 tokens after a gap of 20 seconds and 0 after a gap of 100 seconds, the server reporting sleeping in between. | entry 0019 | HELD |
+| H-M1V32 | On vLLM `b6d8e8af` (CPU backend) started with `--block-size 32`, a request that differs from an earlier one at token *d* reads cached = floor(min(*d*, *n* − 1)/32)·32 and creates floor(*n*/32)·32 minus that. | entry 0025 | unresolved |
+| H-M1V128 | On vLLM `b6d8e8af` (CPU backend) started with `--block-size 128`, the same request reads cached = floor(min(*d*, *n* − 1)/128)·128 and creates floor(*n*/128)·128 minus that. | entry 0025 | unresolved |
 
 ## Entries
 
@@ -1203,3 +1205,58 @@ make it record-witnessed.
 **Status.** Two engines carry validated instruments. On llama.cpp, eight hypotheses, all
 `[VALIDATED]`; on vLLM, the controls are `[VALIDATED]` and no hypothesis is registered yet. Three
 causes remain `[FUTURE]`: rebuild, model switch, lifespan on recorded runs.
+
+### 0025 — 2026-10-10 — Edit position registered on vLLM: H-M1V32 and H-M1V128
+
+prior-entries-sha256: ec75fa854d78bd26609a27c9d1ef020b76f0ea1773eba99c216ebaff8de449e9
+
+**Registers** `config/vm1.toml`, now `registered_by = "0025"`, and two hypotheses, each with its own
+verdict cell. Engine, model, machine and block sizes are those of 0022; the request parameters are
+those of `config/controls.toml`.
+
+**Ids.** Rule 2 of 0001 gives `H-M<n><instrument>`. The configuration's block size is appended, the
+two configurations being separate hypotheses as ruled for M1 on 2026-09-29 and for this experiment on
+2026-10-10. One model is a single cell in each.
+
+| id | server | predicted counters of the edited request |
+|---|---|---|
+| `H-M1V32` | 0022's flags with `--block-size 32`, started fresh for the run. | cached = floor(min(*d*, *n* − 1)/32)·32; created = floor(*n*/32)·32 − cached. |
+| `H-M1V128` | The same with `--block-size 128`. | cached = floor(min(*d*, *n* − 1)/128)·128; created = floor(*n*/128)·128 − cached. |
+
+*d* is the number of leading tokens the base prompt and the edited prompt have in common, under the
+server's own tokenizer, each prompt as the server renders it; *n* is the token count of the edited
+prompt. The formulas are 0022's rules (validated by 0024) applied to a partial match: a hit is a
+stored block chain prefixing the prompt, block-aligned, capped at *n* − 1, and nothing past the first
+differing token can match because a block hashes its parent chain.
+
+**A trial** is two requests under one fresh nonce: the base request, then the same request with one
+word replaced by `zebra`, a word that occurs nowhere in the base prefix. The 13 sites are
+byte-identical to `config/m1.toml`'s (ruled 2026-10-10, so every site compares across engines): the
+word at 0, 0.1, 0.24, 0.27, 0.32, 0.5, 0.75 and 0.999 of the system text's length; the first word of
+the description of tools 0, 4, 9 and 13; and the first word of the user message. Each site is tried
+5 times: 65 trials and 130 requests per hypothesis. A fraction names a place in the system TEXT; its
+place in the PROMPT is smaller, since the tools render after the system text and dominate the token
+count.
+
+**What decides.**
+
+| case | rule |
+|---|---|
+| A trial matches. | The edited request's cached and created both equal their predictions, and each request's reported prompt size equals its stored token count. |
+| `HELD` | Every trial of both runs matches. |
+| `NOT CONFIRMED` | At least one trial does not match. The results entry states the prediction and the observation of every trial. |
+| A control fails. | The base request reads cached other than 0 or created other than floor(*n*/*B*)·*B*, or shares a full block with the previous trial's base (checked as lcp from the stored ids). The run stops, and no verdict follows from it. |
+| NOT MEASURABLE | The server does not report a field. The verdict stays `unresolved`. |
+
+A prediction is a function of the two stored prompts and the hypothesis's block size, and of nothing
+else; it is stored before the edited request is sent, and `summarize_vm1` recomputes it from the
+stored tokens and refuses a record that carries another value.
+
+**Known before the run.**
+
+| fact | consequence |
+|---|---|
+| The server does not report its block size, and at prompt lengths where *n* mod 128 < 32 the counters of the CONTROLS cannot discriminate it (0023). | Here the sites spread *d* across the prompt, so most trials discriminate: a trial whose min(*d*, *n* − 1) mod 128 is 32 or more predicts different cached values under the two hypotheses, and a server at the wrong block size fails its run's predictions. |
+| Three unrecorded trials of this kind were sent to a block-32 server before this entry. | Nothing from them is evidence and no figure from them appears here. The rules and the sites are those committed at `8c0e671`, before that contact. |
+
+**Status.** `H-M1V32` and `H-M1V128` are `[STRETCH]`: registered, not run. `H-M1V32` runs first.

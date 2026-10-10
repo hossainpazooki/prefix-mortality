@@ -526,7 +526,7 @@ block_size = 128
 def test_vm1_config_loads_and_the_repo_sites_are_byte_identical_to_m1s():
     from prefix_mortality import REPO_ROOT
     v = load_vm1_config(REPO_ROOT / "config" / "vm1.toml", REPO_ROOT)
-    assert v.registered_by == ""            # the registering entry changes this
+    assert v.registered_by == "0025"
     assert [(h.id, h.block_size) for h in v.hypotheses] == [("H-M1V32", 32), ("H-M1V128", 128)]
     m1 = load_m1_config(REPO_ROOT / "config" / "m1.toml", REPO_ROOT)
     assert v.system_fractions == m1.system_fractions and v.tool_indexes == m1.tool_indexes
