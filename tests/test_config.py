@@ -4,7 +4,7 @@ import pytest
 
 from prefix_mortality.config import (load_controls_config, load_engines_config, load_m1_config, load_m2_config,
                                      load_m3_config, load_m4_config, load_m7_config,
-                                     load_seal_config, load_vllm_config)
+                                     load_seal_config, load_vllm_config, load_vm1_config)
 
 
 def _write(tmp_path, name, text):
@@ -504,3 +504,47 @@ def test_vllm_config_refuses_a_model_with_no_files(tmp_path):
     none = VLLM[:VLLM.index("[[vllm.models.files]]")]
     with pytest.raises(ValueError, match=r"is missing \['files'\]"):
         load_vllm_config(_write(tmp_path, "vllm.toml", none), repo_root=tmp_path)
+
+
+VM1 = '''
+[vm1]
+repetitions = 5
+replacement = "zebra"
+system_fractions = [0.0, 0.5]
+tool_indexes = [0]
+edit_user_message = true
+corpus_dir = "corpus/live/vm1"
+results_dir = "results/vm1"
+registered_by = ""
+[vm1.hypotheses.H-M1V32]
+block_size = 32
+[vm1.hypotheses.H-M1V128]
+block_size = 128
+'''
+
+
+def test_vm1_config_loads_and_the_repo_sites_are_byte_identical_to_m1s():
+    from prefix_mortality import REPO_ROOT
+    v = load_vm1_config(REPO_ROOT / "config" / "vm1.toml", REPO_ROOT)
+    assert v.registered_by == ""            # the registering entry changes this
+    assert [(h.id, h.block_size) for h in v.hypotheses] == [("H-M1V32", 32), ("H-M1V128", 128)]
+    m1 = load_m1_config(REPO_ROOT / "config" / "m1.toml", REPO_ROOT)
+    assert v.system_fractions == m1.system_fractions and v.tool_indexes == m1.tool_indexes
+    assert v.edit_user_message == m1.edit_user_message and v.replacement == m1.replacement
+    assert v.repetitions == m1.repetitions  # full L parity (ruling 2026-10-10)
+    assert v.corpus_dir == REPO_ROOT / "corpus" / "live" / "vm1"
+
+
+@pytest.mark.parametrize("old,new,msg", [
+    ("[vm1.hypotheses.H-M1V128]\nblock_size = 128", "[vm1.hypotheses.H-M1V128]\nblock_size = 32",
+     "distinct block sizes"),
+    ("[vm1.hypotheses.H-M1V32]", "[vm1.hypotheses.H-X32]", "an id is H-M1V"),
+    ('replacement = "zebra"', 'replacement = "two words"', "one word of letters"),
+    ("repetitions = 5", "repetitions = 0", "must be an int >= 1"),
+    ("system_fractions = [0.0, 0.5]", "system_fractions = [0.5, 0.0]", "strictly ascending"),
+    ('registered_by = ""', "", "is missing"),
+])
+def test_vm1_config_refuses_bad_values(tmp_path, old, new, msg):
+    assert VM1.count(old) == 1
+    with pytest.raises(ValueError, match=msg):
+        load_vm1_config(_write(tmp_path, "vm1.toml", VM1.replace(old, new)), repo_root=tmp_path)

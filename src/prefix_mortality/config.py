@@ -728,3 +728,76 @@ def load_vllm_config(path: Path, repo_root: Path) -> VllmConfig:
         kvcache_space_gib=_int(c, "kvcache_space_gib", name, minimum=1), block_sizes=blocks,
         corpus_dir=root / c["corpus_dir"], results_dir=root / c["results_dir"], models=tuple(models),
         registered_by=_registered_by(c["registered_by"], name), config_path=path)
+
+
+# --- edit position on vLLM (M1V) ------------------------------------------------------------------
+
+_VM1_ID = re.compile(r"H-M1V[A-Za-z0-9]+")
+
+
+@dataclass(frozen=True)
+class Vm1Hypothesis:
+    id: str
+    block_size: int
+
+
+@dataclass(frozen=True)
+class Vm1Config:
+    """Edit position on the V instrument. One list of sites, run once per hypothesis; a hypothesis
+    is a server block size. Request parameters come from the controls config; engine, model and the
+    registered block sizes from the vllm config, against which the driver gates each hypothesis."""
+    repetitions: int
+    replacement: str
+    system_fractions: tuple[float, ...]
+    tool_indexes: tuple[int, ...]
+    edit_user_message: bool
+    corpus_dir: Path
+    results_dir: Path
+    hypotheses: tuple[Vm1Hypothesis, ...]
+    registered_by: str
+    config_path: Path
+
+    def hypothesis(self, hid: str) -> Vm1Hypothesis:
+        for h in self.hypotheses:
+            if h.id == hid:
+                return h
+        raise ValueError(f"{self.config_path.name} registers no hypothesis {hid!r}; "
+                         f"known: {[h.id for h in self.hypotheses]}")
+
+
+_VM1_KEYS = ("repetitions", "replacement", "system_fractions", "tool_indexes", "edit_user_message",
+             "corpus_dir", "results_dir", "registered_by", "hypotheses")
+_VM1_HYPOTHESIS_KEYS = ("block_size",)
+
+
+def load_vm1_config(path: Path, repo_root: Path) -> Vm1Config:
+    path = Path(path)
+    name = f"{path.name} [vm1]"
+    c = _read(path)["vm1"]
+    _require(c, _VM1_KEYS, name)
+    if not isinstance(c["edit_user_message"], bool):
+        raise ValueError(f"{name} edit_user_message must be true or false")
+    replacement = _text(c, "replacement", name)
+    if not replacement.isalpha():
+        raise ValueError(f"{name} replacement must be one word of letters, got {replacement!r}")
+    fractions = _ascending(c, "system_fractions", name, float, 0.0, 1.0)
+    indexes = _ascending(c, "tool_indexes", name, int, 0, 10_000)
+    if not (fractions or indexes or c["edit_user_message"]):
+        raise ValueError(f"{name} names no site")
+    hypotheses = []
+    for hid, h in c["hypotheses"].items():
+        hname = f"{name}.hypotheses.{hid}"
+        if not _VM1_ID.fullmatch(hid):
+            raise ValueError(f"{hname}: an id is H-M1V and the block size it runs under")
+        _require(h, _VM1_HYPOTHESIS_KEYS, hname)
+        hypotheses.append(Vm1Hypothesis(id=hid, block_size=_int(h, "block_size", hname, minimum=1)))
+    blocks = [h.block_size for h in hypotheses]
+    if not hypotheses or len(set(blocks)) != len(blocks):
+        raise ValueError(f"{name} needs at least one hypothesis and distinct block sizes, got {blocks}")
+    root = Path(repo_root)
+    return Vm1Config(
+        repetitions=_int(c, "repetitions", name, minimum=1), replacement=replacement,
+        system_fractions=fractions, tool_indexes=indexes, edit_user_message=c["edit_user_message"],
+        corpus_dir=root / c["corpus_dir"], results_dir=root / c["results_dir"],
+        hypotheses=tuple(hypotheses), registered_by=_registered_by(c["registered_by"], name), config_path=path,
+    )

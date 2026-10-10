@@ -58,17 +58,20 @@ registration on vLLM, entry 0023 their pass at both block sizes, and entry 0024 
 .venv/Scripts/python.exe -m prefix_mortality.m3 run --url URL --hypothesis H-M3LD --family qwen --model-path FILE
 .venv/Scripts/python.exe -m prefix_mortality.summarize_m3 --run RUN_ID
 .venv/Scripts/python.exe -m prefix_mortality.vcontrols probe --url URL --pad-words 0   # vLLM; records nothing
-.venv/Scripts/python.exe -m prefix_mortality.vcontrols run --url URL --family qwen17 --block-size 16 --model-dir DIR
+.venv/Scripts/python.exe -m prefix_mortality.vcontrols run --url URL --family qwen17 --block-size 32 --model-dir DIR
 .venv/Scripts/python.exe -m prefix_mortality.summarize_vcontrols --run RUN_ID
+.venv/Scripts/python.exe -m prefix_mortality.vm1 probe --url URL --hypothesis H-M1V32 --sites system-0.240,user
+.venv/Scripts/python.exe -m prefix_mortality.vm1 run --url URL --hypothesis H-M1V32 --family qwen17 --model-dir DIR
+.venv/Scripts/python.exe -m prefix_mortality.summarize_vm1 --run RUN_ID
 ```
 On macOS/Linux the interpreter is `.venv/bin/python`. The project pins Python 3.12.
 
 A driver's `run` refuses until a ledger entry registers its config: `config/controls.toml` and
 `config/engines.toml` for the controls, and `config/m1.toml`, `config/m2.toml`, `config/m3.toml`,
 `config/m4.toml` or `config/m7.toml` as well for edit position, serialization drift, templating, idle
-expiry or eviction; `config/controls.toml` and `config/vllm.toml` for the V controls (vLLM's engine pin
-lives in its own file because every committed llama.cpp record hashes `config/engines.toml`, which
-therefore never changes). Every llama.cpp experiment's `run` also refuses a server that does not report the number of
+expiry or eviction; `config/controls.toml` and `config/vllm.toml` for the V controls, plus `config/vm1.toml` for edit
+position on vLLM (the vLLM engine pin lives in its own file because every committed llama.cpp record
+hashes `config/engines.toml`, which therefore never changes). Every llama.cpp experiment's `run` also refuses a server that does not report the number of
 slots its hypothesis requires; `m7 run` and `m4 run` refuse one that reports no slot context, and send
 no trial whose anchor does not fit it. `m4` sends nothing inside a gap but one `GET /props` at its
 end: at the pinned commit a render or a tokenization wakes a sleeping server. After a run, `manifest
@@ -90,9 +93,10 @@ in the fixture's provenance, so editing it turns `tests/test_base_prefix.py` red
 and M3) · `m2`, `summarize_m2` (serialization drift) · `m3`, `summarize_m3` (templating) · `recorded` (the
 vendored tau2 simulations: extract with provenance, load, statistics) · `vllm` (the V engine client:
 chat-shaped tokenize + detokenize give the render; reuse read from usage details) · `vcontrols`,
-`summarize_vcontrols` (the V controls: block arithmetic, measured write side).
+`summarize_vcontrols` (the V controls: block arithmetic, measured write side) · `vm1`,
+`summarize_vm1` (edit position on V: the block formulas on the first differing token).
 `config/` — `seal.toml`, `controls.toml`, `m1.toml`, `m2.toml`, `m3.toml`, `m4.toml`, `m7.toml`,
-`engines.toml`, `vllm.toml`.
+`engines.toml`, `vllm.toml`, `vm1.toml`.
 `ledger/` — `ledger.md`, `predictions/`.
 `corpus/` — `base_prefix/tau2-airline/`, `recorded/tau2-airline-claude-3-7-sonnet/` (50 simulations +
 `provenance.json`), `live/`, `requests/`, `MANIFEST.json`. `tools/` —
@@ -139,5 +143,9 @@ blocks that were not a hit and never a generated token (it is finalized at the f
 an earlier generated-inclusive reading was refuted on the live server, 2026-10-09). A chat that
 carries tools is sent with `tool_choice: "none"`: the server refuses the default "auto" without a
 tool-call parser. The CPU backend refuses any `--block-size` that is not a multiple of 32 — block 32
-replaced the GPU default 16 by ruling of 2026-10-09. Three
+replaced the GPU default 16 by ruling of 2026-10-09. Edit position on V (`H-M1V32`, `H-M1V128`: one
+word replaced at the same sites as M1, byte-identical across engines by ruling of 2026-10-10; cached
+= floor(min(*d*, *n* − 1)/*B*)·*B*, created completes floor(*n*/*B*)·*B*) is built as `vm1` and
+`summarize_vm1`, unregistered: `config/vm1.toml` has `registered_by = ""` until a ledger entry
+registers it. Three
 causes remain `[FUTURE]`: rebuild, model switch, lifespan on recorded runs.

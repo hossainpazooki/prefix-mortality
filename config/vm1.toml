@@ -1,0 +1,25 @@
+# Edit position (M1V) on vLLM: one word replaced at a named site of the base request.
+#
+# Registered by the ledger entry named in `registered_by`; the driver refuses to run while it is
+# empty. Request parameters (tokens to generate, temperature, nonce length, user message) are those
+# of config/controls.toml; engine, model and block sizes are those of config/vllm.toml. The sites
+# are byte-identical to config/m1.toml's, so every site compares across engines (ruling 2026-10-10).
+[vm1]
+repetitions = 5                       # trials per site, per hypothesis
+replacement = "zebra"                 # occurs nowhere in the base prefix
+system_fractions = [0.0, 0.1, 0.24, 0.27, 0.32, 0.5, 0.75, 0.999]
+tool_indexes = [0, 4, 9, 13]          # the first word of that tool's description
+edit_user_message = true              # the first word of the user message
+corpus_dir = "corpus/live/vm1"
+results_dir = "results/vm1"
+registered_by = ""
+
+# One hypothesis per server configuration: the block size, the only flag that changes between the
+# registered configurations. The rule is the same formula under both, with B the hypothesis's block:
+#   cached  = floor(min(d, n - 1) / B) * B       d = first differing token, n = edited prompt tokens
+#   created = floor(n / B) * B - cached
+[vm1.hypotheses.H-M1V32]
+block_size = 32
+
+[vm1.hypotheses.H-M1V128]
+block_size = 128
