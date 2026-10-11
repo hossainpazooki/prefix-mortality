@@ -1394,3 +1394,42 @@ summarizer refuses records of this family that do not.
 | At the defaults the server runs 4 slots with idle-slot clearing (0005). | The write rule is exercised beyond its floor only from the fifth fresh prompt, as 0002 recorded for the first two families. |
 
 **Status.** The qwen17 controls are `[STRETCH]`: registered, not run. The one-slot run goes first.
+### 0029 — 2026-10-11 — The qwen17 controls pass in both configurations
+
+prior-entries-sha256: 9f799a2bbe916619e52e643fc0abd558b636634b6ff4257db1b91429f1aa9559
+
+**Outcome** `[BASELINE]`. The controls registered by 0028 ran at commit `cd446f9`, one run per server
+configuration, the server started fresh for each. Their records and requests are committed at
+`f43e1d3`. Every figure below is from `summarize --run` on those files, or from the `server` field
+of the records.
+
+| | `--parallel 1` | defaults |
+|---|---|---|
+| run | `20261011T172712Z-qwen17` | `20261011T172745Z-qwen17` |
+| outcome | PASS | PASS |
+| records | 15 | 15 |
+| read reused *n* − 1 | 5 of 5 | 5 of 5 |
+| write reused at most *h* | 5 of 5 (first 0; then 4 to 5 of *h* 30 to 37) | 5 of 5 (every write 0) |
+| scramble reused at most *h* | 5 of 5 (4 to 5) | 5 of 5 (every scramble 0) |
+| slots, context, as the server reported | 1, 40,960 | 4, 40,960 |
+| build, as the server reported | `b11235-6c7a87f7e` | `b11235-6c7a87f7e` |
+| *n*, over all requests | 4,867 to 4,873 | 4,865 to 4,872 |
+| local date | one, all records | one |
+| fields not reported | None. | None. |
+
+**Verdict.** Rule 1 of 0001 is stated and measured for the third family: the read reuses exactly
+*n* − 1 and the write and the scramble stay within the header bound, in both configurations. The
+patterns match the first two families': with one slot the shared template head is reused (0003);
+at the defaults idle-slot clearing leaves every fresh prompt an empty slot (0002, 0005).
+
+**Quantization**, as 0028 promised to repeat: the weights are Q8_0 where the V lane served bf16;
+nothing measured here depends on them — reuse counters and token counts are functions of the
+tokenizer, the template and the cache policy. The prompt tokenizes to 4,865–4,873 tokens here
+against 4,864–4,874 on vLLM (0023, 0026): the same family's tokenizer, within nonce jitter of each
+other; whether the edit positions agree token for token is settled by a later descriptive entry,
+not asserted here.
+
+**Status.** The qwen17 controls are `[BASELINE]`. `[VALIDATED]` waits on an independent refuter
+(rule 5, entry 0008); one refuter covering the whole qwen17 cell is planned after the family's
+edit-position runs, so these controls and those runs are refuted together. `config/m1q17.toml`
+remains UNREGISTERED.
