@@ -12,7 +12,8 @@ expiry, entry 0020 their verdicts, entry 0021 the refuter's pass on both, entry 
 registration on vLLM, entry 0023 their pass at both block sizes, entry 0024 the refuter's pass, and
 entry 0025 the two hypotheses on edit position on vLLM, entry 0026 their verdicts, entry 0027 the
 refuter's pass on both, entry 0028 the qwen17 family's controls registration on llama.cpp, and
-entry 0029 their pass in both configurations.
+entry 0029 their pass in both configurations, and entry 0030 the two hypotheses on edit position
+for that family.
 
 ## Rules
 - The chassis is copied from lag-ladder, not shared. Never import `lag_ladder`, `linear_ceiling` or
@@ -158,6 +159,7 @@ the flag's effect is record-witnessed) and `[VALIDATED]` by ledger 0027's refute
 cross-engine cell (Qwen3-1.7B as the owner's Q8_0 GGUF on llama.cpp, family `qwen17`) is built as
 `config/l17.toml` + `config/m1q17.toml` (sites byte-identical to m1's, held by a test) and
 registered in two steps per the rulings of 2026-10-11: ledger 0028 registered `config/l17.toml`
-(controls for the family — PASS in both configurations, `[BASELINE]` by ledger 0029); `config/m1q17.toml`
-(`H-M1L1Q17`, `H-M1LDQ17`) stays UNREGISTERED until its own entry; one refuter at the end. Three
+(controls for the family — PASS in both configurations, `[BASELINE]` by ledger 0029); ledger 0030
+registered `config/m1q17.toml` (`H-M1L1Q17`, `H-M1LDQ17`, both `[STRETCH]`, not run, one-slot
+first); one refuter at the end covers the cell. Three
 causes remain `[FUTURE]`: rebuild, model switch, lifespan on recorded runs.

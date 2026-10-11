@@ -558,7 +558,7 @@ def test_l17_and_m1q17_load_and_the_repo_sites_are_byte_identical_to_m1s():
     assert l17.registered_by == "0028" and l17.model.family == "qwen17"
     assert l17.model.file == "Qwen3-1.7B-Q8_0.gguf"
     q = load_m1q17_config(REPO_ROOT / "config" / "m1q17.toml", REPO_ROOT)
-    assert q.registered_by == ""
+    assert q.registered_by == "0030"
     assert [(h.id, h.slots, h.rule) for h in q.hypotheses] == [("H-M1L1Q17", 1, "prefix"),
                                                                ("H-M1LDQ17", 4, "threshold")]
     m1 = load_m1_config(REPO_ROOT / "config" / "m1.toml", REPO_ROOT)

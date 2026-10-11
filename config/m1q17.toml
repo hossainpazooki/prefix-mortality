@@ -16,7 +16,7 @@ similarity_threshold = 0.10           # llama.cpp --slot-prompt-similarity, its 
 threshold_margin = 0.002              # a trial this close to the threshold is reported and not counted
 corpus_dir = "corpus/live/m1q17"
 results_dir = "results/m1q17"
-registered_by = ""
+registered_by = "0030"
 
 # One hypothesis per server configuration, H-M1L1's and H-M1LD's rules applied to the third family.
 # The ids carry the family (Q17) because the sealed H-M1L1/H-M1LD verdicts rest on two families'

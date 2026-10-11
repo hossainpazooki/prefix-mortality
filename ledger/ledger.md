@@ -26,6 +26,8 @@ numerator nor a denominator. It is never written as a zero.
 | H-M4LS | On llama.cpp `b11235` started with `--sleep-idle-seconds 60`, the same request reuses *n* − 1 tokens after a gap of 20 seconds and 0 after a gap of 100 seconds, the server reporting sleeping in between. | entry 0019 | HELD |
 | H-M1V32 | On vLLM `b6d8e8af` (CPU backend) started with `--block-size 32`, a request that differs from an earlier one at token *d* reads cached = floor(min(*d*, *n* − 1)/32)·32 and creates floor(*n*/32)·32 minus that. | entry 0025 | HELD |
 | H-M1V128 | On vLLM `b6d8e8af` (CPU backend) started with `--block-size 128`, the same request reads cached = floor(min(*d*, *n* − 1)/128)·128 and creates floor(*n*/128)·128 minus that. | entry 0025 | HELD |
+| H-M1L1Q17 | On llama.cpp `b11235` started with `--parallel 1` serving the qwen17 family (0028), a request that differs from the prompt the slot holds reuses exactly the tokens before the first one that differs. | entry 0030 | unresolved |
+| H-M1LDQ17 | On llama.cpp `b11235` at its defaults serving the qwen17 family, the same request reuses those tokens when they are more than 0.10 of its length, and none otherwise. | entry 0030 | unresolved |
 
 ## Entries
 
@@ -1433,3 +1435,45 @@ not asserted here.
 (rule 5, entry 0008); one refuter covering the whole qwen17 cell is planned after the family's
 edit-position runs, so these controls and those runs are refuted together. `config/m1q17.toml`
 remains UNREGISTERED.
+### 0030 — 2026-10-11 — Edit position registered for the qwen17 family: H-M1L1Q17 and H-M1LDQ17
+
+prior-entries-sha256: 7e0200f798a8e4aec6caf52531713fb455280ec7c7d0b7f9d8dabff442fb0350
+
+**Registers** `config/m1q17.toml`, now `registered_by = "0030"`, and two hypotheses, each with its
+own verdict cell. The instrument is M1's, validated for two families by 0007–0011; the family is
+0028's; the server configurations, rules, sites, replacement word, repetitions and threshold values
+are `config/m1.toml`'s, byte-identical (a test holds the parity) — in a separate file only because
+the committed M1 records hash `config/m1.toml`, which therefore never changes. The ids carry the
+family because the sealed H-M1L1 and H-M1LD verdicts rest on the first two families' evidence and
+stay sealed.
+
+| id | server | predicted reuse of the edited request |
+|---|---|---|
+| `H-M1L1Q17` | `--parallel 1`, started fresh for the run. | *d*, the leading tokens the base and the edited prompt share. |
+| `H-M1LDQ17` | The defaults, started fresh for the run. | *d* when *d*/*n* is above 0.10, else 0; a trial within 0.002 of the threshold is reported and not counted. |
+
+**A trial** is 0007's: the base request under a fresh nonce, then the same request with one word
+replaced by `zebra` at one of the 13 sites; the prediction is stored before the edited request is
+sent, and `summarize_m1` recomputes it from the stored tokens and refuses a record that carries
+another value. 5 repetitions per site: 65 trials and 130 requests per hypothesis.
+
+**What decides** is 0006's table, unchanged: `HELD` when every counted trial of the run matches;
+`NOT CONFIRMED` on any counted mismatch; a failed base control stops the run and decides nothing;
+a field the server does not report is NOT MEASURABLE, never zero. One model family is a single cell
+in each hypothesis.
+
+**Why this closes the cross-engine gap.** 0026 priced the 13 edits under vLLM's two block sizes on
+this model family; these runs price the same 13 edits (same request bytes) under llama.cpp's two
+configurations. A later descriptive entry tabulates *d* and *n* per site per engine from the stored
+requests and states whether the engines put each edit at the same token position; the comparison
+entry follows it. Neither is registered here.
+
+**Known before the run.**
+
+| fact | consequence |
+|---|---|
+| Three unrecorded trials (sites system-0.000, system-0.500, user) were sent to a one-slot server under this family before this entry. | Nothing from them is evidence and no figure from them appears here. The rules and sites are those committed at `db10dda`, before that contact. |
+| The threshold sites were chosen on the first two families' tokenizers (0006). | Whether 0.24 and 0.27 still bracket the threshold on this tokenizer is read from the run, trial by trial; a trial inside the margin is excluded by the registered rule, not patched. |
+
+**Status.** `H-M1L1Q17` and `H-M1LDQ17` are `[STRETCH]`: registered, not run. `H-M1L1Q17` runs
+first.
