@@ -26,8 +26,8 @@ numerator nor a denominator. It is never written as a zero.
 | H-M4LS | On llama.cpp `b11235` started with `--sleep-idle-seconds 60`, the same request reuses *n* − 1 tokens after a gap of 20 seconds and 0 after a gap of 100 seconds, the server reporting sleeping in between. | entry 0019 | HELD |
 | H-M1V32 | On vLLM `b6d8e8af` (CPU backend) started with `--block-size 32`, a request that differs from an earlier one at token *d* reads cached = floor(min(*d*, *n* − 1)/32)·32 and creates floor(*n*/32)·32 minus that. | entry 0025 | HELD |
 | H-M1V128 | On vLLM `b6d8e8af` (CPU backend) started with `--block-size 128`, the same request reads cached = floor(min(*d*, *n* − 1)/128)·128 and creates floor(*n*/128)·128 minus that. | entry 0025 | HELD |
-| H-M1L1Q17 | On llama.cpp `b11235` started with `--parallel 1` serving the qwen17 family (0028), a request that differs from the prompt the slot holds reuses exactly the tokens before the first one that differs. | entry 0030 | unresolved |
-| H-M1LDQ17 | On llama.cpp `b11235` at its defaults serving the qwen17 family, the same request reuses those tokens when they are more than 0.10 of its length, and none otherwise. | entry 0030 | unresolved |
+| H-M1L1Q17 | On llama.cpp `b11235` started with `--parallel 1` serving the qwen17 family (0028), a request that differs from the prompt the slot holds reuses exactly the tokens before the first one that differs. | entry 0030 | HELD |
+| H-M1LDQ17 | On llama.cpp `b11235` at its defaults serving the qwen17 family, the same request reuses those tokens when they are more than 0.10 of its length, and none otherwise. | entry 0030 | HELD |
 
 ## Entries
 
@@ -1477,3 +1477,47 @@ entry follows it. Neither is registered here.
 
 **Status.** `H-M1L1Q17` and `H-M1LDQ17` are `[STRETCH]`: registered, not run. `H-M1L1Q17` runs
 first.
+### 0031 — 2026-10-11 — H-M1L1Q17 and H-M1LDQ17 held: the third family prices edits like the first two
+
+prior-entries-sha256: 5262a7593dbac0dd62c115287f3ade91c8bce04719e46df9586871cb851ff773
+
+verdict: H-M1L1Q17 = HELD
+
+verdict: H-M1LDQ17 = HELD
+
+**Outcome** `[BASELINE]`. The runs registered by 0030 were made at commit `fda21ae`, one per
+hypothesis, the server started fresh for each. Their records and requests are committed at
+`eb01343`. Every figure below is from `summarize_m1 --run` on those files, or from the `server`
+field of the records.
+
+| | `--parallel 1` | defaults |
+|---|---|---|
+| run | `20261011T174130Z-qwen17-H-M1L1Q17` | `20261011T174738Z-qwen17-H-M1LDQ17` |
+| outcome | ALL MATCH | ALL MATCH |
+| trials counted, matching | 65, 65 | 65, 65 |
+| not counted, near the threshold | 0 | 0 |
+| sites at or below 0.10 of the prompt | three; reuse = *d* at every one | the same three; reuse = 0 at every one |
+| threshold bracket, shares | — | highest that read 0: 0.0950; lowest that read *d*: 0.1044 |
+| *d*, over all trials | 32 to 4,865 | 33 to 4,864 |
+| *n*, over all requests | 4,866 to 4,874 | 4,864 to 4,873 |
+| slots, build, as the server reported | 1, `b11235-6c7a87f7e` | 4, `b11235-6c7a87f7e` |
+| local date | one, all records | one |
+| fields not reported | None. | None. |
+
+**Verdict.** Every counted trial of both runs matches: with one slot the edited request reuses
+exactly *d*; at the defaults it reuses *d* above the 0.10 threshold and 0 below, with no trial
+inside the registered margin on this tokenizer. By the rule of 0030, `H-M1L1Q17` is `HELD` and
+`H-M1LDQ17` is `HELD`.
+
+**The cliff, third family.** The threshold sites chosen on the first two families' tokenizers
+(0006) bracket the cliff here too: 0.0950 of the prompt read 0, 0.1044 read *d* — the same cliff
+0009 measured for the first two families, now on the model the V lane priced block-aligned (0026).
+The engines' pricing of the same edits now exists on record for both engines on one family;
+stating the comparison, and whether the two engines put each edit at the same token position, is
+left to the two entries 0030 names, not asserted here.
+
+**What it does not show.** One engine pin, one machine, Q8_0 weights (0028's sentence applies).
+Nothing here measures eviction, idle time, a restart or concurrent requests on this family.
+
+**Status.** `H-M1L1Q17` and `H-M1LDQ17` are `[BASELINE]`. `[VALIDATED]` waits on the one refuter
+covering the whole qwen17 cell (0029's plan) after the descriptive and comparison entries.
