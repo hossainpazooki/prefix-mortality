@@ -1611,3 +1611,39 @@ not single requests. One machine, the CPU backend on V, Q8_0 weights on L agains
 (0028's sentence); no latency is measured or compared anywhere in this repository.
 
 **Status.** Descriptive; it changes no verdict. The qwen17 cell (0028–0033) awaits its one refuter.
+### 0034 — 2026-10-11 — The qwen17 cell survived a refuter: H-M1L1Q17 and H-M1LDQ17 are [VALIDATED], two sentences corrected
+
+prior-entries-sha256: 3e3d06ad2135e93358a2e18c3bb521b14d4153639ba8dfdfcf787a054800c357
+
+**Under rule 5** (entry 0008). The whole qwen17 cell — 0028 through 0033: controls, edit position,
+the descriptive *d* table and the comparison — was given to an eighth refuter, independent of the
+author as in 0010, 0011, 0014, 0018, 0021, 0024 and 0027.
+
+| | |
+|---|---|
+| what it read | An export of commit `12cac63`, the whole tree: 550 records across the six runs the entries name, 540 distinct stored requests, every figure recomputed with its own code, nothing imported from the package. Denied git, it could not check the named commits; it could not re-contact the servers, so the reuse counters and tokenizations are trusted as recorded; the local GGUF bytes are outside the tree, so the model pin was checked record-against-config, not file-against-pin. |
+| verdict | All seven claim groups: NOT REFUTED on substance. Two discrepancies in entry PROSE, both contradicted by the entries' own correct tables, both reverified by the author and corrected below. |
+
+**What it tried and what survived.** 0029's every cell including the recomputed header bound *h*;
+0031's 65 of 65 counted matches per run with *d*, both rules and the stored predictions recomputed
+(and the zero-trials-in-the-margin claim verified); 0032's 26 *d* ranges and all 13 overlaps;
+0033's 52 cells, with vLLM's cached equal to floor(min(*d*, *n* − 1)/*B*)·*B* in all 260 vLLM
+trials; the six chain lines; the model pin in every record; the m1q17–m1 value parity; 280 distinct
+nonces with sharing only where designed, none crossing runs or engines; dense `seq`, monotonic
+timestamps, registered bodies throughout.
+
+**Corrections.** Entries are immutable; these two sentences are superseded here, and the tables
+they contradict stand unchanged.
+
+| entry, sentence | correction |
+|---|---|
+| 0031, the row label "*n*, over all requests". | The spans tabled (4,866–4,874 and 4,864–4,873) are over the EDITED requests — the registered *n*. Over all 130 requests per run the spans are 4,865–4,874 and 4,863–4,873; base requests run 1 to 2 tokens shorter. No figure changes. |
+| 0033, "vLLM still pays 128 to 448 there" and the inversion being "the one place". | At the three low sites vLLM pays {32, 192, 448} at block 32 and {0, 128, 384} at block 128: at system-0.000 under block 128 BOTH policies pay 0, a tie, not an inversion. The inversion holds at the other five low-site cells. The table was right; the sentence overstated it. |
+
+**Consequences.** `H-M1L1Q17` and `H-M1LDQ17` are `[VALIDATED]`; the qwen17 controls (0029) are
+refuter-checked the same way. The comparison table (0033, as corrected) is the cross-engine result
+the shared sites were built for: twelve hypotheses now `[VALIDATED]` across two engines, and the
+same edit priced four ways on one model family is on record with every number refuter-recomputed.
+
+**Status.** Phase 1's measurement program for the blog's central figure is complete. Remaining
+`[FUTURE]` on V: rebuild, model switch, lifespan on recorded runs; M3/M2 port cleanly when taken up.

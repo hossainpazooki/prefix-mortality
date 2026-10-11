@@ -14,7 +14,8 @@ entry 0025 the two hypotheses on edit position on vLLM, entry 0026 their verdict
 refuter's pass on both, entry 0028 the qwen17 family's controls registration on llama.cpp, and
 entry 0029 their pass in both configurations, entry 0030 the two hypotheses on edit position for
 that family, entry 0031 their verdicts, entry 0032 the descriptive cross-engine d agreement, and
-entry 0033 the comparison table (one edit, four prices).
+entry 0033 the comparison table (one edit, four prices), and entry 0034 the refuter's pass on the
+whole qwen17 cell with two prose corrections.
 
 ## Rules
 - The chassis is copied from lag-ladder, not shared. Never import `lag_ladder`, `linear_ceiling` or
@@ -165,6 +166,9 @@ registered `config/m1q17.toml` (`H-M1L1Q17`, `H-M1LDQ17`); ledger 0031 holds bot
 `[BASELINE]` (ALL MATCH, 65 of 65 counted each; the 0.10 cliff brackets at 0.0950/0.1044 on this
 tokenizer). Ledger 0032 (descriptive): the two engines put each edit at the same position within
 nonce jitter, all 13 sites. Ledger 0033 (descriptive): the comparison table — one edit, four
-prices; vLLM trails one-slot by at most B−1, the defaults cliff zeroes the three low sites. Next:
-one refuter covers the qwen17 cell (0028–0033). Three
+prices; vLLM trails one-slot by at most B−1, the defaults cliff zeroes the three low sites; at
+system-0.000 block 128 both pay 0 — see 0034's correction). Ledger 0034: the eighth refuter passed
+the whole cell — H-M1L1Q17 and H-M1LDQ17 `[VALIDATED]`, twelve validated hypotheses across two
+engines, two prose sentences corrected (0031's n-row label; 0033's low-site sentence). The blog's
+central figure is measured. Three
 causes remain `[FUTURE]`: rebuild, model switch, lifespan on recorded runs.
