@@ -28,6 +28,10 @@ numerator nor a denominator. It is never written as a zero.
 | H-M1V128 | On vLLM `b6d8e8af` (CPU backend) started with `--block-size 128`, the same request reads cached = floor(min(*d*, *n* − 1)/128)·128 and creates floor(*n*/128)·128 minus that. | entry 0025 | HELD |
 | H-M1L1Q17 | On llama.cpp `b11235` started with `--parallel 1` serving the qwen17 family (0028), a request that differs from the prompt the slot holds reuses exactly the tokens before the first one that differs. | entry 0030 | HELD |
 | H-M1LDQ17 | On llama.cpp `b11235` at its defaults serving the qwen17 family, the same request reuses those tokens when they are more than 0.10 of its length, and none otherwise. | entry 0030 | HELD |
+| H-M3V32 | On vLLM `b6d8e8af` (CPU backend) started with `--block-size 32`, a request that differs from an earlier one only in a chat-template argument reads cached = floor(min(*d*, *n* − 1)/32)·32 and creates floor(*n*/32)·32 minus that, *d* the leading tokens the two rendered prompts share. | entry 0035 | unresolved |
+| H-M3V128 | The same at `--block-size 128`, with 128 in the formula. | entry 0035 | unresolved |
+| H-M2V32 | On vLLM `b6d8e8af` (CPU backend) started with `--block-size 32`, a request whose tool schemas are written differently but carry the same JSON value reads cached = floor(min(*d*, *n* − 1)/32)·32 and creates floor(*n*/32)·32 minus that, under the same *d*. | entry 0035 | unresolved |
+| H-M2V128 | The same at `--block-size 128`, with 128 in the formula. | entry 0035 | unresolved |
 
 ## Entries
 
@@ -1647,3 +1651,50 @@ same edit priced four ways on one model family is on record with every number re
 
 **Status.** Phase 1's measurement program for the blog's central figure is complete. Remaining
 `[FUTURE]` on V: rebuild, model switch, lifespan on recorded runs; M3/M2 port cleanly when taken up.
+### 0035 — 2026-10-11 — Templating and serialization drift registered on vLLM: H-M3V32/128, H-M2V32/128
+
+prior-entries-sha256: 9b6f96ae2445349b2a313195f352df2445da1285e2397fab957287fc325447ea
+
+**Registers** `config/vm3.toml` (templating) and `config/vm2.toml` (serialization drift), both now
+`registered_by = "0035"`, and four hypotheses with their own verdict cells — one entry for the two
+sibling experiments, 0015's pattern on the first engine. Engine, model, machine and block sizes are
+0022's; request parameters are `config/controls.toml`'s; the instrument is vm1's (0025, validated by
+0027) with an arm variant in place of a word edit.
+
+**A trial** is two requests under one fresh nonce: the base request of 0022, then the arm's variant.
+
+| experiment, arm | the variant | expected render, from the unrecorded probes |
+|---|---|---|
+| vm3 `thinking-off` | the same body plus `chat_template_kwargs {"enable_thinking": false}` | the base's render plus an empty think block APPENDED after the generation prompt: the base is a strict prefix, *d* = the base's token count. |
+| vm3 `thinking-on` | the same with `true` | identical to the base (thinking is the template's default). |
+| vm2 `keyorder` | every tool's function object with its key order reversed — the same JSON value, different bytes | identical to the base: both engines normalise function-level key order (llama.cpp's S2 and S5, 0016). |
+| vm2 `properties` | `parameters.properties` reversed in every tool that has two or more keys — the same JSON value | differs from the first reordered tool on: both engines PRESERVE property order (llama.cpp's S4, 0016; the probe put the first diff at 0.78 of the prompt when only one late tool was reordered). |
+
+The prediction is 0025's one formula, no special case: cached = floor(min(*d*, *n* − 1)/*B*)·*B*,
+created = floor(*n*/*B*)·*B* − cached, *d* from the two stored token lists, *n* the variant's count.
+An identical render has *d* = *n* and prices as an identical resend through the cap. The expected-
+render column above is what the probes SAW; the registered prediction does not depend on it — if a
+render differs from the expectation, the formula still prices it and the records show the render.
+5 repetitions per arm: 10 trials and 20 requests per hypothesis, one run per hypothesis, the server
+started fresh with the hypothesis's block size. What decides is 0025's table verbatim: `HELD` when
+every trial of a hypothesis's run matches; a failed base control stops the run and decides nothing;
+NOT MEASURABLE is never zero; the stored prediction must equal the summarizer's recomputation.
+
+**Why it is worth registering.** The render semantics turn out to AGREE across the engines: the
+thinking switch appends after the generation prompt on both (0017, with 0018's precision, and the
+probe here), function-level key order is normalised on both (0016's S2/S5; the probe), and property
+order is preserved on both (0016's S4; the probe). What differs is only the price of the same
+render: llama.cpp one-slot reuses exactly *d* (an identical render costs one token, an S4-style diff
+costs *n* − *d*), while vLLM rounds the same *d* down to a block multiple — an identical render
+costs up to *B* and an S4-style diff up to *B* − 1 more than llama.cpp's exact price. These runs
+put that on record with the same corpus and the same rewritings as the first engine's 0016/0017.
+
+**Known before the run.**
+
+| fact | consequence |
+|---|---|
+| Twelve unrecorded probe trials were sent to block-32 servers before this entry: six design probes, then six through the built driver (every registered arm plus one arm dropped in design), 6 of 6 driver probes matching. | Nothing from them is evidence and no figure from them appears here beyond the expected-render column, which the registered prediction does not use. The arm constructions were fixed before any registered run; the dropped arm (the same tools as re-indented JSON text) never reaches the render and is recorded only in the private design notes. |
+| The driver and summarizer reuse vm1's evaluation verbatim. | A weakness found in vm1's rules would be a weakness here; vm1 is `[VALIDATED]` (0027), and its refuter recomputed the shared formula from raw bytes. |
+
+**Status.** `H-M3V32`, `H-M3V128`, `H-M2V32`, `H-M2V128` are `[STRETCH]`: registered, not run.
+vm3 runs first, block 32 first.

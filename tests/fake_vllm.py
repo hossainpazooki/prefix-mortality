@@ -46,14 +46,24 @@ class Engine:
         self.blocks: set[tuple] = set()      # a stored full block: (index, token ids of blocks 0..index)
         self.requests = 0
 
-    def render(self, messages: list, tools: list | None) -> str:
+    def render(self, messages: list, tools: list | None, template_kwargs: dict | None = None) -> str:
         out = ""
         for m in messages:
             out += f"<|im_start|>{m['role']}\n{m['content']}"
             if m["role"] == "system" and tools:
-                out += "\n<tools>" + json.dumps(tools) + "</tools>"
+                # function-level keys sorted, everything nested kept in order: the real template
+                # renders function key order insensitively but PRESERVES property order (probes of
+                # 2026-10-11 at the pin, matching llama.cpp's S2/S5 vs S4 in entry 0016)
+                norm = [{"type": t.get("type"), "function": {k: t["function"][k] for k in sorted(t["function"])}}
+                        for t in tools]
+                out += "\n<tools>" + json.dumps(norm) + "</tools>"
             out += "<|im_end|>\n"
-        return out + "<|im_start|>assistant\n"
+        out += "<|im_start|>assistant\n"
+        if template_kwargs is not None and template_kwargs.get("enable_thinking") is False:
+            # the real template APPENDS an empty think block when thinking is disabled (same probe);
+            # enable_thinking true is the default and changes nothing
+            out += "<think>\n\n</think>\n\n"
+        return out
 
     def tokenize(self, text: str) -> list[dict]:
         """Chat markers are single tokens, as the real tokenizer's special tokens are; whitespace
@@ -83,7 +93,8 @@ class Engine:
         return k * b
 
     def chat(self, body: dict) -> dict:
-        ids = [t["id"] for t in self.tokenize(self.render(body["messages"], body.get("tools")))]
+        ids = [t["id"] for t in self.tokenize(self.render(body["messages"], body.get("tools"),
+                                                          body.get("chat_template_kwargs")))]
         n = len(ids)
         cached = self._hit(ids)
         self.requests += 1
@@ -129,7 +140,8 @@ def _handler(engine: Engine):
                 if "prompt" in body:
                     toks = engine.tokenize(body["prompt"])
                 else:
-                    toks = engine.tokenize(engine.render(body["messages"], body.get("tools")))
+                    toks = engine.tokenize(engine.render(body["messages"], body.get("tools"),
+                                                         body.get("chat_template_kwargs")))
                 self._reply({"count": len(toks), "max_model_len": 16384, "tokens": [t["id"] for t in toks],
                              "token_strs": [t["piece"] for t in toks]})
             elif self.path == "/detokenize":

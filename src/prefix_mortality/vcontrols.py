@@ -33,14 +33,17 @@ from prefix_mortality.vllm import Client, EngineError, observed
 
 
 def build_body(cfg: ControlsConfig, served: str, system_text: str, tools: list, nonce: str,
-               user_message: str | None = None) -> bytes:
+               user_message: str | None = None, template_kwargs: dict | None = None) -> bytes:
     # tool_choice "none": the server refuses tools under the default "auto" choice unless it runs a
     # tool-call parser; "none" keeps the tools in the rendered prompt without enabling call parsing.
-    return body_bytes({"model": served,
-                       "messages": [{"role": "system", "content": f"run {nonce}\n{system_text}"},
-                                    {"role": "user", "content": user_message or cfg.user_message}],
-                       "tools": tools, "tool_choice": "none", "max_tokens": cfg.max_tokens,
-                       "temperature": cfg.temperature, "stream": False})
+    body: dict = {"model": served,
+                  "messages": [{"role": "system", "content": f"run {nonce}\n{system_text}"},
+                               {"role": "user", "content": user_message or cfg.user_message}],
+                  "tools": tools, "tool_choice": "none", "max_tokens": cfg.max_tokens,
+                  "temperature": cfg.temperature, "stream": False}
+    if template_kwargs is not None:
+        body["chat_template_kwargs"] = template_kwargs
+    return body_bytes(body)
 
 
 def scramble_text(client: Client, rng, system_text: str) -> str:

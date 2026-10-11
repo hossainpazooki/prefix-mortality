@@ -841,3 +841,74 @@ def load_vm1_config(path: Path, repo_root: Path) -> Vm1Config:
         corpus_dir=root / c["corpus_dir"], results_dir=root / c["results_dir"],
         hypotheses=tuple(hypotheses), registered_by=_registered_by(c["registered_by"], name), config_path=path,
     )
+
+
+# --- templating and serialization drift on V (config/vm3.toml, config/vm2.toml) -------------------
+
+_VM2_ID = re.compile(r"H-M2V[A-Za-z0-9]+")
+_VM3_ID = re.compile(r"H-M3V[A-Za-z0-9]+")
+_VM2_ARMS = ("keyorder", "properties")
+_VM3_ARMS = ("thinking-off", "thinking-on")
+
+
+@dataclass(frozen=True)
+class VmArmConfig:
+    """A paired-request experiment on the V instrument: a base request, then one variant per arm.
+    A hypothesis is a server block size, as in Vm1Config; the arms name the variant constructions,
+    which live in the driver and are fixed by the registering entry."""
+    experiment: str
+    repetitions: int
+    arms: tuple[str, ...]
+    corpus_dir: Path
+    results_dir: Path
+    hypotheses: tuple[Vm1Hypothesis, ...]
+    registered_by: str
+    config_path: Path
+
+    def hypothesis(self, hid: str) -> Vm1Hypothesis:
+        for h in self.hypotheses:
+            if h.id == hid:
+                return h
+        raise ValueError(f"{self.config_path.name} registers no hypothesis {hid!r}; "
+                         f"known: {[h.id for h in self.hypotheses]}")
+
+
+_VMARM_KEYS = ("repetitions", "arms", "corpus_dir", "results_dir", "registered_by", "hypotheses")
+
+
+def _load_vmarm(path: Path, repo_root: Path, table: str, id_re: re.Pattern, id_msg: str,
+                allowed_arms: tuple[str, ...]) -> VmArmConfig:
+    path = Path(path)
+    name = f"{path.name} [{table}]"
+    c = _read(path)[table]
+    _require(c, _VMARM_KEYS, name)
+    arms = c["arms"]
+    if (not isinstance(arms, list) or not arms or len(set(arms)) != len(arms)
+            or any(a not in allowed_arms for a in arms)):
+        raise ValueError(f"{name} arms must be distinct names from {list(allowed_arms)}, got {arms!r}")
+    hypotheses = []
+    for hid, h in c["hypotheses"].items():
+        hname = f"{name}.hypotheses.{hid}"
+        if not id_re.fullmatch(hid):
+            raise ValueError(f"{hname}: {id_msg}")
+        _require(h, _VM1_HYPOTHESIS_KEYS, hname)
+        hypotheses.append(Vm1Hypothesis(id=hid, block_size=_int(h, "block_size", hname, minimum=1)))
+    blocks = [h.block_size for h in hypotheses]
+    if not hypotheses or len(set(blocks)) != len(blocks):
+        raise ValueError(f"{name} needs at least one hypothesis and distinct block sizes, got {blocks}")
+    root = Path(repo_root)
+    return VmArmConfig(
+        experiment=table, repetitions=_int(c, "repetitions", name, minimum=1), arms=tuple(arms),
+        corpus_dir=root / c["corpus_dir"], results_dir=root / c["results_dir"],
+        hypotheses=tuple(hypotheses), registered_by=_registered_by(c["registered_by"], name), config_path=path,
+    )
+
+
+def load_vm2_config(path: Path, repo_root: Path) -> VmArmConfig:
+    return _load_vmarm(path, repo_root, "vm2", _VM2_ID,
+                       "an id is H-M2V and the block size it runs under", _VM2_ARMS)
+
+
+def load_vm3_config(path: Path, repo_root: Path) -> VmArmConfig:
+    return _load_vmarm(path, repo_root, "vm3", _VM3_ID,
+                       "an id is H-M3V and the block size it runs under", _VM3_ARMS)

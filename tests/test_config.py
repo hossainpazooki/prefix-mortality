@@ -4,7 +4,8 @@ import pytest
 
 from prefix_mortality.config import (load_controls_config, load_engines_config, load_l17_config, load_m1_config,
                                      load_m1q17_config, load_m2_config, load_m3_config, load_m4_config,
-                                     load_m7_config, load_seal_config, load_vllm_config, load_vm1_config)
+                                     load_m7_config, load_seal_config, load_vllm_config, load_vm1_config,
+                                     load_vm2_config, load_vm3_config)
 
 
 def _write(tmp_path, name, text):
@@ -576,3 +577,32 @@ def test_an_m1q17_id_must_carry_the_family_suffix(tmp_path):
     p.write_text(text.replace("H-M1L1Q17", "H-M1L1"), encoding="utf-8")
     with pytest.raises(ValueError, match="then Q17 for the family"):
         load_m1q17_config(p, tmp_path)
+
+
+# --- templating and serialization drift on V (config/vm3.toml, config/vm2.toml) -------------------
+
+def test_vm2_and_vm3_configs_load_registered_with_their_arms():
+    from prefix_mortality import REPO_ROOT
+    vm2 = load_vm2_config(REPO_ROOT / "config" / "vm2.toml", REPO_ROOT)
+    vm3 = load_vm3_config(REPO_ROOT / "config" / "vm3.toml", REPO_ROOT)
+    assert vm2.registered_by == vm3.registered_by == "0035"
+    assert vm2.arms == ("keyorder", "properties") and vm3.arms == ("thinking-off", "thinking-on")
+    assert [(h.id, h.block_size) for h in vm2.hypotheses] == [("H-M2V32", 32), ("H-M2V128", 128)]
+    assert [(h.id, h.block_size) for h in vm3.hypotheses] == [("H-M3V32", 32), ("H-M3V128", 128)]
+    vm1 = load_vm1_config(REPO_ROOT / "config" / "vm1.toml", REPO_ROOT)
+    assert vm2.repetitions == vm3.repetitions == vm1.repetitions
+
+
+@pytest.mark.parametrize("mutate,msg", [
+    (lambda s: s.replace('arms = ["thinking-off", "thinking-on"]', 'arms = ["thinking-off", "banana"]'),
+     "arms must be distinct names"),
+    (lambda s: s.replace("H-M3V128", "H-M1V128"), "an id is H-M3V"),
+    (lambda s: s.replace("block_size = 128", "block_size = 32"), "distinct block sizes"),
+])
+def test_vm3_config_refuses_bad_values(tmp_path, mutate, msg):
+    from prefix_mortality import REPO_ROOT
+    text = (REPO_ROOT / "config" / "vm3.toml").read_text(encoding="utf-8")
+    p = tmp_path / "vm3.toml"
+    p.write_text(mutate(text), encoding="utf-8")
+    with pytest.raises(ValueError, match=msg):
+        load_vm3_config(p, tmp_path)

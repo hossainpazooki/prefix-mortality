@@ -15,7 +15,8 @@ refuter's pass on both, entry 0028 the qwen17 family's controls registration on 
 entry 0029 their pass in both configurations, entry 0030 the two hypotheses on edit position for
 that family, entry 0031 their verdicts, entry 0032 the descriptive cross-engine d agreement, and
 entry 0033 the comparison table (one edit, four prices), and entry 0034 the refuter's pass on the
-whole qwen17 cell with two prose corrections.
+whole qwen17 cell with two prose corrections, and entry 0035 the four hypotheses on templating and
+serialization drift on vLLM.
 
 ## Rules
 - The chassis is copied from lag-ladder, not shared. Never import `lag_ladder`, `linear_ceiling` or
@@ -69,6 +70,9 @@ whole qwen17 cell with two prose corrections.
 .venv/Scripts/python.exe -m prefix_mortality.vm1 probe --url URL --hypothesis H-M1V32 --sites system-0.240,user
 .venv/Scripts/python.exe -m prefix_mortality.vm1 run --url URL --hypothesis H-M1V32 --family qwen17 --model-dir DIR
 .venv/Scripts/python.exe -m prefix_mortality.summarize_vm1 --run RUN_ID
+.venv/Scripts/python.exe -m prefix_mortality.vm23 probe --experiment vm3 --url URL --hypothesis H-M3V32 --arms thinking-off,thinking-on
+.venv/Scripts/python.exe -m prefix_mortality.vm23 run --experiment vm2 --url URL --hypothesis H-M2V32 --family qwen17 --model-dir DIR
+.venv/Scripts/python.exe -m prefix_mortality.summarize_vm23 --experiment vm3 --run RUN_ID
 ```
 On macOS/Linux the interpreter is `.venv/bin/python`. The project pins Python 3.12.
 
@@ -80,7 +84,9 @@ position on vLLM (the vLLM engine pin lives in its own file because every commit
 hashes `config/engines.toml`, which therefore never changes); `config/l17.toml` for any run of the
 `qwen17` family on llama.cpp (the third family's model pin, in its own file for the same reason —
 and `config/m1.toml` is likewise sealed by the committed M1 records, so edit position on `qwen17`
-lives in `config/m1q17.toml` with its own ids `H-M1L1Q17`/`H-M1LDQ17`, same CLIs). Every llama.cpp experiment's `run` also refuses a server that does not report the number of
+lives in `config/m1q17.toml` with its own ids `H-M1L1Q17`/`H-M1LDQ17`, same CLIs); `config/vm3.toml`
+and `config/vm2.toml` for templating and serialization drift on vLLM (`vm23` driver, arms in place
+of sites, vm1's formula verbatim). Every llama.cpp experiment's `run` also refuses a server that does not report the number of
 slots its hypothesis requires; `m7 run` and `m4 run` refuse one that reports no slot context, and send
 no trial whose anchor does not fit it. `m4` sends nothing inside a gap but one `GET /props` at its
 end: at the pinned commit a render or a tokenization wakes a sleeping server. After a run, `manifest
@@ -105,7 +111,7 @@ chat-shaped tokenize + detokenize give the render; reuse read from usage details
 `summarize_vcontrols` (the V controls: block arithmetic, measured write side) · `vm1`,
 `summarize_vm1` (edit position on V: the block formulas on the first differing token).
 `config/` — `seal.toml`, `controls.toml`, `m1.toml`, `m2.toml`, `m3.toml`, `m4.toml`, `m7.toml`,
-`engines.toml`, `vllm.toml`, `vm1.toml`, `l17.toml`, `m1q17.toml`.
+`engines.toml`, `vllm.toml`, `vm1.toml`, `l17.toml`, `m1q17.toml`, `vm2.toml`, `vm3.toml`.
 `ledger/` — `ledger.md`, `predictions/`.
 `corpus/` — `base_prefix/tau2-airline/`, `recorded/tau2-airline-claude-3-7-sonnet/` (50 simulations +
 `provenance.json`), `live/`, `requests/`, `MANIFEST.json`. `tools/` —
@@ -170,5 +176,9 @@ prices; vLLM trails one-slot by at most B−1, the defaults cliff zeroes the thr
 system-0.000 block 128 both pay 0 — see 0034's correction). Ledger 0034: the eighth refuter passed
 the whole cell — H-M1L1Q17 and H-M1LDQ17 `[VALIDATED]`, twelve validated hypotheses across two
 engines, two prose sentences corrected (0031's n-row label; 0033's low-site sentence). The blog's
-central figure is measured. Three
+central figure is measured. M3 and M2 are ported to V as `vm23` (arms: thinking-off/on;
+keyorder/properties — the probes of 2026-10-11 found BOTH engines append the think block, normalise
+function key order and preserve property order, so the registered contrast is price only) and
+registered by ledger 0035 (`config/vm3.toml`, `config/vm2.toml`, both `registered_by = "0035"`):
+`H-M3V32`, `H-M3V128`, `H-M2V32`, `H-M2V128`, all `[STRETCH]`, not run; vm3 at block 32 first. Three
 causes remain `[FUTURE]`: rebuild, model switch, lifespan on recorded runs.

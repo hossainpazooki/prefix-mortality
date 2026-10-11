@@ -1,0 +1,25 @@
+# Templating (M3) on vLLM: the same chat body sent with a chat-template argument, Qwen's thinking
+# switch, after a base request without one. Registered by the ledger entry named in `registered_by`;
+# the driver refuses to run while it is empty. Engine, model and block sizes are config/vllm.toml's;
+# request parameters are config/controls.toml's.
+#
+# An arm names the variant request. Observed at the pin (unrecorded probe, 2026-10-11):
+# `enable_thinking = false` APPENDS an empty think block after the generation prompt, so the base
+# render is a strict prefix of the variant's (d = the base's token count); `enable_thinking = true`
+# renders identically to a body with no kwargs (thinking is the template's default), an identical
+# resend. Both arms are priced by the one registered formula, with d the leading tokens the two
+# stored prompts share and n the variant's token count:
+#   cached  = floor(min(d, n - 1) / B) * B
+#   created = floor(n / B) * B - cached
+[vm3]
+repetitions = 5
+arms = ["thinking-off", "thinking-on"]
+corpus_dir = "corpus/live/vm3"
+results_dir = "results/vm3"
+registered_by = "0035"
+
+[vm3.hypotheses.H-M3V32]
+block_size = 32
+
+[vm3.hypotheses.H-M3V128]
+block_size = 128

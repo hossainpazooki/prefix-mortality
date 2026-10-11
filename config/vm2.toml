@@ -1,0 +1,26 @@
+# Serialization drift (M2) on vLLM: the same tool schemas written differently — the same JSON value,
+# different bytes — after a base request. Registered by the ledger entry named in `registered_by`;
+# the driver refuses to run while it is empty. Engine, model and block sizes are config/vllm.toml's;
+# request parameters are config/controls.toml's.
+#
+# An arm names the rewriting, each a pure reordering of the same JSON value. `keyorder` reverses the
+# key order inside every tool's function object; observed at the pin (unrecorded probe, 2026-10-11)
+# the template renders it identically to the base — llama.cpp normalised the same rewritings (S2/S5,
+# entry 0016). `properties` reverses the key order of parameters.properties in every tool that has
+# two or more; the template PRESERVES that order (same probe; llama.cpp's S4 likewise), so the render
+# differs from the first reordered tool on. Both arms are priced by the one registered formula, d the
+# leading tokens the two stored prompts share and n the variant's token count:
+#   cached  = floor(min(d, n - 1) / B) * B
+#   created = floor(n / B) * B - cached
+[vm2]
+repetitions = 5
+arms = ["keyorder", "properties"]
+corpus_dir = "corpus/live/vm2"
+results_dir = "results/vm2"
+registered_by = "0035"
+
+[vm2.hypotheses.H-M2V32]
+block_size = 32
+
+[vm2.hypotheses.H-M2V128]
+block_size = 128
