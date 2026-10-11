@@ -10,7 +10,7 @@ refuter's pass, entry 0015 the hypotheses on serialization drift and templating,
 0017 their verdicts, entry 0018 the refuter's pass on both, entry 0019 the two hypotheses on idle
 expiry, entry 0020 their verdicts, entry 0021 the refuter's pass on both, entry 0022 the V controls'
 registration on vLLM, entry 0023 their pass at both block sizes, entry 0024 the refuter's pass, and
-entry 0025 the two hypotheses on edit position on vLLM.
+entry 0025 the two hypotheses on edit position on vLLM, and entry 0026 their verdicts.
 
 ## Rules
 - The chassis is copied from lag-ladder, not shared. Never import `lag_ladder`, `linear_ceiling` or
@@ -148,5 +148,6 @@ replaced the GPU default 16 by ruling of 2026-10-09. Edit position on V (`H-M1V3
 word replaced at the same sites as M1, byte-identical across engines by ruling of 2026-10-10; cached
 = floor(min(*d*, *n* − 1)/*B*)·*B*, created completes floor(*n*/*B*)·*B*) is built as `vm1` and
 `summarize_vm1` and registered by ledger 0025 (`config/vm1.toml`, `registered_by = "0025"`): both
-`[STRETCH]`, not run; `H-M1V32` runs first. Three
+`HELD` and `[BASELINE]` by ledger 0026 (ALL MATCH, 65 of 65 trials each; 57 of 65 discriminate the
+block size, so the flag's effect is record-witnessed), awaiting a refuter. Three
 causes remain `[FUTURE]`: rebuild, model switch, lifespan on recorded runs.

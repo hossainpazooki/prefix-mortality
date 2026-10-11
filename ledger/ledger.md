@@ -24,8 +24,8 @@ numerator nor a denominator. It is never written as a zero.
 | H-M3LD | On llama.cpp `b11235` at its defaults, the same request reuses that prefix when it is more than 0.10 of its length, and none otherwise. | entry 0015 | HELD |
 | H-M4LD | On llama.cpp `b11235` at its defaults, a request identical to one served *g* seconds earlier, with nothing served between them, reuses *n* − 1 tokens at every registered *g* (0, 2, 4, 60, 600). | entry 0019 | HELD |
 | H-M4LS | On llama.cpp `b11235` started with `--sleep-idle-seconds 60`, the same request reuses *n* − 1 tokens after a gap of 20 seconds and 0 after a gap of 100 seconds, the server reporting sleeping in between. | entry 0019 | HELD |
-| H-M1V32 | On vLLM `b6d8e8af` (CPU backend) started with `--block-size 32`, a request that differs from an earlier one at token *d* reads cached = floor(min(*d*, *n* − 1)/32)·32 and creates floor(*n*/32)·32 minus that. | entry 0025 | unresolved |
-| H-M1V128 | On vLLM `b6d8e8af` (CPU backend) started with `--block-size 128`, the same request reads cached = floor(min(*d*, *n* − 1)/128)·128 and creates floor(*n*/128)·128 minus that. | entry 0025 | unresolved |
+| H-M1V32 | On vLLM `b6d8e8af` (CPU backend) started with `--block-size 32`, a request that differs from an earlier one at token *d* reads cached = floor(min(*d*, *n* − 1)/32)·32 and creates floor(*n*/32)·32 minus that. | entry 0025 | HELD |
+| H-M1V128 | On vLLM `b6d8e8af` (CPU backend) started with `--block-size 128`, the same request reads cached = floor(min(*d*, *n* − 1)/128)·128 and creates floor(*n*/128)·128 minus that. | entry 0025 | HELD |
 
 ## Entries
 
@@ -1260,3 +1260,69 @@ stored tokens and refuses a record that carries another value.
 | Three unrecorded trials of this kind were sent to a block-32 server before this entry. | Nothing from them is evidence and no figure from them appears here. The rules and the sites are those committed at `8c0e671`, before that contact. |
 
 **Status.** `H-M1V32` and `H-M1V128` are `[STRETCH]`: registered, not run. `H-M1V32` runs first.
+### 0026 — 2026-10-10 — H-M1V32 and H-M1V128 held: the edit position prices the tail, block-aligned
+
+prior-entries-sha256: 25cf3f702e17fe4f4fa4df04a7862b8229a6bf51ddc9822e4a9c3f4cedb38878
+
+verdict: H-M1V32 = HELD
+
+verdict: H-M1V128 = HELD
+
+**Outcome** `[BASELINE]`. The runs registered by 0025 were made at commit `b14dc8f`, one per
+hypothesis, the server started fresh for each. Their records and requests are committed at
+`0e06e7c`. Every figure below is from `summarize_vm1 --run` on those files, or from the `server`
+field of the records.
+
+| | block 32 | block 128 |
+|---|---|---|
+| run | `20261010T200226Z-qwen17-H-M1V32` | `20261010T213957Z-qwen17-H-M1V128` |
+| outcome | ALL MATCH | ALL MATCH |
+| trials counted, matching | 65, 65 | 65, 65 |
+| failed controls, unmeasurable fields | none, none | none, none |
+| *d*, over all trials | 34 to 4,865 | 33 to 4,863 |
+| *n*, over all requests | 4,864 to 4,874 | 4,865 to 4,874 |
+| trials whose two predictions differ | 57 of 65 | 57 of 65 |
+| engine version, as the server reported | `0.31.1rc1.dev8+gb6d8e8afd` | `0.31.1rc1.dev8+gb6d8e8afd` |
+| local date | one, all records | one |
+| fields not reported | None. | None. |
+
+**Verdict.** Every trial of both runs matches: the edited request's cached and created equal
+floor(min(*d*, *n* − 1)/*B*)·*B* and floor(*n*/*B*)·*B* minus it, under each server's own *B*. By
+the rule of 0025, `H-M1V32` is `HELD` and `H-M1V128` is `HELD`.
+
+**The same edit, priced by each configuration.** Observed cached of the edited request by site;
+a set shows the values where *d*'s jitter across nonces crossed a block boundary between
+repetitions.
+
+| site | cached, block 32 | cached, block 128 |
+|---|---|---|
+| system-0.000 | 32 | 0 |
+| system-0.100 | 192 | 128 |
+| system-0.240 | 448 | 384 |
+| system-0.270 | {480, 512} | {384, 512} |
+| system-0.320 | {576, 608} | 512 |
+| system-0.500 | 928 | 896 |
+| system-0.750 | 1,344 | 1,280 |
+| system-0.999 | 1,728 | 1,664 |
+| tool-00 | 1,792 | 1,792 |
+| tool-04 | {2,976, 3,008} | 2,944 |
+| tool-09 | {3,616, 3,648} | 3,584 |
+| tool-13 | 4,704 | 4,608 |
+| user | {4,832, 4,864} | 4,736 |
+
+**The block size is now record-witnessed.** 0023 disclosed that at the controls' prompt lengths the
+counters could not discriminate the block size. Here they do: in 57 of 65 trials of each run,
+min(*d*, *n* − 1) mod 128 is 32 or more, so the two hypotheses predict different cached values —
+and each run matched its own hypothesis's prediction on every trial, which a server at the other
+registered block size could not have done. The flag's effect is in the records, not only on the
+command line.
+
+**What it does not show.** The cap at *n* − 1 was never exercised: every *d* fell at least 8 tokens
+short of *n*, as a word replacement must, so a full-prompt re-read is measured by the controls
+(0022), not here. One engine pin, one model, one machine, the CPU backend. Nothing here measures
+eviction, idle time or a restart on this engine; those are `[FUTURE]`. The cross-engine comparison
+the shared sites were built for waits on the same prompt run on llama.cpp with this model family.
+
+**Status.** `H-M1V32` and `H-M1V128` are `[BASELINE]`, no refuter yet (rule 5, entry 0008). On
+vLLM the controls are `[VALIDATED]` and the edit-position pair is `[BASELINE]`; on llama.cpp eight
+hypotheses stay `[VALIDATED]`.
