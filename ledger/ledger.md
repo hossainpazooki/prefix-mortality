@@ -1521,3 +1521,93 @@ Nothing here measures eviction, idle time, a restart or concurrent requests on t
 
 **Status.** `H-M1L1Q17` and `H-M1LDQ17` are `[BASELINE]`. `[VALIDATED]` waits on the one refuter
 covering the whole qwen17 cell (0029's plan) after the descriptive and comparison entries.
+### 0032 — 2026-10-11 — Descriptive: the two engines put each edit at the same position, within nonce jitter
+
+prior-entries-sha256: ec0059b848e38d3a57511826676ad4dbf8e1a9069ee6ea92b59670710ef9417d
+
+**Descriptive entry; no hypothesis, no verdict cell, no server contact.** Before 0026's and 0031's
+runs are compared, this entry settles whether the comparison is of the same token position or only
+of the same bytes. The request bodies are byte-identical across engines by construction (0025,
+0030); the renders need not be: llama.cpp renders through its own template engine over the
+GGUF-embedded tokenizer, vLLM through the HF tokenizer and chat template.
+
+**Figures.** Every number below is `first_differing_token` (*d*) or *n* from the four summarizer-
+verified reports of 0026 and 0031 (`results/m1q17/…H-M1L1Q17`, `…H-M1LDQ17`, `results/vm1/…H-M1V32`,
+`…H-M1V128`), 10 trials per site per engine. A range spans a site's 10 trials; each trial has its
+own nonce, and the nonce alone moves *d* by a few tokens, so a range's width is the nonce jitter.
+
+| site | *d* on llama.cpp, min to max | *d* on vLLM, min to max | ranges overlap |
+|---|---|---|---|
+| system-0.000 | 32 to 38 | 33 to 37 | yes |
+| system-0.100 | 216 to 219 | 213 to 221 | yes |
+| system-0.240 | 458 to 463 | 456 to 463 | yes |
+| system-0.270 | 508 to 514 | 507 to 516 | yes |
+| system-0.320 | 601 to 609 | 601 to 608 | yes |
+| system-0.500 | 934 to 940 | 933 to 940 | yes |
+| system-0.750 | 1,343 to 1,348 | 1,344 to 1,349 | yes |
+| system-0.999 | 1,744 to 1,750 | 1,743 to 1,751 | yes |
+| tool-00 | 1,800 to 1,807 | 1,801 to 1,806 | yes |
+| tool-04 | 3,003 to 3,010 | 3,004 to 3,009 | yes |
+| tool-09 | 3,647 to 3,652 | 3,646 to 3,651 | yes |
+| tool-13 | 4,722 to 4,731 | 4,725 to 4,731 | yes |
+| user | 4,858 to 4,865 | 4,861 to 4,865 | yes |
+
+*n* spans 4,864 to 4,874 on llama.cpp and 4,865 to 4,874 on vLLM.
+
+**What this does and does not establish.** At every one of the 13 sites the two engines' *d* ranges
+overlap: the edit's position differs across engines by no more than the jitter the nonce causes
+within one engine. The comparison entry may therefore treat each site as one position on both
+engines, at the nonce-jitter resolution (a few tokens — well under both engines' pricing
+granularity at every site above the first block). Token-for-token identity is NOT established and
+is not claimed: no nonce was reused across engines, so no single prompt was tokenized by both; a
+per-trial *d* equality would need that, and nothing here needs it.
+
+**Status.** Descriptive, `[BASELINE]` facts only; it changes no verdict. The comparison entry
+follows.
+### 0033 — 2026-10-11 — The comparison: one edit, one model family, four prices
+
+prior-entries-sha256: 88a27c62ac0719cd5dcea47f8c362c0d830f697f02df9b9be4a45ae3bb9f4af2
+
+**Descriptive entry; no hypothesis, no verdict cell, no server contact.** This is the comparison the
+shared sites were built for (0025, 0030): the same byte-identical edit, priced by every validated or
+held configuration on the qwen17 family. By 0032 the engines put each edit at the same position
+within nonce jitter, so a row compares one place in the prompt.
+
+**Figures.** Every number is the edited request's observed reuse (llama.cpp `cache_n`) or observed
+cached (vLLM) from the four summarizer-verified reports of 0026 and 0031, 10 trials per cell; a
+single number means all 10 agreed, a range spans the nonce jitter.
+
+| site | llama.cpp, one slot | llama.cpp, defaults | vLLM, block 32 | vLLM, block 128 |
+|---|---|---|---|---|
+| system-0.000 | 32 to 38 | 0 | 32 | 0 |
+| system-0.100 | 216 to 219 | 0 | 192 | 128 |
+| system-0.240 | 458 to 461 | 0 | 448 | 384 |
+| system-0.270 | 510 to 514 | 508 to 514 | 480 to 512 | 384 to 512 |
+| system-0.320 | 601 to 609 | 603 to 607 | 576 to 608 | 512 |
+| system-0.500 | 938 to 940 | 934 to 939 | 928 | 896 |
+| system-0.750 | 1,343 to 1,348 | 1,344 to 1,348 | 1,344 | 1,280 |
+| system-0.999 | 1,744 to 1,750 | 1,746 to 1,750 | 1,728 | 1,664 |
+| tool-00 | 1,800 to 1,807 | 1,800 to 1,805 | 1,792 | 1,792 |
+| tool-04 | 3,003 to 3,010 | 3,004 to 3,006 | 2,976 to 3,008 | 2,944 |
+| tool-09 | 3,648 to 3,652 | 3,647 to 3,649 | 3,616 to 3,648 | 3,584 |
+| tool-13 | 4,726 to 4,731 | 4,722 to 4,729 | 4,704 | 4,608 |
+| user | 4,858 to 4,865 | 4,859 to 4,864 | 4,832 to 4,864 | 4,736 |
+
+**What the rows say.** The bytes locate the death: in every configuration the reuse tracks the
+edit's position, from almost nothing at the head to almost everything at the tail. The engine's
+policy prices it: within one trial's *d*, vLLM at block *B* pays *d* rounded down to a multiple of
+*B* — at most *B* − 1 tokens behind llama.cpp's one-slot price of exactly *d*, visible in every row
+(block 128 trails by up to 127; block 32 by up to 31). llama.cpp's defaults are not a rounding but a
+cliff: the three sites at or below 0.10 of the prompt price to 0 while vLLM still pays 128 to 448
+there — the one place a policy inverts the engines' ordering. Where *d*'s jitter crosses a block
+boundary a vLLM cell becomes a range (0026's sets); llama.cpp's one-slot ranges are the jitter
+itself.
+
+**Sources and what is not claimed.** Rows from
+`results/m1q17/20261011T174130Z…H-M1L1Q17`, `…174738Z…H-M1LDQ17` (0031, commit `eb01343`) and
+`results/vm1/20261010T200226Z…H-M1V32`, `…213957Z…H-M1V128` (0026, commit `0e06e7c`). Trials are not
+paired across engines (no nonce is reused across them), so cells compare distributions at one site,
+not single requests. One machine, the CPU backend on V, Q8_0 weights on L against bf16 on V
+(0028's sentence); no latency is measured or compared anywhere in this repository.
+
+**Status.** Descriptive; it changes no verdict. The qwen17 cell (0028–0033) awaits its one refuter.
