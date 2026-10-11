@@ -73,7 +73,10 @@ A driver's `run` refuses until a ledger entry registers its config: `config/cont
 `config/m4.toml` or `config/m7.toml` as well for edit position, serialization drift, templating, idle
 expiry or eviction; `config/controls.toml` and `config/vllm.toml` for the V controls, plus `config/vm1.toml` for edit
 position on vLLM (the vLLM engine pin lives in its own file because every committed llama.cpp record
-hashes `config/engines.toml`, which therefore never changes). Every llama.cpp experiment's `run` also refuses a server that does not report the number of
+hashes `config/engines.toml`, which therefore never changes); `config/l17.toml` for any run of the
+`qwen17` family on llama.cpp (the third family's model pin, in its own file for the same reason —
+and `config/m1.toml` is likewise sealed by the committed M1 records, so edit position on `qwen17`
+lives in `config/m1q17.toml` with its own ids `H-M1L1Q17`/`H-M1LDQ17`, same CLIs). Every llama.cpp experiment's `run` also refuses a server that does not report the number of
 slots its hypothesis requires; `m7 run` and `m4 run` refuse one that reports no slot context, and send
 no trial whose anchor does not fit it. `m4` sends nothing inside a gap but one `GET /props` at its
 end: at the pinned commit a render or a tokenization wakes a sleeping server. After a run, `manifest
@@ -98,7 +101,7 @@ chat-shaped tokenize + detokenize give the render; reuse read from usage details
 `summarize_vcontrols` (the V controls: block arithmetic, measured write side) · `vm1`,
 `summarize_vm1` (edit position on V: the block formulas on the first differing token).
 `config/` — `seal.toml`, `controls.toml`, `m1.toml`, `m2.toml`, `m3.toml`, `m4.toml`, `m7.toml`,
-`engines.toml`, `vllm.toml`, `vm1.toml`.
+`engines.toml`, `vllm.toml`, `vm1.toml`, `l17.toml`, `m1q17.toml`.
 `ledger/` — `ledger.md`, `predictions/`.
 `corpus/` — `base_prefix/tau2-airline/`, `recorded/tau2-airline-claude-3-7-sonnet/` (50 simulations +
 `provenance.json`), `live/`, `requests/`, `MANIFEST.json`. `tools/` —
@@ -150,5 +153,9 @@ word replaced at the same sites as M1, byte-identical across engines by ruling o
 = floor(min(*d*, *n* − 1)/*B*)·*B*, created completes floor(*n*/*B*)·*B*) is built as `vm1` and
 `summarize_vm1` and registered by ledger 0025 (`config/vm1.toml`, `registered_by = "0025"`): both
 `HELD` by ledger 0026 (ALL MATCH, 65 of 65 trials each; 57 of 65 discriminate the block size, so
-the flag's effect is record-witnessed) and `[VALIDATED]` by ledger 0027's refuter pass. Three
+the flag's effect is record-witnessed) and `[VALIDATED]` by ledger 0027's refuter pass. The
+cross-engine cell (Qwen3-1.7B as the owner's Q8_0 GGUF on llama.cpp, family `qwen17`) is built as
+`config/l17.toml` + `config/m1q17.toml` (sites byte-identical to m1's, held by a test) and
+UNREGISTERED: per the rulings of 2026-10-11, the controls entry registers l17.toml first, then an
+edit-position entry registers m1q17.toml (`H-M1L1Q17`, `H-M1LDQ17`), one refuter at the end. Three
 causes remain `[FUTURE]`: rebuild, model switch, lifespan on recorded runs.

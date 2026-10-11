@@ -2,9 +2,9 @@
 replaced by the controls and engines loaders."""
 import pytest
 
-from prefix_mortality.config import (load_controls_config, load_engines_config, load_m1_config, load_m2_config,
-                                     load_m3_config, load_m4_config, load_m7_config,
-                                     load_seal_config, load_vllm_config, load_vm1_config)
+from prefix_mortality.config import (load_controls_config, load_engines_config, load_l17_config, load_m1_config,
+                                     load_m1q17_config, load_m2_config, load_m3_config, load_m4_config,
+                                     load_m7_config, load_seal_config, load_vllm_config, load_vm1_config)
 
 
 def _write(tmp_path, name, text):
@@ -548,3 +548,31 @@ def test_vm1_config_refuses_bad_values(tmp_path, old, new, msg):
     assert VM1.count(old) == 1
     with pytest.raises(ValueError, match=msg):
         load_vm1_config(_write(tmp_path, "vm1.toml", VM1.replace(old, new)), repo_root=tmp_path)
+
+
+# --- the qwen17 cell on llama.cpp (config/l17.toml + config/m1q17.toml) ---------------------------
+
+def test_l17_and_m1q17_load_and_the_repo_sites_are_byte_identical_to_m1s():
+    from prefix_mortality import REPO_ROOT
+    l17 = load_l17_config(REPO_ROOT / "config" / "l17.toml")
+    assert l17.registered_by == "" and l17.model.family == "qwen17"
+    assert l17.model.file == "Qwen3-1.7B-Q8_0.gguf"
+    q = load_m1q17_config(REPO_ROOT / "config" / "m1q17.toml", REPO_ROOT)
+    assert q.registered_by == ""
+    assert [(h.id, h.slots, h.rule) for h in q.hypotheses] == [("H-M1L1Q17", 1, "prefix"),
+                                                               ("H-M1LDQ17", 4, "threshold")]
+    m1 = load_m1_config(REPO_ROOT / "config" / "m1.toml", REPO_ROOT)
+    assert q.system_fractions == m1.system_fractions and q.tool_indexes == m1.tool_indexes
+    assert q.edit_user_message == m1.edit_user_message and q.replacement == m1.replacement
+    assert q.repetitions == m1.repetitions and q.similarity_threshold == m1.similarity_threshold
+    assert q.threshold_margin == m1.threshold_margin
+    assert q.corpus_dir == REPO_ROOT / "corpus" / "live" / "m1q17"
+
+
+def test_an_m1q17_id_must_carry_the_family_suffix(tmp_path):
+    from prefix_mortality import REPO_ROOT
+    text = (REPO_ROOT / "config" / "m1q17.toml").read_text(encoding="utf-8")
+    p = tmp_path / "m1q17.toml"
+    p.write_text(text.replace("H-M1L1Q17", "H-M1L1"), encoding="utf-8")
+    with pytest.raises(ValueError, match="then Q17 for the family"):
+        load_m1q17_config(p, tmp_path)

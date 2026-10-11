@@ -1,0 +1,30 @@
+# Edit position (M1) on llama.cpp for the qwen17 family (config/l17.toml): the cross-engine cell.
+# One word replaced at a named site of the base request, the M1 instrument unchanged.
+#
+# Lives in its own file because config/m1.toml is sealed by the hashes in the committed M1 records.
+# Registered by the ledger entry named in `registered_by`; the driver refuses to run while it is
+# empty. The sites, replacement, repetitions and threshold values are byte-identical to
+# config/m1.toml's (and so to config/vm1.toml's), so every site compares across engines; a test
+# holds the parity. Request parameters are those of config/controls.toml.
+[m1q17]
+repetitions = 5                       # trials per site, per model
+replacement = "zebra"                 # occurs nowhere in the base prefix
+system_fractions = [0.0, 0.1, 0.24, 0.27, 0.32, 0.5, 0.75, 0.999]
+tool_indexes = [0, 4, 9, 13]          # the first word of that tool's description
+edit_user_message = true              # the first word of the user message
+similarity_threshold = 0.10           # llama.cpp --slot-prompt-similarity, its default at the pinned commit
+threshold_margin = 0.002              # a trial this close to the threshold is reported and not counted
+corpus_dir = "corpus/live/m1q17"
+results_dir = "results/m1q17"
+registered_by = ""
+
+# One hypothesis per server configuration, H-M1L1's and H-M1LD's rules applied to the third family.
+# The ids carry the family (Q17) because the sealed H-M1L1/H-M1LD verdicts rest on two families'
+# evidence and stay sealed.
+[m1q17.hypotheses.H-M1L1Q17]          # server started with --parallel 1
+slots = 1
+rule = "prefix"
+
+[m1q17.hypotheses.H-M1LDQ17]          # server at its defaults
+slots = 4
+rule = "threshold"

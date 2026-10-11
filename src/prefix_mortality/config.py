@@ -154,6 +154,7 @@ def load_controls_config(path: Path, repo_root: Path) -> ControlsConfig:
 
 M1_RULES = ("prefix", "threshold")
 _M1_ID = re.compile(r"H-M1L[A-Za-z0-9]")
+_M1Q17_ID = re.compile(r"H-M1L[A-Za-z0-9]Q17")
 
 
 @dataclass(frozen=True)
@@ -206,9 +207,21 @@ def _ascending(c: dict, key: str, name: str, kind: type, lo: float, hi: float) -
 
 
 def load_m1_config(path: Path, repo_root: Path) -> M1Config:
+    return _load_m1_like(path, repo_root, "m1", _M1_ID, "an id is H-M1L and one letter or digit for the configuration")
+
+
+def load_m1q17_config(path: Path, repo_root: Path) -> M1Config:
+    """config/m1q17.toml: the M1 instrument on the qwen17 family (config/l17.toml). Own file because
+    the committed M1 records seal config/m1.toml by hash; own ids because the sealed verdicts stay
+    sealed. Byte-parity of the sites with m1.toml is held by a test, not by this loader."""
+    return _load_m1_like(path, repo_root, "m1q17", _M1Q17_ID,
+                         "an id is H-M1L, one letter or digit for the configuration, then Q17 for the family")
+
+
+def _load_m1_like(path: Path, repo_root: Path, table: str, id_re: re.Pattern, id_msg: str) -> M1Config:
     path = Path(path)
-    name = f"{path.name} [m1]"
-    c = _read(path)["m1"]
+    name = f"{path.name} [{table}]"
+    c = _read(path)[table]
     _require(c, _M1_KEYS, name)
     if not isinstance(c["edit_user_message"], bool):
         raise ValueError(f"{name} edit_user_message must be true or false")
@@ -225,8 +238,8 @@ def load_m1_config(path: Path, repo_root: Path) -> M1Config:
     hypotheses = []
     for hid, h in c["hypotheses"].items():
         hname = f"{name}.hypotheses.{hid}"
-        if not _M1_ID.fullmatch(hid):
-            raise ValueError(f"{hname}: an id is H-M1L and one letter or digit for the configuration")
+        if not id_re.fullmatch(hid):
+            raise ValueError(f"{hname}: {id_msg}")
         _require(h, _M1_HYPOTHESIS_KEYS, hname)
         if h["rule"] not in M1_RULES:
             raise ValueError(f"{hname} rule must be one of {M1_RULES}, got {h['rule']!r}")
@@ -645,6 +658,33 @@ def load_engines_config(path: Path) -> dict[str, EngineConfig]:
             download_sha256=_digest(c, "download_sha256", name, _SHA256), models=tuple(models),
             registered_by=_registered_by(c["registered_by"], name), config_path=path)
     return out
+
+
+# --- a later model family on the pinned llama.cpp (config/l17.toml) -------------------------------
+
+@dataclass(frozen=True)
+class L17Config:
+    """One more model family served by the engine pinned in config/engines.toml, in its own file
+    because the committed records seal engines.toml by hash. A run under this family gates on this
+    file's registration and hashes it into its records."""
+    model: EngineModel
+    registered_by: str
+    config_path: Path
+
+
+_L17_KEYS = ("registered_by", "model")
+
+
+def load_l17_config(path: Path) -> L17Config:
+    path = Path(path)
+    name = f"{path.name} [l17]"
+    c = _read(path)["l17"]
+    _require(c, _L17_KEYS, name)
+    m, mname = c["model"], f"{path.name} [l17.model]"
+    _require(m, _MODEL_KEYS, mname)
+    model = EngineModel(family=_text(m, "family", mname), hf_repo=_text(m, "hf_repo", mname),
+                        file=_text(m, "file", mname), sha256=_digest(m, "sha256", mname, _SHA256))
+    return L17Config(model=model, registered_by=_registered_by(c["registered_by"], name), config_path=path)
 
 
 # --- vLLM (the V instrument) -----------------------------------------------------------------------

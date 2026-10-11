@@ -22,9 +22,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from prefix_mortality import REPO_ROOT
-from prefix_mortality.config import (ControlsConfig, EngineConfig, M1Config, M1Hypothesis, load_controls_config,
-                                     load_engines_config, load_m1_config)
-from prefix_mortality.controls import FIXTURE, Refusal, _gate_local, _gate_server, _server, build_body
+from prefix_mortality.config import (ControlsConfig, EngineConfig, L17Config, M1Config, M1Hypothesis,
+                                     load_controls_config, load_engines_config, load_m1_config, load_m1q17_config)
+from prefix_mortality.controls import (FIXTURE, Refusal, _gate_local, _gate_server, _maybe_l17, _resolve_model,
+                                       _server, build_body)
 from prefix_mortality.edits import apply, site_names
 from prefix_mortality.hashing import sha256_text_file
 from prefix_mortality.llamacpp import Client, EngineError, observed
@@ -57,11 +58,12 @@ def _ids(tokens: list[dict]) -> list[int]:
 
 
 def run(m1: M1Config, controls: ControlsConfig, engine: EngineConfig, family: str, hid: str, client: Client,
-        model_path: Path, repo_root: Path = REPO_ROOT, fixture: Path = FIXTURE) -> dict:
+        model_path: Path, repo_root: Path = REPO_ROOT, fixture: Path = FIXTURE,
+        l17: L17Config | None = None) -> dict:
     hyp = m1.hypothesis(hid)
     if not m1.registered_by:
         raise Refusal(f"{m1.config_path.name} is UNREGISTERED (registered_by is empty); a ledger entry registers it first")
-    _gate_local(controls, engine, family, Path(model_path))
+    _gate_local(controls, engine, family, Path(model_path), l17)
     props = client.props()
     _gate_server(engine, props)
     _gate_slots(hyp, props)
@@ -72,13 +74,15 @@ def run(m1: M1Config, controls: ControlsConfig, engine: EngineConfig, family: st
     log = m1.corpus_dir / f"{run_id}.jsonl"
     if log.exists():
         raise Refusal(f"{log} already exists; a run never appends to another run's records")
-    common = {"schema_version": SCHEMA_VERSION, "run_id": run_id, "experiment": "m1", "hypothesis": hid,
-              "family": family, "engine_release": engine.release, "engine_commit": engine.commit,
-              "model_file": engine.model(family).file, "model_sha256": engine.model(family).sha256,
-              "server": _server(props),
-              "config_sha256": {"controls": sha256_text_file(controls.config_path),
-                                "engines": sha256_text_file(engine.config_path),
-                                "m1": sha256_text_file(m1.config_path)}}
+    model = _resolve_model(engine, family, l17)
+    hashes = {"controls": sha256_text_file(controls.config_path), "engines": sha256_text_file(engine.config_path),
+              m1.config_path.stem: sha256_text_file(m1.config_path)}
+    if l17 is not None and family == l17.model.family:
+        hashes["l17"] = sha256_text_file(l17.config_path)
+    common = {"schema_version": SCHEMA_VERSION, "run_id": run_id, "experiment": m1.config_path.stem,
+              "hypothesis": hid, "family": family, "engine_release": engine.release, "engine_commit": engine.commit,
+              "model_file": model.file, "model_sha256": model.sha256,
+              "server": _server(props), "config_sha256": hashes}
     records, seq, halted = [], 0, False
     for rep in range(1, m1.repetitions + 1):
         for site in site_names(m1):
@@ -152,6 +156,8 @@ def main(argv=None) -> int:
     a = ap.parse_args(argv)
     try:
         m1 = load_m1_config(REPO_ROOT / "config" / "m1.toml", REPO_ROOT)
+        if a.hypothesis not in {h.id for h in m1.hypotheses}:
+            m1 = load_m1q17_config(REPO_ROOT / "config" / "m1q17.toml", REPO_ROOT)
         controls = load_controls_config(REPO_ROOT / "config" / "controls.toml", REPO_ROOT)
         client = Client(a.url, controls.request_timeout_seconds)
         if a.cmd == "probe":
@@ -159,7 +165,8 @@ def main(argv=None) -> int:
                              ensure_ascii=True))
             return 0
         engine = load_engines_config(REPO_ROOT / "config" / "engines.toml")["llamacpp"]
-        report = run(m1, controls, engine, a.family, a.hypothesis, client, Path(a.model_path))
+        l17 = _maybe_l17(engine, a.family)
+        report = run(m1, controls, engine, a.family, a.hypothesis, client, Path(a.model_path), l17=l17)
     except (Refusal, EngineError, ValueError) as e:
         print(f"M1 REFUSED: {e}".encode("ascii", "backslashreplace").decode("ascii"), file=sys.stderr)
         return 2

@@ -16,7 +16,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from prefix_mortality import REPO_ROOT
-from prefix_mortality.config import ControlsConfig, EngineConfig, load_controls_config, load_engines_config
+from prefix_mortality.config import (ControlsConfig, EngineConfig, L17Config, load_controls_config,
+                                     load_engines_config, load_l17_config)
 from prefix_mortality.hashing import sha256_file_bytes, sha256_text_file
 from prefix_mortality.llamacpp import Client, EngineError, observed
 from prefix_mortality.nonce import new_nonce
@@ -29,6 +30,18 @@ FIXTURE = REPO_ROOT / "corpus" / "base_prefix" / "tau2-airline"
 
 class Refusal(RuntimeError):
     pass
+
+
+def _maybe_l17(engine: EngineConfig, family: str) -> L17Config | None:
+    """config/l17.toml, when the family is not one of engines.toml's. An unknown family still fails
+    in the model lookup, with both files' families named."""
+    if any(m.family == family for m in engine.models):
+        return None
+    l17 = load_l17_config(REPO_ROOT / "config" / "l17.toml")
+    if l17.model.family != family:
+        raise Refusal(f"no model of family {family!r}: engines.toml has {[m.family for m in engine.models]}, "
+                      f"l17.toml has {l17.model.family!r}")
+    return l17
 
 
 def build_body(cfg: ControlsConfig, system_text: str, tools: list, nonce: str) -> bytes:
@@ -79,12 +92,23 @@ def _server(props: dict) -> dict:
             "n_ctx": settings.get("n_ctx")}
 
 
-def _gate_local(cfg: ControlsConfig, engine: EngineConfig, family: str, model_path: Path) -> None:
+def _resolve_model(engine: EngineConfig, family: str, l17: "L17Config | None"):
+    """The family's model pin: engines.toml's, or l17.toml's for the family registered there."""
+    if l17 is not None and family == l17.model.family:
+        return l17.model
+    return engine.model(family)
+
+
+def _gate_local(cfg: ControlsConfig, engine: EngineConfig, family: str, model_path: Path,
+                l17: "L17Config | None" = None) -> None:
     """Everything that can be refused before the server is contacted."""
-    for name, reg in ((cfg.config_path.name, cfg.registered_by), (engine.config_path.name, engine.registered_by)):
+    gated = [(cfg.config_path.name, cfg.registered_by), (engine.config_path.name, engine.registered_by)]
+    if l17 is not None and family == l17.model.family:
+        gated.append((l17.config_path.name, l17.registered_by))
+    for name, reg in gated:
         if not reg:
             raise Refusal(f"{name} is UNREGISTERED (registered_by is empty); a ledger entry registers it first")
-    model = engine.model(family)
+    model = _resolve_model(engine, family, l17)
     if not Path(model_path).is_file():
         raise Refusal(f"model file {model_path} does not exist")
     digest = sha256_file_bytes(model_path)
@@ -110,8 +134,8 @@ def _send(client: Client, body: bytes, requests_dir: Path) -> tuple[str, list[di
 
 
 def run(cfg: ControlsConfig, engine: EngineConfig, family: str, client: Client, model_path: Path,
-        repo_root: Path = REPO_ROOT, fixture: Path = FIXTURE) -> dict:
-    _gate_local(cfg, engine, family, Path(model_path))
+        repo_root: Path = REPO_ROOT, fixture: Path = FIXTURE, l17: "L17Config | None" = None) -> dict:
+    _gate_local(cfg, engine, family, Path(model_path), l17)
     props = client.props()
     _gate_server(engine, props)
     system_text = (fixture / "system.txt").read_bytes().decode("utf-8")
@@ -121,12 +145,14 @@ def run(cfg: ControlsConfig, engine: EngineConfig, family: str, client: Client, 
     log = cfg.corpus_dir / f"{run_id}.jsonl"
     if log.exists():
         raise Refusal(f"{log} already exists; a run never appends to another run's records")
+    model = _resolve_model(engine, family, l17)
+    hashes = {"controls": sha256_text_file(cfg.config_path), "engines": sha256_text_file(engine.config_path)}
+    if l17 is not None and family == l17.model.family:
+        hashes["l17"] = sha256_text_file(l17.config_path)
     base = {"schema_version": SCHEMA_VERSION, "run_id": run_id, "experiment": "controls", "family": family,
             "engine_release": engine.release, "engine_commit": engine.commit,
-            "model_file": engine.model(family).file, "model_sha256": engine.model(family).sha256,
-            "server": _server(props),
-            "config_sha256": {"controls": sha256_text_file(cfg.config_path),
-                              "engines": sha256_text_file(engine.config_path)}}
+            "model_file": model.file, "model_sha256": model.sha256,
+            "server": _server(props), "config_sha256": hashes}
     rng = make_rng(cfg.seed)
     records, seq = [], 0
     for rep in range(1, cfg.repetitions + 1):
@@ -186,7 +212,8 @@ def main(argv=None) -> int:
             print(json.dumps(probe(cfg, client), indent=2, ensure_ascii=True))
             return 0
         engine = load_engines_config(REPO_ROOT / "config" / "engines.toml")["llamacpp"]
-        report = run(cfg, engine, a.family, client, Path(a.model_path))
+        l17 = _maybe_l17(engine, a.family)
+        report = run(cfg, engine, a.family, client, Path(a.model_path), l17=l17)
     except (Refusal, EngineError, ValueError) as e:
         print(f"CONTROLS REFUSED: {e}".encode("ascii", "backslashreplace").decode("ascii"), file=sys.stderr)
         return 2

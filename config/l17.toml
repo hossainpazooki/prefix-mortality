@@ -1,0 +1,18 @@
+# A third model family on llama.cpp: the V lane's model (Qwen3-1.7B) as GGUF, for the cross-engine
+# comparison. Lives in its own file because every committed llama.cpp record hashes
+# config/engines.toml, which therefore never changes. The engine pin, server recipe and request
+# parameters are those of config/engines.toml and config/controls.toml; records of runs under this
+# family additionally hash this file.
+#
+# Registered by the ledger entry named in `registered_by`; the drivers refuse the family while it is
+# empty. The owner's GGUF repository ships exactly one weight file (checked 2026-10-11); its sha256
+# is the Hub's recorded LFS digest, read 2026-10-11. The driver hashes the local file and refuses on
+# a mismatch.
+[l17]
+registered_by = ""
+
+[l17.model]
+family = "qwen17"
+hf_repo = "Qwen/Qwen3-1.7B-GGUF"      # published by the model's owner; Apache-2.0
+file = "Qwen3-1.7B-Q8_0.gguf"
+sha256 = "061b54daade076b5d3362dac252678d17da8c68f07560be70818cace6590cb1a"

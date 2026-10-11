@@ -24,7 +24,7 @@ import sys
 from pathlib import Path
 
 from prefix_mortality import REPO_ROOT
-from prefix_mortality.config import load_controls_config
+from prefix_mortality.config import load_controls_config, load_l17_config
 from prefix_mortality.hashing import sha256_text_file
 from prefix_mortality.record import load_request, read
 
@@ -131,8 +131,12 @@ def summarize(run_id: str, repo_root: Path = REPO_ROOT) -> tuple[dict, str]:
     records = read(cfg.corpus_dir / f"{run_id}.jsonl")
     current = {"controls": sha256_text_file(repo_root / "config" / "controls.toml"),
                "engines": sha256_text_file(repo_root / "config" / "engines.toml")}
+    l17 = load_l17_config(repo_root / "config" / "l17.toml") if (repo_root / "config" / "l17.toml").exists() else None
     for r in records:
-        if r.get("config_sha256") != current:
+        # a record of l17.toml's family additionally hashes that file (the family's own pin)
+        expected = dict(current, l17=sha256_text_file(l17.config_path)) \
+            if l17 is not None and r.get("family") == l17.model.family else current
+        if r.get("config_sha256") != expected:
             raise ValueError(f"record {r.get('seq')} was written under a different config than the one on disk")
     rp = cfg.results_dir / run_id / "report.json"
     if not rp.exists():
