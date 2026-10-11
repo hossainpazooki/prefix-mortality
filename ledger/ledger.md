@@ -1326,3 +1326,36 @@ the shared sites were built for waits on the same prompt run on llama.cpp with t
 **Status.** `H-M1V32` and `H-M1V128` are `[BASELINE]`, no refuter yet (rule 5, entry 0008). On
 vLLM the controls are `[VALIDATED]` and the edit-position pair is `[BASELINE]`; on llama.cpp eight
 hypotheses stay `[VALIDATED]`.
+### 0027 — 2026-10-10 — 0026 survived a refuter: H-M1V32 and H-M1V128 are [VALIDATED]
+
+prior-entries-sha256: 83a764319edf79274a807626874eb9318367532126feb32d676a21eb5ac0db85
+
+**Under rule 5** (entry 0008). The results of 0026 were given to a seventh refuter, independent of
+the author as in 0010, 0011, 0014, 0018, 0021 and 0024: a separate session with no access to the one
+that produced the code and the entries, nor to the earlier refuters' work.
+
+| | |
+|---|---|
+| what it read | An export of commit `fc13299`, the whole tree. It read all 260 records and all 260 distinct stored requests, recomputed every figure with its own code, and imported nothing from the package. Denied git, it could not check the commit hashes the entries name; it verified internal consistency of the records, not that the runs happened as described, and it could not re-contact the server, so the usage counters, the version string and the stored tokenizations are trusted as recorded. |
+| the brief | Recompute every cell of 0026's two tables from the records and stored requests alone under 0025's rules, not trusting the stored predictions; recompute 0026's chain line and every record's config hashes; confirm or refute the record-witnessing claim and the cap disclosure; look for undisclosed weaknesses: nonce reuse, non-dense order, bodies departing from the registered parameters, stored predictions departing from the recomputation. |
+| verdict | All seven claims: NOT REFUTED. "Zero discrepancies found"; "no undisclosed weaknesses". |
+
+**What it tried and what survived**, from its report.
+
+| tried | found |
+|---|---|
+| Every figure of 0026, with its own code. | Both runs 65 of 65 trials match with predictions recomputed from the stored token ids, never read from the records; every base control passes; isolation lcp(base, previous base) < *B* everywhere; every reported prompt size equals its stored token count; the *d* and *n* spans, the engine version in all 260 records, one local date, and no null field — all as tabled. |
+| The per-site cached table. | All 26 cells reproduce exactly, including every set where *d*'s jitter crossed a block boundary. |
+| The record-witnessing claim. | min(*d*, *n* − 1) mod 128 is 32 or more in exactly 57 of 65 trials per run, and in every one of them the observed cached differs from the other registered block size's prediction. Its strongest counter-case sought — a trial whose observed cached would also satisfy the other block size, voiding the claim — does not exist. |
+| The cap disclosure. | *n* − *d* is at least 8 in all 130 trials; min(*d*, *n* − 1) = *d* always. |
+| The chain and the config hashes. | 0026's prior-entries-sha256 reproduces from the normalized entries section exactly, as does every earlier entry's; all three config hashes reproduce in all 260 records under the repository's text-hash convention — and only under it, since the export carries checkout line endings. One cosmetic finding: 0026's heading lacks the leading blank line the other entries carry; the hash covers it either way. |
+| The record files as evidence. | `seq` dense from 1 to 130 with timestamps strictly monotonic in both runs; 130 distinct nonces, one per trial, zero reuse; all 260 bodies carry the registered parameters (one generated token, temperature 0, `tool_choice: "none"`); `zebra` present in every edited body and absent from every base body; the sites exactly `config/vm1.toml`'s 13 × 5; every request file's name equals the hash of the body it contains. |
+
+**Consequences.** `H-M1V32` and `H-M1V128` are `[VALIDATED]`: the edit-position rule is stated,
+measured and refuter-checked on this engine at both registered block sizes, and the block size
+itself is record-witnessed (0026), no longer only operator-asserted as 0023 disclosed.
+
+**Status.** Ten hypotheses, all `[VALIDATED]`: eight on llama.cpp, two on vLLM, over validated
+controls on each engine. The cross-engine comparison waits on the same prompt run on llama.cpp with
+this model family. Three causes remain `[FUTURE]` on vLLM: rebuild, model switch, lifespan on
+recorded runs.
