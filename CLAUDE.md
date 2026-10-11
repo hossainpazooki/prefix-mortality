@@ -13,7 +13,8 @@ registration on vLLM, entry 0023 their pass at both block sizes, entry 0024 the 
 entry 0025 the two hypotheses on edit position on vLLM, entry 0026 their verdicts, entry 0027 the
 refuter's pass on both, entry 0028 the qwen17 family's controls registration on llama.cpp, and
 entry 0029 their pass in both configurations, entry 0030 the two hypotheses on edit position for
-that family, and entry 0031 their verdicts.
+that family, entry 0031 their verdicts, entry 0032 the descriptive cross-engine d agreement, and
+entry 0033 the comparison table (one edit, four prices).
 
 ## Rules
 - The chassis is copied from lag-ladder, not shared. Never import `lag_ladder`, `linear_ceiling` or
@@ -162,6 +163,8 @@ registered in two steps per the rulings of 2026-10-11: ledger 0028 registered `c
 (controls for the family — PASS in both configurations, `[BASELINE]` by ledger 0029); ledger 0030
 registered `config/m1q17.toml` (`H-M1L1Q17`, `H-M1LDQ17`); ledger 0031 holds both `HELD`
 `[BASELINE]` (ALL MATCH, 65 of 65 counted each; the 0.10 cliff brackets at 0.0950/0.1044 on this
-tokenizer). Next: the descriptive d/n entry, the comparison entry, then one refuter covers the
-cell. Three
+tokenizer). Ledger 0032 (descriptive): the two engines put each edit at the same position within
+nonce jitter, all 13 sites. Ledger 0033 (descriptive): the comparison table — one edit, four
+prices; vLLM trails one-slot by at most B−1, the defaults cliff zeroes the three low sites. Next:
+one refuter covers the qwen17 cell (0028–0033). Three
 causes remain `[FUTURE]`: rebuild, model switch, lifespan on recorded runs.
