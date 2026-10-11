@@ -9,7 +9,7 @@
 # is the Hub's recorded LFS digest, read 2026-10-11. The driver hashes the local file and refuses on
 # a mismatch.
 [l17]
-registered_by = ""
+registered_by = "0028"
 
 [l17.model]
 family = "qwen17"

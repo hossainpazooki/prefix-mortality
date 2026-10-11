@@ -1359,3 +1359,38 @@ itself is record-witnessed (0026), no longer only operator-asserted as 0023 disc
 controls on each engine. The cross-engine comparison waits on the same prompt run on llama.cpp with
 this model family. Three causes remain `[FUTURE]` on vLLM: rebuild, model switch, lifespan on
 recorded runs.
+### 0028 — 2026-10-11 — A third family on llama.cpp: Qwen3-1.7B as GGUF, controls registered
+
+prior-entries-sha256: 0791f1fa98db1533d0af74b73c8f24eecc5b52fe5fd90771c57aad7467bd50e1
+
+**Registers** `config/l17.toml`, now `registered_by = "0028"`: the family `qwen17` — the model the V
+entries (0022–0027) measured — served by the llama.cpp build registered in 0002, for the
+cross-engine comparison the shared sites were built for (0025). No hypothesis is registered and no
+verdict cell is added: a control's outcome per server configuration is PASS, FAIL or NOT MEASURABLE,
+and a later entry states it from `summarize` output. `config/m1q17.toml` exists in the tree and
+stays UNREGISTERED; this entry does not register it.
+
+**Instrument.**
+
+| part | value |
+|---|---|
+| engine | llama.cpp `b11235` at commit `6c7a87f`, unchanged since 0002. `config/engines.toml` is byte-identical to its registered text — every committed llama.cpp record hashes it, which is why the new family lives in its own file. |
+| model, family `qwen17` | `Qwen/Qwen3-1.7B-GGUF`, file `Qwen3-1.7B-Q8_0.gguf`, the only weight file the owner publishes (checked 2026-10-11); sha256 `061b54da…cb1a` pinned in `config/l17.toml` from the Hub's LFS record and verified against the downloaded file. The driver hashes the local file and refuses a mismatch. |
+| quantization | Q8_0, where the V lane served bf16 safetensors. The weights differ; nothing measured here depends on them — reuse counters and token counts are functions of the tokenizer, the template and the cache policy, and the tokenizer files ship inside the GGUF from the same owner. The results entry repeats this sentence. |
+| server configurations | Two runs: `--parallel 1`, and the defaults — the two configurations every later qwen17 hypothesis names (0006's pattern). Fresh server per run. |
+| machine | The Mac mini of 0002. |
+
+**Parameters**, as in `config/controls.toml`, registered since 0002 and unchanged: 5 repetitions per
+configuration, each a write, a read and a scramble under the rules of 0002 — the read reuses exactly
+*n* − 1; the write and the scramble reuse at most *h*, the tokens that start before the end of the
+nonce. Records of this family additionally carry `config/l17.toml` in `config_sha256`; the
+summarizer refuses records of this family that do not.
+
+**Known before the run.**
+
+| fact | consequence |
+|---|---|
+| One unrecorded probe (one write, one read) was sent to a one-slot server under this model before this entry. | Nothing from it is evidence and no figure from it appears here. The rules are 0002's, committed long before that contact; the model pin was committed at `db10dda`, also before it. |
+| At the defaults the server runs 4 slots with idle-slot clearing (0005). | The write rule is exercised beyond its floor only from the fifth fresh prompt, as 0002 recorded for the first two families. |
+
+**Status.** The qwen17 controls are `[STRETCH]`: registered, not run. The one-slot run goes first.

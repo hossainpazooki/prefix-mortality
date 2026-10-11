@@ -555,7 +555,7 @@ def test_vm1_config_refuses_bad_values(tmp_path, old, new, msg):
 def test_l17_and_m1q17_load_and_the_repo_sites_are_byte_identical_to_m1s():
     from prefix_mortality import REPO_ROOT
     l17 = load_l17_config(REPO_ROOT / "config" / "l17.toml")
-    assert l17.registered_by == "" and l17.model.family == "qwen17"
+    assert l17.registered_by == "0028" and l17.model.family == "qwen17"
     assert l17.model.file == "Qwen3-1.7B-Q8_0.gguf"
     q = load_m1q17_config(REPO_ROOT / "config" / "m1q17.toml", REPO_ROOT)
     assert q.registered_by == ""
