@@ -28,10 +28,10 @@ numerator nor a denominator. It is never written as a zero.
 | H-M1V128 | On vLLM `b6d8e8af` (CPU backend) started with `--block-size 128`, the same request reads cached = floor(min(*d*, *n* − 1)/128)·128 and creates floor(*n*/128)·128 minus that. | entry 0025 | HELD |
 | H-M1L1Q17 | On llama.cpp `b11235` started with `--parallel 1` serving the qwen17 family (0028), a request that differs from the prompt the slot holds reuses exactly the tokens before the first one that differs. | entry 0030 | HELD |
 | H-M1LDQ17 | On llama.cpp `b11235` at its defaults serving the qwen17 family, the same request reuses those tokens when they are more than 0.10 of its length, and none otherwise. | entry 0030 | HELD |
-| H-M3V32 | On vLLM `b6d8e8af` (CPU backend) started with `--block-size 32`, a request that differs from an earlier one only in a chat-template argument reads cached = floor(min(*d*, *n* − 1)/32)·32 and creates floor(*n*/32)·32 minus that, *d* the leading tokens the two rendered prompts share. | entry 0035 | unresolved |
-| H-M3V128 | The same at `--block-size 128`, with 128 in the formula. | entry 0035 | unresolved |
-| H-M2V32 | On vLLM `b6d8e8af` (CPU backend) started with `--block-size 32`, a request whose tool schemas are written differently but carry the same JSON value reads cached = floor(min(*d*, *n* − 1)/32)·32 and creates floor(*n*/32)·32 minus that, under the same *d*. | entry 0035 | unresolved |
-| H-M2V128 | The same at `--block-size 128`, with 128 in the formula. | entry 0035 | unresolved |
+| H-M3V32 | On vLLM `b6d8e8af` (CPU backend) started with `--block-size 32`, a request that differs from an earlier one only in a chat-template argument reads cached = floor(min(*d*, *n* − 1)/32)·32 and creates floor(*n*/32)·32 minus that, *d* the leading tokens the two rendered prompts share. | entry 0035 | HELD |
+| H-M3V128 | The same at `--block-size 128`, with 128 in the formula. | entry 0035 | HELD |
+| H-M2V32 | On vLLM `b6d8e8af` (CPU backend) started with `--block-size 32`, a request whose tool schemas are written differently but carry the same JSON value reads cached = floor(min(*d*, *n* − 1)/32)·32 and creates floor(*n*/32)·32 minus that, under the same *d*. | entry 0035 | HELD |
+| H-M2V128 | The same at `--block-size 128`, with 128 in the formula. | entry 0035 | HELD |
 
 ## Entries
 
@@ -1698,3 +1698,58 @@ put that on record with the same corpus and the same rewritings as the first eng
 
 **Status.** `H-M3V32`, `H-M3V128`, `H-M2V32`, `H-M2V128` are `[STRETCH]`: registered, not run.
 vm3 runs first, block 32 first.
+### 0036 — 2026-10-11 — H-M3V32/128 and H-M2V32/128 held: the formula prices templating and serialization drift
+
+prior-entries-sha256: 485406284472026a486d9e80415bf165aa0cee4aed77910ae598b58180e2340c
+
+verdict: H-M3V32 = HELD
+
+verdict: H-M3V128 = HELD
+
+verdict: H-M2V32 = HELD
+
+verdict: H-M2V128 = HELD
+
+**Outcome** `[BASELINE]`. The four runs registered by 0035 were made at commit `ab25c5d`, one per
+hypothesis, the server started fresh with the hypothesis's block size, vm3 first, block 32 first.
+Their records and requests are committed with this entry. Every figure below is from
+`summarize_vm23 --run` on those files, or from the `server` field of the records.
+
+| | H-M3V32 | H-M3V128 | H-M2V32 | H-M2V128 |
+|---|---|---|---|---|
+| run | `20261011T200704Z…` | `20261011T201632Z…` | `20261011T202605Z…` | `20261011T203820Z…` |
+| outcome | ALL MATCH | ALL MATCH | ALL MATCH | ALL MATCH |
+| trials counted, matching | 10, 10 | 10, 10 | 10, 10 | 10, 10 |
+| failed controls, unmeasurable fields | none, none | none, none | none, none | none, none |
+| *d*, over all trials | 4,864 to 4,871 | 4,865 to 4,870 | 2,128 to 4,870 | 2,127 to 4,870 |
+| *n*, over all edited requests | 4,865 to 4,875 | 4,865 to 4,874 | 4,863 to 4,871 | 4,866 to 4,872 |
+| engine version, as the server reported | `0.31.1rc1.dev8+gb6d8e8afd` | same | same | same |
+| local date | one, all records | one | one | one |
+| fields not reported | None. | None. | None. | None. |
+
+**Verdict.** Every trial of all four runs matches: the variant's cached and created equal
+floor(min(*d*, *n* − 1)/*B*)·*B* and floor(*n*/*B*)·*B* minus it, under each server's own *B*. By
+the rule of 0035, all four hypotheses are `HELD`.
+
+**The arms, priced.** Observed cached/created of the variant by arm; a set shows the values where
+the nonce's token-length jitter crossed a block boundary between repetitions. The renders came out
+as the probes expected: `thinking-off` appended 4 tokens after the generation prompt (*n* − *d* = 4
+in every trial, the base a strict prefix), `thinking-on` and `keyorder` rendered identically
+(*d* = *n*), and `properties` diffed at *d* ≈ 2,130 of ≈ 4,870 (share 0.44 — every tool with two or
+more properties reordered, so the first diff sits at the first such tool).
+
+| arm | cached/created, block 32 | cached/created, block 128 |
+|---|---|---|
+| thinking-off | 4,864 / 0 | 4,864 / 0 |
+| thinking-on | 4,864 / 0 | 4,864 / 0 |
+| keyorder | {4,832, 4,864} / 0 | 4,864 / 0 |
+| properties | 2,112 / 2,752 | 2,048 / 2,816 |
+
+What the table says: templating drift that only APPENDS (the thinking switch) and serialization
+drift the template normalises away (function-level key order) are priced as an identical resend —
+the whole cap, nothing more, at either block size (4,864 happens to be a multiple of both 32 and
+128; `keyorder`'s 4,832 is one trial whose *n* = 4,863 put the *n* − 1 cap below it). Property-order
+drift the template PRESERVES kills the prefix at the first reordered tool and the block size prices
+the corpse: block 128 recomputes 64 more tokens than block 32 for the same *d*, where llama.cpp's
+one-slot reuse would pay exactly *n* − *d* (0016's S4). Same renders, same death site, engine
+policy prices it.
