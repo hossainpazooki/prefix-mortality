@@ -6,6 +6,7 @@ and not counted; the gates refuse; a stand-in that breaks a rule turns the run r
 reproduces the report and refuses a changed record, prediction, schedule, config or corpus; Llama's
 template needs its argument; the probe records nothing."""
 import json
+import time
 
 import pytest
 
@@ -263,9 +264,16 @@ def test_llama_renders_only_with_its_registered_template_argument(tmp_path):
     plain = (w["root"] / "config" / "m8.toml").read_text(encoding="utf-8").replace("tools_in_user_message = false\n", "")
     (w["root"] / "config" / "m8.toml").write_text(plain, encoding="utf-8")
     w["m8"] = load_m8_config(w["root"] / "config" / "m8.toml", w["root"])
+    _next_second()  # run ids carry seconds; a second run in the same second would be refused as a duplicate log
     with _serve(w, slots=1, template="llama", family="llama") as (url, _):
         with pytest.raises(EngineError, match="no first user message"):
             _run(w, url, "H-M8L1", 1, family="llama")
+
+
+def _next_second() -> None:
+    start = int(time.time())
+    while int(time.time()) == start:
+        time.sleep(0.05)
 
 
 def test_schedule_and_probe_record_nothing(tmp_path):
