@@ -1753,3 +1753,31 @@ drift the template PRESERVES kills the prefix at the first reordered tool and th
 the corpse: block 128 recomputes 64 more tokens than block 32 for the same *d*, where llama.cpp's
 one-slot reuse would pay exactly *n* − *d* (0016's S4). Same renders, same death site, engine
 policy prices it.
+### 0037 — 2026-10-11 — 0036 survived a refuter: H-M3V32/128 and H-M2V32/128 are [VALIDATED]
+
+prior-entries-sha256: ec58fadc808d1227ad51cb4465d3aee9f06866fb451406ad29012428f1011994
+
+**Under rule 5** (entry 0008). The results of 0036 were given to a ninth refuter, independent of
+the author as in 0010, 0011, 0014, 0018, 0021, 0024, 0027 and 0034: a separate session with no
+access to the one that produced the code and the entries, nor to the earlier refuters' work.
+
+| | |
+|---|---|
+| what it read | An export of commit `df7527e`, the whole tree. It read all 80 records of the four runs and their stored requests, recomputed every figure with its own code, and imported nothing from the package. Denied git, it verified internal consistency of the records, not that the runs happened as described, and it could not re-contact the server, so the usage counters, the version string and the stored tokenizations are trusted as recorded. |
+| the brief | Recompute every trial of the four runs under 0035's formula from the stored token ids alone; recompute 0036's two tables, its render claims (the appended think block, the identical renders, the properties diff share), its chain line and 0035's, and every record's config hashes; check arms against the registered configs, nonce pairing and distinctness, block sizes, the engine version pin, and every prose claim against the raw records. |
+| verdict | NOT REFUTED. "Entry 0036's four HELD verdicts, every figure, and the hash chain all reproduce from raw bytes." |
+
+**What it tried and what survived**, from its report.
+
+| tried | found |
+|---|---|
+| Every trial, with its own code. | 40 of 40 trials match the formula with *d* recomputed as the stored token lists' common prefix; every base control reads cached 0; 10 base + 10 edited per run, paired by nonce, 40 nonces all distinct. |
+| 0036's two tables. | The *d* and *n* ranges of all four runs and every cell of the price table reproduce exactly, including `keyorder`'s single 4,832 trial, whose *n* = 4,863 matches the prose explanation. |
+| The render claims. | `thinking-off`: *n* − *d* = 4 in all 20 trials with the base a strict prefix; `thinking-on` and `keyorder`: *d* = *n* = the base's count in all 20; `properties`: shares 0.4371 to 0.4378. |
+| The records as evidence. | Sites match the registered arms in both configs; block size matches the hypothesis in all 80 records; the engine version equals `config/vllm.toml`'s pin everywhere; one local date per run; `observed` equals the raw usage everywhere. |
+| The chain and the config hashes. | 0035's and 0036's prior-entries-sha256 reproduce from the normalized entries section; the config hashes in the records reproduce under the repository's text-hash convention — and only under it, the export carrying checkout line endings, as the seventh refuter also noted. |
+
+**Consequences.** `H-M3V32`, `H-M3V128`, `H-M2V32` and `H-M2V128` are `[VALIDATED]`: sixteen
+validated hypotheses across two engines. The drift half of the program is closed on vLLM — the
+same renders die at the same sites on both engines (0016/0017, the probes of 0035), and the price
+of the death is engine policy: exact *d* on llama.cpp, block-rounded *d* on vLLM.

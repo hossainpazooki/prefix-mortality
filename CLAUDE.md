@@ -16,7 +16,8 @@ entry 0029 their pass in both configurations, entry 0030 the two hypotheses on e
 that family, entry 0031 their verdicts, entry 0032 the descriptive cross-engine d agreement, and
 entry 0033 the comparison table (one edit, four prices), and entry 0034 the refuter's pass on the
 whole qwen17 cell with two prose corrections, entry 0035 registers the four hypotheses on
-templating and serialization drift on vLLM, and entry 0036 holds all four.
+templating and serialization drift on vLLM, entry 0036 holds all four, and entry 0037 validates
+them after a ninth refuter.
 
 ## Rules
 - The chassis is copied from lag-ladder, not shared. Never import `lag_ladder`, `linear_ceiling` or
@@ -180,7 +181,8 @@ central figure is measured. M3 and M2 are ported to V as `vm23` (arms: thinking-
 keyorder/properties — the probes of 2026-10-11 found BOTH engines append the think block, normalise
 function key order and preserve property order, so the registered contrast is price only) and
 registered by ledger 0035 (`config/vm3.toml`, `config/vm2.toml`, both `registered_by = "0035"`);
-ledger 0036 holds all four `HELD` `[BASELINE]` (ALL MATCH, 10 of 10 each: appended think block and
+ledger 0036 holds all four `HELD` and ledger 0037 makes them `[VALIDATED]` after the ninth refuter
+— sixteen validated hypotheses across two engines (ALL MATCH, 10 of 10 each: appended think block and
 normalised key order price as an identical resend at both block sizes; preserved property order
 dies at the first reordered tool and block 128 recomputes 64 more tokens than block 32 for the
 same *d*). Three causes remain `[FUTURE]`: rebuild, model switch, lifespan on recorded runs.
