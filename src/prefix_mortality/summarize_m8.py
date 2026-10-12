@@ -36,7 +36,7 @@ from prefix_mortality.replay import assistant_turns, longest
 from prefix_mortality.slotsim import Prediction, SlotSim, Token, lcp, tokens
 from prefix_mortality.summarize import FIELDS
 
-CONFIGS = ("controls", "engines", "m8")
+CONFIGS = ("controls", "engines")          # plus the M8 config file the records name (`config`, default m8)
 SIM_KEYS = ("slot", "by", "f_sim", "f_keep", "cache_searched", "saved", "restored", "erased", "evicted")
 
 
@@ -226,11 +226,13 @@ def render(report: dict) -> str:
     return "\n".join(lines) + "\n"
 
 
-def summarize(run_id: str, repo_root: Path = REPO_ROOT) -> tuple[dict, str]:
-    cfg = load_m8_config(repo_root / "config" / "m8.toml", repo_root)
+def summarize(run_id: str, repo_root: Path = REPO_ROOT, config: str = "m8") -> tuple[dict, str]:
+    cfg = load_m8_config(repo_root / "config" / f"{config}.toml", repo_root)
     records = read(cfg.corpus_dir / f"{run_id}.jsonl")
-    current = {key: sha256_text_file(repo_root / "config" / f"{key}.toml") for key in CONFIGS}
+    current = {key: sha256_text_file(repo_root / "config" / f"{key}.toml") for key in (*CONFIGS, config)}
     for r in records:
+        if r.get("config", "m8") != config:
+            raise ValueError(f"record {r.get('seq')} names config {r.get('config', 'm8')!r}; this summary reads {config!r}")
         if r.get("config_sha256") != current:
             raise ValueError(f"record {r.get('seq')} was written under a different config than the one on disk")
     rp = cfg.results_dir / run_id / "report.json"
@@ -249,9 +251,10 @@ def summarize(run_id: str, repo_root: Path = REPO_ROOT) -> tuple[dict, str]:
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(prog="python -m prefix_mortality.summarize_m8")
     ap.add_argument("--run", required=True, help="run id, the name of the record file without .jsonl")
+    ap.add_argument("--config", default="m8", help="the M8 config the run was made under: config/<name>.toml")
     a = ap.parse_args(argv)
     try:
-        report, text = summarize(a.run)
+        report, text = summarize(a.run, config=a.config)
     except (ValueError, KeyError) as e:
         print(f"SUMMARY REFUSED: {e}".encode("ascii", "backslashreplace").decode("ascii"))
         return 2

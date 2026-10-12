@@ -19,6 +19,7 @@ nothing.
 """
 import argparse
 import json
+import re
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -72,14 +73,16 @@ def run(m8: M8Config, controls: ControlsConfig, engine: EngineConfig, family: st
     log = m8.corpus_dir / f"{run_id}.jsonl"
     if log.exists():
         raise Refusal(f"{log} already exists; a run never appends to another run's records")
+    config_name = m8.config_path.stem
     common = {"schema_version": SCHEMA_VERSION, "run_id": run_id, "experiment": "m8", "hypothesis": hid,
-              "family": family, "c": c, "engine_release": engine.release, "engine_commit": engine.commit,
+              "family": family, "c": c, "config": config_name,
+              "engine_release": engine.release, "engine_commit": engine.commit,
               "model_file": engine.model(family).file, "model_sha256": engine.model(family).sha256,
               "server": _server(props), "recorded_dir": m8.recorded_dir.name,
               "recorded_sha256": prov["output"][SIMULATIONS]["sha256"],
               "config_sha256": {"controls": sha256_text_file(controls.config_path),
                                 "engines": sha256_text_file(engine.config_path),
-                                "m8": sha256_text_file(m8.config_path)}}
+                                config_name: sha256_text_file(m8.config_path)}}
     sim = make_sim(m8, hyp, family)
     records, seq, why = [], 0, ""
     for task_id, turn_index, turn_number in plan:
@@ -155,13 +158,17 @@ def main(argv=None) -> int:
         p.add_argument("--url", required=True, help="the server's address, e.g. http://127.0.0.1:8080")
         p.add_argument("--hypothesis", required=True, help="an id registered in config/m8.toml")
         p.add_argument("--family", required=True, help="a family named in config/engines.toml and config/m8.toml")
+        p.add_argument("--config", default="m8", help="the registered M8 config to run under: config/<name>.toml (m8, or m8l "
+                                                      "for the Llama configuration with the template's date pinned)")
     sub.choices["run"].add_argument("--model-path", required=True)
     sub.choices["run"].add_argument("--c", type=int, required=True, help="conversations in round robin; 1 = one after another")
     sub.choices["probe"].add_argument("--task-ids", required=True, help="comma-separated task ids, e.g. 12,18")
     sub.choices["probe"].add_argument("--turns", type=int, default=4, help="assistant turns to replay per conversation")
     a = ap.parse_args(argv)
     try:
-        m8 = load_m8_config(REPO_ROOT / "config" / "m8.toml", REPO_ROOT)
+        if not re.fullmatch(r"m8[a-z0-9]*", a.config):
+            raise ValueError(f"--config names an M8 config file by its stem (m8, m8l, ...), got {a.config!r}")
+        m8 = load_m8_config(REPO_ROOT / "config" / f"{a.config}.toml", REPO_ROOT)
         controls = load_controls_config(REPO_ROOT / "config" / "controls.toml", REPO_ROOT)
         client = Client(a.url, controls.request_timeout_seconds)
         if a.cmd == "probe":

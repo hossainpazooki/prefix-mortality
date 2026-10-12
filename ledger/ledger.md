@@ -2204,3 +2204,90 @@ save files (about 700 MB each) are not committed; the records carry the counts t
 **Status.** `H-M6LA`, `H-M6LB` and `H-M6LR` are `[BASELINE]`, no refuter yet. With this entry every
 cause of 0001 is measured on llama.cpp: edit position, serialization drift, templating, idle expiry,
 rebuild, model switch, eviction by intervening requests, and lifespan along real conversations.
+### 0044 — 2026-10-12 — Lifespan on Llama with the template's date pinned: config/m8l.toml registered
+
+prior-entries-sha256: 1488f58bd728576d99fef8c6f556c7d0fba5eb4985ccaf10690bea851ca1ead6
+
+**Registers** `config/m8l.toml`, now `registered_by = "0044"`, for the hypotheses `H-M8L1` and
+`H-M8LD` of 0038 on the `llama` family. It is `config/m8.toml` in every value but one: Llama's
+template arguments gain `date_string = "11 Oct 2026"`. No new hypothesis; the same ids, rules,
+corpus, constants and policy. `config/m8.toml` is sealed by the hashes in its records and does not
+change; a record written under this file names it (`config: m8l`) and hashes it under that key, and
+`summarize_m8 --config m8l` reads it.
+
+**Why.** 0041 could not make the llama C = 12 run: Llama 3.1's chat template writes the current date
+into the system header, M8's bodies carry no nonce, so the first request of every conversation — the
+system text and the tools alone — is byte-identical across conversations and across days, and the
+request store, which holds one render per request body, refused the 2026-10-12 render of a body it
+had stored with the 2026-10-11 render. `date_string` is the argument Llama's template takes for that
+line. Pinning it makes the render independent of the day the run is made, so runs under this file
+can be made on any day and share the store among themselves. It is pinned to the local date of
+0041's llama runs so that the prompts the engine sees are, byte for byte, the prompts those runs sent.
+
+**What this changes in the replay.** Nothing the policy sees. The argument travels in the request
+body, so every body under this file differs from 0041's llama bodies by that field and is stored
+under its own hash — about a thousand new request snapshots, each carrying `date_string` — while its
+rendered prompt and token list are identical to the earlier run's for the same turn. Qwen's template
+takes no date and is not affected; this file registers nothing new for `qwen`.
+
+**What runs.** All four llama cells of 0038 under this file — `H-M8L1` (C = 1) and `H-M8LD` at
+C = 2, 6 and 12 — so that the llama half of both hypotheses is one set under one configuration, made
+on one day; the results entry states that these four runs supersede 0041's three llama runs for the
+llama half, and that the earlier runs stand as made. Ruled by the operator on 2026-10-12: the clean
+single set rather than the one missing run.
+
+**What decides.** 0038's table, unchanged; the summarizer refuses a record that names another config
+or hashes to another file.
+
+**Known before the run.**
+
+| fact | consequence |
+|---|---|
+| The pinned date is a Llama template argument, not a server setting. | `qwen` runs are unaffected; the records of a llama run under this file show `date_string` in every stored body. |
+| A run under this file on a day other than 2026-10-11 renders `Today Date: 11 Oct 2026`. | That is the intent: the prompt is the one the store holds. A reader of the records sees the pinned date in the render, not the day of the run; the record's `local_date` and timestamps carry the day. |
+| No request under this file has been sent before this entry. | The four runs are the first. |
+| The collision itself is a templating death the client never caused: a Llama conversation whose requests straddle midnight loses its whole prefix, because the template re-dates the header. | Not measured here; noted as a candidate cell. |
+
+**Status.** `config/m8l.toml` is registered; `H-M8L1` and `H-M8LD` keep their verdicts of 0041
+(`HELD`, `[BASELINE]`) pending the four runs and the results entry.
+### 0045 — 2026-10-12 — 0041, 0042 and 0043 survived a refuter: eleven hypotheses [VALIDATED]; three figures corrected
+
+prior-entries-sha256: 10ead15dd10b3a73c6b878c00564423c22bccf99fdb1478bba244fcfa177f8c6
+
+**Under rule 5** (entry 0008). The results of 0041, 0042 and 0043 were given to a tenth refuter,
+independent of the author as in 0010, 0011, 0014, 0018, 0021, 0024, 0027, 0034 and 0037: a separate
+session with no access to the one that produced the code and the entries, nor to the earlier
+refuters' work.
+
+| | |
+|---|---|
+| what it read | An export of commit `3e456ae`, the whole tree, and the two server source files at the pinned llama.cpp commit by address. It read all 2,377 M8 records, 240 M5 records and 60 M6 records with their stored requests, recomputed every figure with its own code — including its own implementation of the slot and prompt-cache policy from the cited source lines, written before it opened `slotsim.py` — and imported nothing from the package. Denied git, it verified internal consistency of the records, not that the runs happened as described; it could not re-contact the servers. |
+| the brief | Re-implement the policy and the `--cache-reuse` walk from the source; recompute every prediction, every control and every figure of the three entries from the stored tokens; check the schedules against the vendored corpus; recompute the chain lines; attack the controls and the prose. |
+| verdict | All eleven: NOT REFUTED. "All eleven HELD verdicts survive full recomputation from raw bytes. Three prose figures are wrong but none is load-bearing." |
+
+**What it tried and what survived**, from its report.
+
+| tried | found |
+|---|---|
+| The policy, re-implemented from the source. | Every stored prediction and every intermediate reading of the policy reproduce for all 2,377 M8 requests; the reading equals the prediction in all 2,374 counted requests and in the 3 `near` ones too. Searched, restored and evicted counts, deaths, shares, per-conversation ranges, first-request reuse and the largest losses all as tabled. |
+| The schedules. | From the vendored corpus (hash equal to its provenance): file order for C = 1; the C longest by assistant turns, ties by task id, for C > 1. Every record's conversation, turn and body match. |
+| The walk, re-implemented. | Predictions, chunk lists and shifted counts reproduce in all 120 M5 trials; the reading equals the prediction in 120 of 120; the full request within its header in 120 of 120. |
+| The process cells. | Resend bytes equal the anchor's, one nonce, consecutive records, loaded sets as each cell requires, every response from the child asked, generations rising by one across each restart, save and restore counts equal to the anchor's, in all 24 M6 trials. |
+| The chain. | 0041, 0042 and 0043 reproduce from the normalized entries section. |
+| The refusal of 0041. | The store holds the first-turn body with `Today Date: 11 Oct 2026` in its render, referenced by all three llama runs, and no 12 October render of a nonce-free body; the refusal itself left no record and is, as 0041 says, unverifiable from the tree. |
+| Its strongest counter-cases. | (1) The `near` margin flags a decision within one token of a threshold but not an exact tie in the cache's strict comparisons; 153 counted requests were decided by such a tie, and all 153 matched — the strict reading of the source is corroborated, and a tie-inclusive margin would have counted fewer requests, not changed a verdict. (2) A real KV state carries metadata beyond tokens × geometry; all 29 evictions matched regardless. (3) The defaults of four server flags are not in the two source files it fetched; 575 interleaved requests match only under cleared idle slots, which supports the reading empirically. |
+
+**Corrections.** Three sentences overstate or round wrongly; the entries are immutable and are
+corrected here, in the form of 0034.
+
+| entry | sentence | corrected, from the committed records |
+|---|---|---|
+| 0042 | The llama full requests reused "0 or 3,911 to 3,912 of a header of 3,924 to 3,934", and at the defaults "3,911 (the held slot, chosen by a similarity of 0.39, keeping the tools)". | They reused 0 or 3,910 to 3,912: at one slot 5 × 3,910, 12 × 3,911, 2 × 3,912; at the defaults 13 × 3,910 and 6 × 3,911; under `--cache-reuse` 11 × 3,910 and 8 × 3,911; the similarity by which the held slot was chosen ranged from 0.25 to 0.39. The bound and the verdicts are unaffected. |
+| 0041 | Tokens lost per death on llama, "median about 2,900". | The pooled median over the 186 llama deaths is 2,550 (per run 2,362 at C = 2 and 2,875 at C = 6); 2,888 is the mean. Qwen's 2,511 stands. |
+| 0038 | "3 to 52 assistant turns per conversation". | 6 to 52. |
+
+**Consequences.** `H-M8L1`, `H-M8LD`, `H-M5L1`, `H-M5LD`, `H-M5LC`, `H-M6LA`, `H-M6LB` and `H-M6LR`
+are `[VALIDATED]`: twenty-seven validated hypotheses across two engines, and every cause of 0001
+measured and refuter-checked on llama.cpp. The validation covers the runs 0041 made; the llama runs
+under `config/m8l.toml` (0044) are pending and will be decided and, if the operator rules so,
+refuted on their own.

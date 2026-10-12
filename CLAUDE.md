@@ -18,7 +18,9 @@ entry 0033 the comparison table (one edit, four prices), and entry 0034 the refu
 whole qwen17 cell with two prose corrections, entry 0035 registers the four hypotheses on
 templating and serialization drift on vLLM, entry 0036 holds all four, entry 0037 validates
 them after a ninth refuter, and entries 0038, 0039 and 0040 register lifespan on recorded runs,
-rebuild, and model switch and restart on llama.cpp; entries 0041, 0042 and 0043 hold them.
+rebuild, and model switch and restart on llama.cpp; entries 0041, 0042 and 0043 hold them; entry 0044
+registers the Llama configuration with the template's date pinned; entry 0045 validates the eleven
+after a tenth refuter and corrects three figures.
 
 ## Rules
 - The chassis is copied from lag-ladder, not shared. Never import `lag_ladder`, `linear_ceiling` or
@@ -77,7 +79,7 @@ rebuild, and model switch and restart on llama.cpp; entries 0041, 0042 and 0043 
 .venv/Scripts/python.exe -m prefix_mortality.summarize_vm23 --experiment vm3 --run RUN_ID
 .venv/Scripts/python.exe -m prefix_mortality.m8 probe --url URL --hypothesis H-M8LD --family qwen --task-ids 12,18 --turns 4
 .venv/Scripts/python.exe -m prefix_mortality.m8 run --url URL --hypothesis H-M8LD --family qwen --c 6 --model-path PATH
-.venv/Scripts/python.exe -m prefix_mortality.summarize_m8 --run RUN_ID
+.venv/Scripts/python.exe -m prefix_mortality.summarize_m8 --run RUN_ID            # --config m8l for runs under config/m8l.toml
 .venv/Scripts/python.exe -m prefix_mortality.m5 probe --url URL --hypothesis H-M5LC --family qwen --task-ids 12
 .venv/Scripts/python.exe -m prefix_mortality.m5 run --url URL --hypothesis H-M5LC --family qwen --model-path PATH
 .venv/Scripts/python.exe -m prefix_mortality.summarize_m5 --run RUN_ID
@@ -101,7 +103,9 @@ of sites, vm1's formula verbatim); `config/m8.toml` for lifespan on recorded run
 vendored conversations replayed one request per assistant turn with no nonce, `--c` conversations in
 round robin, the prediction being the pinned server's slot and prompt-cache policy in `slotsim`
 over the stored token lists; `m8.toml` restates `m7.toml`'s geometry and cache size because that
-file is sealed by its records); `config/m5.toml` for rebuild (`m5` driver: a recorded conversation in
+file is sealed by its records; `config/m8l.toml` is the same file with Llama's template date pinned —
+`m8 run --config m8l` — because Llama renders the day's date and M8's nonce-free bodies collide in the
+request store across days; records name the config they hashed); `config/m5.toml` for rebuild (`m5` driver: a recorded conversation in
 full, then compacted at its midpoint by a `trim` or a `summary`, M1's two rules plus the `--cache-reuse`
 walk); `config/m6.toml` for model switch and restart (`m6` driver: it starts and stops the server itself
 through `procs.Subprocess` from `--server-argv`, router cells with child B pinned in that file, a
@@ -138,8 +142,8 @@ share and deaths) · `m5`, `summarize_m5` (rebuild: full then compacted, prefix/
 `procs` (a server process under the driver: start, health, stop, generation) · `m6`, `summarize_m6`
 (model switch through the router, restart with slot save/restore).
 `config/` — `seal.toml`, `controls.toml`, `m1.toml`, `m2.toml`, `m3.toml`, `m4.toml`, `m5.toml`,
-`m6.toml`, `m7.toml`, `m8.toml`, `engines.toml`, `vllm.toml`, `vm1.toml`, `l17.toml`, `m1q17.toml`,
-`vm2.toml`, `vm3.toml`.
+`m6.toml`, `m7.toml`, `m8.toml`, `m8l.toml`, `engines.toml`, `vllm.toml`, `vm1.toml`, `l17.toml`,
+`m1q17.toml`, `vm2.toml`, `vm3.toml`.
 `ledger/` — `ledger.md`, `predictions/`.
 `corpus/` — `base_prefix/tau2-airline/`, `recorded/tau2-airline-claude-3-7-sonnet/` (50 simulations +
 `provenance.json`), `live/`, `requests/`, `MANIFEST.json`. `tools/` —
@@ -223,9 +227,15 @@ models before registration. Rebuild (M5: `config/m5.toml`, `trim` and `summary` 
 `[BASELINE]` (120 of 120 M5 trials: a trim is shifted whole under `--cache-reuse 256`, a summary
 costs everything after it, the defaults pay everything after the cut; 24 of 24 M6 trials: the switch
 to B and back finds A's slot alive under `--models-max 4`, reads 0 under `--models-max 1`, a bare
-restart reads 0 and a saved slot reads n - 1). Every cause of 0001 is now measured on llama.cpp;
-the eleven `[BASELINE]` hypotheses of 0041-0043 await one refuter. Ledger 0041 holds `H-M8L1` and `H-M8LD` `[BASELINE]` on seven runs (2,374 requests ALL
+restart reads 0 and a saved slot reads n - 1). Every cause of 0001 is now measured on llama.cpp.
+Ledger 0045: the tenth refuter passed all eleven (own policy and walk implementations from the
+source, every prediction and control reproduced) — `[VALIDATED]`, twenty-seven validated hypotheses
+across two engines; three prose figures corrected (0042's llama full-request reuse is 3,910–3,912
+with similarity 0.25–0.39; 0041's llama death-loss median is 2,550, 2,888 the mean; 0038's turn range
+is 6 to 52). Ledger 0041 holds `H-M8L1` and `H-M8LD` `[BASELINE]` on seven runs (2,374 requests ALL
 MATCH; one slot: shares 0.96/0.97, no deaths; interleaved: shares fall to 0.73 at C = 12 with a death
 on most turns, the cache searched only past twice the head, evictions at C = 12); the llama C = 12 run
 could not be made — Llama's template writes the date and M8's nonce-free bodies collide in the request
-store across days — pending a ruling on a `date_string` amendment.
+store across days. Ledger 0044 registers `config/m8l.toml` (`registered_by = "0044"`, the same values
+with `date_string = "11 Oct 2026"` for Llama) so the four llama cells can be rerun as one set under
+one configuration; those runs and their results entry are next.

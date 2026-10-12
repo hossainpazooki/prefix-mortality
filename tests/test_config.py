@@ -652,3 +652,14 @@ def test_m5_and_m6_configs_load_registered():
     assert m6.registered_by == "0040" and m6.repetitions == 3 and m6.child_context == 16384
     assert (m6.child_b.family, m6.child_b.file) == ("qwen17q4", "Qwen3-1.7B-Q4_K_M.gguf") and len(m6.child_b.sha256) == 64
     assert [(h.id, h.mode, h.models_max, h.slots) for h in m6.hypotheses] == [("H-M6LA", "router", 4, 4), ("H-M6LB", "router", 1, 4), ("H-M6LR", "restart", 0, 1)]
+
+
+def test_m8l_is_m8_with_the_llama_date_pinned():
+    from prefix_mortality import REPO_ROOT
+    m8 = load_m8_config(REPO_ROOT / "config" / "m8.toml", REPO_ROOT)
+    m8l = load_m8_config(REPO_ROOT / "config" / "m8l.toml", REPO_ROOT)
+    assert m8l.kwargs("llama") == {"tools_in_user_message": False, "date_string": "11 Oct 2026"}
+    assert m8l.kwargs("qwen") is None and m8.kwargs("llama") == {"tools_in_user_message": False}
+    for attr in ("recorded_dir", "similarity_threshold", "cache_ram_mib", "kv_geometry", "corpus_dir", "results_dir", "hypotheses"):
+        assert getattr(m8l, attr) == getattr(m8, attr), attr
+    assert m8.registered_by == "0038" and m8l.registered_by == "0044"

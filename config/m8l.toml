@@ -1,0 +1,54 @@
+# Lifespan on recorded runs (M8) on llama.cpp, the Llama configuration with the template's date pinned.
+# Identical to config/m8.toml (0038) in every value but one: Llama 3.1's chat template writes the
+# current date into the system header, and M8's bodies carry no nonce, so the same request bytes
+# render differently on different days and the request store — one render per request body — refuses
+# a second render (ledger 0041: the llama C = 12 run could not be made). `date_string` fixes the date
+# the template writes. It is the local date of the llama runs of 0041, so the renders equal the ones
+# the store already holds, byte for byte. config/m8.toml itself is sealed by the hashes in its records
+# and does not change; records written under this file hash it under the key `m8l`.
+#
+# Registered by a ledger entry, which fixes these values. A change to any of them needs a new entry;
+# the driver refuses to run while `registered_by` is empty. Request parameters (tokens to generate,
+# temperature) are those of config/controls.toml. The similarity threshold, the cache size and the
+# KV geometry restate config/m7.toml's values (registered by 0012); the prediction is the server's
+# slot and prompt-cache policy at the pinned commit applied to the stored token lists
+# (prefix_mortality.slotsim).
+[m8]
+recorded_dir = "corpus/recorded/tau2-airline-claude-3-7-sonnet"
+similarity_threshold = 0.10       # --slot-prompt-similarity, the server's default at the pinned commit
+cache_ram_mib = 8192              # --cache-ram, its default at the pinned commit
+corpus_dir = "corpus/live/m8"
+results_dir = "results/m8"
+registered_by = "0044"
+
+# A cached prompt's KV state is tokens x n_layer x 2 (K and V) x n_head_kv x head_dim x bytes_per_value.
+[m8.kv_geometry.qwen]
+n_layer = 36
+n_head_kv = 8
+head_dim = 128
+bytes_per_value = 2
+[m8.kv_geometry.llama]
+n_layer = 32
+n_head_kv = 8
+head_dim = 128
+bytes_per_value = 2
+
+# Chat-template arguments per family. The conversations open with an assistant greeting; Llama's
+# template otherwise takes the first non-system message as the user message that carries the tools
+# and refuses a request with none. `date_string` is the date Llama's template writes into the system
+# header, pinned so the render does not depend on the day the run is made. Qwen's template takes no
+# argument here.
+[m8.template_kwargs.llama]
+tools_in_user_message = false
+date_string = "11 Oct 2026"
+[m8.template_kwargs.qwen]
+
+# `slots` is what the server must report. `interleave` lists the values of C a run may use: C = 1
+# replays every conversation, one after another, in file order; C > 1 replays the C conversations
+# with the most assistant turns in round robin, one request from each in turn.
+[m8.hypotheses.H-M8L1]            # server started with --parallel 1
+slots = 1
+interleave = [1]
+[m8.hypotheses.H-M8LD]            # server at its defaults
+slots = 4
+interleave = [2, 6, 12]

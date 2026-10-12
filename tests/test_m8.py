@@ -14,7 +14,7 @@ from prefix_mortality.controls import Refusal
 from prefix_mortality.hashing import sha256_file_bytes
 from prefix_mortality.llamacpp import Client, EngineError
 from prefix_mortality.m8 import probe, run
-from prefix_mortality.record import read
+from prefix_mortality.record import load_request, read
 from prefix_mortality.recorded import extract
 from prefix_mortality.replay import assistant_turns
 from prefix_mortality.summarize_m8 import evaluate, make_sim, schedule, summarize
@@ -279,3 +279,25 @@ def test_schedule_and_probe_record_nothing(tmp_path):
     assert len(out["requests"]) == 6 and all(r["match"] for r in out["requests"])
     assert not list((w["root"] / "corpus" / "live" / "m8").glob("*.jsonl"))
     assert not list((w["root"] / "corpus" / "requests").glob("*.json"))
+
+
+def test_a_sibling_config_is_named_in_the_records_and_read_by_the_summarizer(tmp_path):
+    w = _world(tmp_path)
+    text = (w["root"] / "config" / "m8.toml").read_text(encoding="utf-8")
+    assert text.count("tools_in_user_message = false\n") == 1
+    (w["root"] / "config" / "m8l.toml").write_text(
+        text.replace("tools_in_user_message = false\n", "tools_in_user_message = false\ndate_string = \"11 Oct 2026\"\n"),
+        encoding="utf-8")
+    m8l = load_m8_config(w["root"] / "config" / "m8l.toml", w["root"])
+    assert m8l.kwargs("llama") == {"tools_in_user_message": False, "date_string": "11 Oct 2026"}
+    with _serve(w, slots=1, template="llama", family="llama") as (url, _):
+        report = run(m8l, w["controls"], w["engine"], "llama", "H-M8L1", 1, Client(url, 30.0), w["model"],
+                     repo_root=w["root"], fixture=w["fixture"])
+    assert report["outcome"] == "ALL MATCH"
+    recs = read(m8l.corpus_dir / f"{report['run_id']}.jsonl")
+    assert all(r["config"] == "m8l" and set(r["config_sha256"]) == {"controls", "engines", "m8l"} for r in recs)
+    stored = load_request(w["root"] / "corpus" / "requests", recs[0]["request_sha256"])
+    assert "Today Date: 11 Oct 2026" in stored["rendered"]
+    assert summarize(report["run_id"], repo_root=w["root"], config="m8l")[0] == report
+    with pytest.raises(ValueError, match="names config 'm8l'"):
+        summarize(report["run_id"], repo_root=w["root"])
