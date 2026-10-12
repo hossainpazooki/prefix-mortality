@@ -20,7 +20,8 @@ templating and serialization drift on vLLM, entry 0036 holds all four, entry 003
 them after a ninth refuter, and entries 0038, 0039 and 0040 register lifespan on recorded runs,
 rebuild, and model switch and restart on llama.cpp; entries 0041, 0042 and 0043 hold them; entry 0044
 registers the Llama configuration with the template's date pinned; entry 0045 validates the eleven
-after a tenth refuter and corrects three figures.
+after a tenth refuter and corrects three figures; entry 0046 (descriptive) indexes the server-side
+parameters that priced every death and that neither server reports.
 
 ## Rules
 - The chassis is copied from lag-ladder, not shared. Never import `lag_ladder`, `linear_ceiling` or
@@ -232,7 +233,11 @@ Ledger 0045: the tenth refuter passed all eleven (own policy and walk implementa
 source, every prediction and control reproduced) — `[VALIDATED]`, twenty-seven validated hypotheses
 across two engines; three prose figures corrected (0042's llama full-request reuse is 3,910–3,912
 with similarity 0.25–0.39; 0041's llama death-loss median is 2,550, 2,888 the mean; 0038's turn range
-is 6 to 52). Ledger 0041 holds `H-M8L1` and `H-M8LD` `[BASELINE]` on seven runs (2,374 requests ALL
+is 6 to 52). Ledger 0046 (descriptive, no run) indexes the parameters that priced every death and
+that no client can read from either server — the block size on vLLM; the cache size, similarity
+threshold, cache-reuse chunk, idle-slot flags and timer on llama.cpp — each read back from behaviour;
+it is the evidentiary base for the one feature request the blog builds toward (operator's call to
+file). The four llama runs under `m8l` are the last planned Mac work. Ledger 0041 holds `H-M8L1` and `H-M8LD` `[BASELINE]` on seven runs (2,374 requests ALL
 MATCH; one slot: shares 0.96/0.97, no deaths; interleaved: shares fall to 0.73 at C = 12 with a death
 on most turns, the cache searched only past twice the head, evictions at C = 12); the llama C = 12 run
 could not be made — Llama's template writes the date and M8's nonce-free bodies collide in the request

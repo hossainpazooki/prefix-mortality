@@ -2291,3 +2291,48 @@ are `[VALIDATED]`: twenty-seven validated hypotheses across two engines, and eve
 measured and refuter-checked on llama.cpp. The validation covers the runs 0041 made; the llama runs
 under `config/m8l.toml` (0044) are pending and will be decided and, if the operator rules so,
 refuted on their own.
+### 0046 — 2026-10-12 — What the server does not report: the parameters that priced every death, read back from behaviour
+
+prior-entries-sha256: 7307fe323123e4558624c817805325ca31cd3672ea788191fee438d7d814cfd9
+
+**Descriptive.** No run, no hypothesis, no verdict. This entry collects, from the entries that
+measured them, the server-side parameters that decided the reuse of every request on this ledger
+and that no client can read from either server's self-description. In every case the registering
+entry records the same sentence: the run script passes the value, and the records read it back only
+through the behaviour it produces. The committed records are the evidence; this entry is their index.
+
+**On llama.cpp `b11235`.** `GET /props` reports the build, the number of slots, the slot context
+and, since 0019, `is_sleeping`. It does not report:
+
+| parameter | default | what it decided | how the records recovered it |
+|---|---|---|---|
+| `--slot-prompt-similarity` | 0.10 | which slot a request takes, and so whether an early edit reads its position or 0 (0010: the 0.10 cliff, bracketed at 0.0929–0.1086 across models, 0.0950/0.1044 on the third family, 0031); whether an interleaved conversation finds its own state or the shared head (0041) | the cliff's position in the edited requests' reuse; the policy's slot choice in 2,377 replayed requests |
+| `--cache-ram` | 8192 MiB | how many foreign prompts a held state survives (0013: the twelfth intervening prompt ends the prefix); when interleaved conversations' states are evicted (0041: 11 evictions at C = 12) | "8192 MiB is read, not recorded" (0012); the cliff's K and the eviction sites, each predicted by the registered geometry |
+| `--cache-idle-slots`, `--kv-unified` | on | that every idle slot is saved and cleared when a request launches, so a fresh-nonce prompt reuses 0 at the defaults (0005) and only one slot ever holds a prompt (0041) | the server's own log in an unrecorded trace (0005); 575 interleaved requests that match only under cleared idle slots (0045) |
+| `--sleep-idle-seconds` | −1, off | the one timer: nothing expires by time at the defaults; a server with the flag loses everything past the threshold (0020) | `is_sleeping` after each gap, which `/props` does report; the flag itself is passed by the run script (0019) |
+| `--cache-reuse` | 0, off | whether a trimmed context is shifted whole or recomputed (0042: *n* − 1 against *d*) | the walk's result in the compacted requests' reuse (0039) |
+| `--parallel` | auto, 4 here | one slot versus four: exact reuse versus the threshold cliff (0010) | `total_slots`, which `/props` does report — the one policy parameter a client can read |
+
+**On vLLM `b6d8e8af` (CPU backend).** `GET /version` reports the version string; `GET /v1/models`
+the served name. Neither reports:
+
+| parameter | default | what it decided | how the records recovered it |
+|---|---|---|---|
+| `--block-size` | 128 on this backend (16 on GPU, refused here) | the price of every death: cached = floor(min(*d*, *n* − 1)/*B*)·*B*, created the complement (0026, 0036); the same edit costs up to *B* − 1 more than llama.cpp's exact reuse (0033) | "the records read it back only through the block arithmetic of the readings" (0022); at prompt lengths where *n* mod 128 < 32 the controls cannot discriminate 32 from 128 at all (0023); 57 of 65 trials per run discriminate it (0026) |
+| `VLLM_CPU_KVCACHE_SPACE` | 4 GiB here | the cache's capacity, which no run on this ledger reached | passed by the run script, recorded from the script, not from the server |
+
+**What this means for a client.** The ledger's two engines agree on where a prefix dies — the first
+differing token, placed within nonce jitter at the same position on both (0032) — and disagree only
+on the price (0033, 0036). The price is set by the parameters above. A client that computes its own
+reuse from `cached_tokens` or `cache_n` can tell *that* it lost tokens and *where*; it cannot tell
+*why* without the number the server did not publish, and it cannot predict the price of the next
+request. Every prediction this ledger made and every refuter checked rested on values read from the
+server's source and command line, not from the server. Exposing them — the block size on vLLM's
+`/version` or model listing; the cache size, the similarity threshold, the cache-reuse chunk, the
+idle-slot flags and the timer on llama.cpp's `/props` — would make the price of a prefix observable
+to the client paying it. This is the one feature the ledger's evidence asks for; it is stated here as
+a reading of the record, and any request upstream is the operator's to make.
+
+**Known limits.** The defaults quoted are those of the pinned commits, read from their sources
+(0002, 0012, 0019, 0022, 0039); other versions may differ. `GET /slots` on llama.cpp
+was not read for per-slot state. The vLLM lane ran one model family and one backend.
