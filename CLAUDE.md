@@ -21,7 +21,8 @@ them after a ninth refuter, and entries 0038, 0039 and 0040 register lifespan on
 rebuild, and model switch and restart on llama.cpp; entries 0041, 0042 and 0043 hold them; entry 0044
 registers the Llama configuration with the template's date pinned; entry 0045 validates the eleven
 after a tenth refuter and corrects three figures; entry 0046 (descriptive) indexes the server-side
-parameters that priced every death and that neither server reports.
+parameters that priced every death and that neither server reports; entry 0047 holds `H-M8L1` and
+`H-M8LD` on Llama under `m8l` (four runs, 1,337 of 1,337 match), the llama half now one set.
 
 ## Rules
 - The chassis is copied from lag-ladder, not shared. Never import `lag_ladder`, `linear_ceiling` or
@@ -243,4 +244,10 @@ on most turns, the cache searched only past twice the head, evictions at C = 12)
 could not be made — Llama's template writes the date and M8's nonce-free bodies collide in the request
 store across days. Ledger 0044 registers `config/m8l.toml` (`registered_by = "0044"`, the same values
 with `date_string = "11 Oct 2026"` for Llama) so the four llama cells can be rerun as one set under
-one configuration; those runs and their results entry are next.
+one configuration. Ledger 0047 holds them: four runs, 1,337 of 1,337 requests match, 415 deaths; the
+C = 1, 2 and 6 runs reproduce 0041's per-request reuse series exactly (bodies differ by the kwarg
+only) and supersede 0041's llama runs for the llama half; the C = 12 cell reads share 0.7454, 229
+deaths of 297, every dead request back at the 5,615-token head, 48 cache searches against qwen's 93
+and no eviction (predicted by the geometry) — the eviction regime stays measured on qwen alone. The
+llama C = 12 run is `[BASELINE]` as a cell, unseen by a refuter. Phase 1's planned runs are complete;
+Phase 2 (one blog post, built around the feature request of 0046) is next.

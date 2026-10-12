@@ -2336,3 +2336,67 @@ a reading of the record, and any request upstream is the operator's to make.
 **Known limits.** The defaults quoted are those of the pinned commits, read from their sources
 (0002, 0012, 0019, 0022, 0039); other versions may differ. `GET /slots` on llama.cpp
 was not read for per-slot state. The vLLM lane ran one model family and one backend.
+### 0047 — 2026-10-12 — H-M8L1 and H-M8LD held on Llama under the pinned date: four runs, 1,337 of 1,337 match; the llama half is one set
+
+prior-entries-sha256: 468ce415131feb67ae0b1071742577a980c208d1dfc2812fe39823713f4a9a9a
+
+verdict: H-M8L1 = HELD
+verdict: H-M8LD = HELD
+
+**Outcome.** The four llama runs registered by 0044 were made at commit `650a165` under
+`config/m8l.toml`, one after another on one day, the server started fresh for each. Their records
+and 713 new request snapshots are committed with this entry. Every figure below is from
+`summarize_m8 --run … --config m8l` on those files, run on both machines with identical output, or
+from the `server` field of the records.
+
+| run | C | requests | counted, matching | near | deaths | cache searched, restored, evicted |
+|---|---|---|---|---|---|---|
+| `20261012T185003Z…` | 1 | 762 of 762 | 762, 762 | 0 | 0 | 9, 0, 4 |
+| `20261012T185937Z…` | 2 | 90 of 90 | 90, 90 | 0 | 54 | 25, 19, 0 |
+| `20261012T190937Z…` | 6 | 188 of 188 | 188, 188 | 0 | 132 | 47, 35, 0 |
+| `20261012T193250Z…` | 12 | 297 of 297 | 297, 297 | 0 | 229 | 48, 35, 0 |
+
+All four: outcome ALL MATCH; no failed control, no unmeasurable field; one local date per run
+(2026-10-12); every record names `config: m8l` and hashes `config/m8l.toml` to one value; every
+stored body carries `date_string = "11 Oct 2026"`; records say 1 slot (C = 1) or 4 slots (C > 1),
+slot context 50,944, engine `b11235-6c7a87f7e`.
+
+**Verdict.** Every request of every run matches the prediction of the pinned server's slot and
+prompt-cache policy over the stored token lists: 1,337 requests, 415 deaths, no `near` exclusion.
+By the rule of 0038, `H-M8L1` is `HELD` and `H-M8LD` is `HELD`.
+
+**These four runs are the llama half.** As 0044 states, they supersede 0041's three llama runs for
+the llama half of both hypotheses; the earlier runs stand as made. The supersession costs nothing:
+for C = 1, 2 and 6 the new run's sequence of (conversation, turn, observed reuse, predicted reuse) is
+identical, request for request, to 0041's run at the same C — the bodies differ by the one template
+argument and are stored under new hashes, the rendered prompts and token lists do not, and the policy
+is deterministic over them. The C = 12 run is the cell 0041 could not make.
+
+**The C = 12 regime on Llama.** The table of 0041 gains its missing cell:
+
+| | qwen (0041) | llama (this entry) |
+|---|---|---|
+| C = 12: share of tokens reused, deaths | 0.7347, 213 of 297 | 0.7454, 229 of 297 |
+| per-conversation share | 0.6079 to 0.8850 | 0.6264 to 0.8604 |
+| first request of each conversation after the first | 4,830 | 5,615 |
+| cache searched, restored, evicted | 93, 64, 11 | 48, 35, 0 |
+| tokens lost per death: median, mean, largest | about 2,500; —; 8,227 | 2,436; 2,630; 7,395 |
+| tokens lost per death, all C > 1 runs pooled | median about 2,500 | 415 deaths: median 2,485, mean 2,746, largest 7,395 |
+
+Twelve interleaved conversations killed each other on 229 of 297 turns on Llama as they did on
+qwen, and the dead request reused the shared head — 5,630 to 5,635 tokens in every death — and paid
+for the rest of its history again. Two things differ from qwen, both predicted. Llama's head is
+longer (5,615 tokens against 4,830), so the policy's gate for searching the cache — the slot keeps
+less than half of the new prompt — opens later in each conversation: 48 searches against 93. And
+nothing was evicted: the registered geometry predicted no eviction from the 8192 MiB cache in this
+run, and none occurred, where qwen's run evicted eleven times. The C = 12 regime is now measured on
+both model families; the eviction regime remains measured on one.
+
+**Known limits.** Those of 0038 and 0041: requests served one at a time, the vendored fifty
+conversations only, the default cache size. The four runs took 9, 10, 23 and 32 minutes; the longest
+prompt was 15,630 tokens. No run crossed a local midnight.
+
+**Status.** `H-M8L1` and `H-M8LD` keep `[VALIDATED]` from 0045 on the evidence 0045 examined. The
+llama C = 12 run is new evidence no refuter has seen and is `[BASELINE]` as a cell; the three
+repeated runs add nothing a refuter has not already recomputed, since their reuse series are
+0041's. Phase 1's planned runs are complete on both engines.
