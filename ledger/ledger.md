@@ -32,8 +32,8 @@ numerator nor a denominator. It is never written as a zero.
 | H-M3V128 | The same at `--block-size 128`, with 128 in the formula. | entry 0035 | HELD |
 | H-M2V32 | On vLLM `b6d8e8af` (CPU backend) started with `--block-size 32`, a request whose tool schemas are written differently but carry the same JSON value reads cached = floor(min(*d*, *n* − 1)/32)·32 and creates floor(*n*/32)·32 minus that, under the same *d*. | entry 0035 | HELD |
 | H-M2V128 | The same at `--block-size 128`, with 128 in the formula. | entry 0035 | HELD |
-| H-M8L1 | On llama.cpp `b11235` started with `--parallel 1`, fifty recorded tau2-bench airline conversations replayed one request per assistant turn, one after another and with no nonce, reuse per request what the pinned server's slot and prompt-cache policy predicts from the stored token lists: the common prefix with the held prompt, the shared head across conversations included. | entry 0038 | unresolved |
-| H-M8LD | The same at the server's defaults (4 slots, 8192 MiB prompt cache) with the C longest conversations interleaved in round robin, C in {2, 6, 12}: reuse per request what the same policy predicts, the slot choice by similarity, the cache searched only when under half of the held prompt would be kept, restores and evictions by the registered geometry. | entry 0038 | unresolved |
+| H-M8L1 | On llama.cpp `b11235` started with `--parallel 1`, fifty recorded tau2-bench airline conversations replayed one request per assistant turn, one after another and with no nonce, reuse per request what the pinned server's slot and prompt-cache policy predicts from the stored token lists: the common prefix with the held prompt, the shared head across conversations included. | entry 0038 | HELD |
+| H-M8LD | The same at the server's defaults (4 slots, 8192 MiB prompt cache) with the C longest conversations interleaved in round robin, C in {2, 6, 12}: reuse per request what the same policy predicts, the slot choice by similarity, the cache searched only when under half of the held prompt would be kept, restores and evictions by the registered geometry. | entry 0038 | HELD |
 | H-M5L1 | On llama.cpp `b11235` started with `--parallel 1`, a recorded conversation sent in full and then compacted at its midpoint — the early turns trimmed, or replaced by one summary message — reuses, for the compacted request, exactly the tokens the two prompts share from the start. | entry 0039 | unresolved |
 | H-M5LD | The same at the server's defaults: that prefix when it is above 0.10 of the compacted request, else 0. | entry 0039 | unresolved |
 | H-M5LC | The same started with `--parallel 1 --cache-reuse 256`: that prefix plus every later run of at least 256 matching tokens shifted into place — the trimmed tail whole, nothing past an inserted summary. | entry 0039 | unresolved |
@@ -2000,3 +2000,82 @@ start time — never the command line. Before each router request it records the
 | Not measured: a LoRA change (no adapters here); eviction of a child under queue pressure; a switch while the child is busy. | Stated in the results entry as what the runs do not show. |
 
 **Status.** `H-M6LA`, `H-M6LB` and `H-M6LR` are `[STRETCH]`: registered, not run. `qwen` runs first.
+### 0041 — 2026-10-12 — H-M8L1 and H-M8LD held: the slot policy prices every turn of 50 conversations
+
+prior-entries-sha256: e45b5b8a38c007fefee52e8df24fd3a6314ed66d42707beca51533af5027a9ba
+
+verdict: H-M8L1 = HELD
+
+verdict: H-M8LD = HELD
+
+**Outcome** `[BASELINE]`. Seven runs registered by 0038 were made at commit `5531078` (the M8 code is
+that of `cd9a471`; `config/m8.toml` is byte-identical at both), the server started fresh for each.
+Their records and requests are committed with this entry. Every figure below is from `summarize_m8
+--run` on those files, or from the `server` field of the records.
+
+| run | model | C | requests | counted, matching | near | deaths | cache searched, restored, evicted |
+|---|---|---|---|---|---|---|---|
+| `20261012T012934Z…` | qwen | 1 | 762 of 762 | 762, 762 | 0 | 0 | 19, 0, 13 |
+| `20261012T014430Z…` | llama | 1 | 762 of 762 | 762, 762 | 0 | 0 | 9, 0, 4 |
+| `20261012T020157Z…` | qwen | 2 | 90 of 90 | 90, 90 | 0 | 48 | 35, 25, 0 |
+| `20261012T021306Z…` | llama | 2 | 90 of 90 | 90, 90 | 0 | 54 | 25, 19, 0 |
+| `20261012T024929Z…` | qwen | 6 | 188 of 188 | 188, 188 | 0 | 115 | 76, 60, 1 |
+| `20261012T031552Z…` | llama | 6 | 188 of 188 | 188, 188 | 0 | 132 | 47, 35, 0 |
+| `20261012T154555Z…` | qwen | 12 | 297 of 297 | 294, 294 | 3 | 213 | 93, 64, 11 |
+
+All seven: outcome ALL MATCH; no failed control, no unmeasurable field; one local date per run;
+records say 1 slot (C = 1) or 4 slots (C > 1), slot context 40,960 (qwen) or 50,944 (llama); engine
+`b11235-6c7a87f7e`. The three `near` requests of the C = 12 run are cache comparisons the policy
+decided by one token (entries 0, 1 and 3 of the cache against the slot's own prompt, at
+conversations 12 turn 16, 4 turn 17 and 10 turn 18); they are reported and not counted, as 0038
+states.
+
+**Verdict.** Every counted request of every run matches the prediction of the pinned server's slot
+and prompt-cache policy over the stored token lists: 2,374 requests, including 562 deaths and the
+restores and evictions along the way. By the rule of 0038, `H-M8L1` is `HELD` and `H-M8LD` is
+`HELD`. One registered run was not made: see below.
+
+**What the runs measure.** The share of each run's tokens served from a held prefix, and where the
+prefix died.
+
+| | qwen | llama |
+|---|---|---|
+| C = 1, one slot: share over 762 requests | 0.9593 (per conversation 0.8341 to 0.9799) | 0.9667 (0.8392 to 0.9825) |
+| C = 1: first request of every conversation after the first | 4,830 reused — the system text, the tools and the greeting, held from the previous conversation | 5,615 |
+| C = 2 (tasks 12, 44): share, deaths | 0.8258, 48 of 90 | 0.8111, 54 of 90 |
+| C = 6 (+18, 10, 23, 14): share, deaths | 0.7757, 115 of 188 (per conversation 0.6079 to 0.8850) | 0.7590, 132 of 188 (0.6264 to 0.8604) |
+| C = 12 (+24, 48, 7, 32, 4, 21): share, deaths | 0.7347, 213 of 297 (0.6079 to 0.8850) | not run (below) |
+| tokens lost per death, C > 1: median, largest | about 2,500; 8,227 | about 2,900; 7,395 |
+
+At one slot no conversation ever died: each turn extended the held prompt and reused all of it, and
+the only loss was the 3 to 17 per cent of each conversation that is its own new text. Interleaved,
+the conversations killed each other on most turns — a request found the other conversation's prompt
+in the slot, kept more than half of it (the 4,800-token head), and so the policy neither searched the
+cache nor restored its own state; the request paid for its whole history again. The cache was searched
+only when a conversation had grown past twice the head (f_keep below 0.5), and then usually restored
+its own state (60 of 76 searches at C = 6 on qwen). Evictions from the 8192 MiB cache appeared once at
+C = 6 and eleven times at C = 12, where the states of twelve conversations of 5,000 to 16,000 tokens no
+longer fit; each eviction was predicted by the registered geometry and matched.
+
+**The run not made.** The llama C = 12 run was refused before its first request was sent, and recorded
+nothing: the request store (`corpus/requests/`, one file per request body) already held that body's
+render from 2026-10-11, and the render of the same bytes on 2026-10-12 differs — Llama 3.1's chat
+template writes the day's date into the system header, and M8's bodies carry no nonce, so the first
+request of every conversation (the system text and the tools alone) is byte-identical across
+conversations and across days. The store refuses a second render for the same bytes, as it must. One
+unrecorded render was made on 2026-10-12 to confirm the difference: one line, `Today Date: 11 Oct 2026`
+against `12 Oct 2026`, over 30,005 characters. Qwen's template carries no date, so its C = 12 run on
+2026-10-12 shared the store without conflict. `H-M8LD` is therefore decided on five runs, three on
+qwen and two on llama; a llama run at C = 12 under this registration can be made only on 2026-10-11,
+which is to say never. Making one needs an amendment that registers a fixed `date_string` for Llama's
+template, and the operator's ruling on whether the cell is wanted; until then the C = 12 regime —
+evictions from the cache — is measured on one model.
+
+**Known limits.** Requests in flight together, conversations other than the vendored fifty, and a
+cache size other than the default were not measured (0038). The `near` margin excluded 3 of 2,377
+requests. The seven runs took 12 to 38 minutes each; the C = 12 run's longer requests re-prompted up
+to 16,000 tokens after a death.
+
+**Status.** `H-M8L1` and `H-M8LD` are `[BASELINE]`, no refuter yet. Six causes are measured on this
+engine: edit position, serialization drift, templating, idle expiry, eviction, and now lifespan along
+real conversations; rebuild (0039) and model switch (0040) are registered and run next.

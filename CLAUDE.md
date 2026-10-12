@@ -18,7 +18,7 @@ entry 0033 the comparison table (one edit, four prices), and entry 0034 the refu
 whole qwen17 cell with two prose corrections, entry 0035 registers the four hypotheses on
 templating and serialization drift on vLLM, entry 0036 holds all four, entry 0037 validates
 them after a ninth refuter, and entries 0038, 0039 and 0040 register lifespan on recorded runs,
-rebuild, and model switch and restart on llama.cpp.
+rebuild, and model switch and restart on llama.cpp; entry 0041 holds lifespan on recorded runs.
 
 ## Rules
 - The chassis is copied from lag-ladder, not shared. Never import `lag_ladder`, `linear_ceiling` or
@@ -221,5 +221,8 @@ models before registration. Rebuild (M5: `config/m5.toml`, `trim` and `summary` 
 `config/m6.toml`, router cells `H-M6LA`/`H-M6LB` with child B `qwen17q4` pinned there, restart cell
 `H-M6LR` with slot save/restore) are registered by ledgers 0039 and 0040 (`registered_by = "0039"`
 / `"0040"`), all six ids `[STRETCH]`, not run; every cell was probed live on `qwen` before
-registration. `H-M8L1` ran on both models (ALL MATCH, 762 of 762 each; results entry pending the
-`H-M8LD` runs).
+registration. Ledger 0041 holds `H-M8L1` and `H-M8LD` `[BASELINE]` on seven runs (2,374 requests ALL
+MATCH; one slot: shares 0.96/0.97, no deaths; interleaved: shares fall to 0.73 at C = 12 with a death
+on most turns, the cache searched only past twice the head, evictions at C = 12); the llama C = 12 run
+could not be made — Llama's template writes the date and M8's nonce-free bodies collide in the request
+store across days — pending a ruling on a `date_string` amendment.
