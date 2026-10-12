@@ -34,12 +34,12 @@ numerator nor a denominator. It is never written as a zero.
 | H-M2V128 | The same at `--block-size 128`, with 128 in the formula. | entry 0035 | HELD |
 | H-M8L1 | On llama.cpp `b11235` started with `--parallel 1`, fifty recorded tau2-bench airline conversations replayed one request per assistant turn, one after another and with no nonce, reuse per request what the pinned server's slot and prompt-cache policy predicts from the stored token lists: the common prefix with the held prompt, the shared head across conversations included. | entry 0038 | HELD |
 | H-M8LD | The same at the server's defaults (4 slots, 8192 MiB prompt cache) with the C longest conversations interleaved in round robin, C in {2, 6, 12}: reuse per request what the same policy predicts, the slot choice by similarity, the cache searched only when under half of the held prompt would be kept, restores and evictions by the registered geometry. | entry 0038 | HELD |
-| H-M5L1 | On llama.cpp `b11235` started with `--parallel 1`, a recorded conversation sent in full and then compacted at its midpoint — the early turns trimmed, or replaced by one summary message — reuses, for the compacted request, exactly the tokens the two prompts share from the start. | entry 0039 | unresolved |
-| H-M5LD | The same at the server's defaults: that prefix when it is above 0.10 of the compacted request, else 0. | entry 0039 | unresolved |
-| H-M5LC | The same started with `--parallel 1 --cache-reuse 256`: that prefix plus every later run of at least 256 matching tokens shifted into place — the trimmed tail whole, nothing past an inserted summary. | entry 0039 | unresolved |
-| H-M6LA | On llama.cpp `b11235` in router mode with `--models-max 4`, the base request sent to child A, its messages to child B, then A again: B reuses nothing, and A again reuses *n* − 1 — a model switch ends the match for the request that switched and not for the one that switches back, while the child stays loaded. | entry 0040 | unresolved |
-| H-M6LB | The same with `--models-max 1`: loading B unloads A, and A again reuses 0. | entry 0040 | unresolved |
-| H-M6LR | On llama.cpp `b11235` with one slot and `--slot-save-path`, the base request resent after the process is stopped and started reuses 0; with the slot saved before the stop and restored after, *n* − 1. | entry 0040 | unresolved |
+| H-M5L1 | On llama.cpp `b11235` started with `--parallel 1`, a recorded conversation sent in full and then compacted at its midpoint — the early turns trimmed, or replaced by one summary message — reuses, for the compacted request, exactly the tokens the two prompts share from the start. | entry 0039 | HELD |
+| H-M5LD | The same at the server's defaults: that prefix when it is above 0.10 of the compacted request, else 0. | entry 0039 | HELD |
+| H-M5LC | The same started with `--parallel 1 --cache-reuse 256`: that prefix plus every later run of at least 256 matching tokens shifted into place — the trimmed tail whole, nothing past an inserted summary. | entry 0039 | HELD |
+| H-M6LA | On llama.cpp `b11235` in router mode with `--models-max 4`, the base request sent to child A, its messages to child B, then A again: B reuses nothing, and A again reuses *n* − 1 — a model switch ends the match for the request that switched and not for the one that switches back, while the child stays loaded. | entry 0040 | HELD |
+| H-M6LB | The same with `--models-max 1`: loading B unloads A, and A again reuses 0. | entry 0040 | HELD |
+| H-M6LR | On llama.cpp `b11235` with one slot and `--slot-save-path`, the base request resent after the process is stopped and started reuses 0; with the slot saved before the stop and restored after, *n* − 1. | entry 0040 | HELD |
 
 ## Entries
 
@@ -2079,3 +2079,128 @@ to 16,000 tokens after a death.
 **Status.** `H-M8L1` and `H-M8LD` are `[BASELINE]`, no refuter yet. Six causes are measured on this
 engine: edit position, serialization drift, templating, idle expiry, eviction, and now lifespan along
 real conversations; rebuild (0039) and model switch (0040) are registered and run next.
+### 0042 — 2026-10-12 — H-M5L1, H-M5LD and H-M5LC held: a trim is shifted whole, a summary costs everything after it
+
+prior-entries-sha256: 93d3033d35d49788f9caecde0a6d76c8d9761f92332b9d118ee3b0241cbf4c58
+
+verdict: H-M5L1 = HELD
+
+verdict: H-M5LD = HELD
+
+verdict: H-M5LC = HELD
+
+**Outcome** `[BASELINE]`. The six runs registered by 0039 were made at commit `819fd22` (the M5 code
+is that of `5531078`, which registered it), one per hypothesis per model, the server started fresh for
+each. Their records and requests are committed with this entry. Every figure below is from
+`summarize_m5 --run` on those files, or from the `server` field of the records.
+
+| run | model | server | trials counted, matching | near the threshold |
+|---|---|---|---|---|
+| `20261012T162735Z…` | qwen | `--parallel 1` | 20, 20 | 0 |
+| `20261012T164445Z…` | llama | `--parallel 1` | 20, 20 | 0 |
+| `20261012T165720Z…` | qwen | defaults | 20, 20 | 0 |
+| `20261012T171426Z…` | llama | defaults | 20, 20 | 0 |
+| `20261012T172656Z…` | qwen | `--parallel 1 --cache-reuse 256` | 20, 20 | 0 |
+| `20261012T174145Z…` | llama | `--parallel 1 --cache-reuse 256` | 20, 20 | 0 |
+
+All six: outcome ALL MATCH; no failed control, no unmeasurable field; one local date per run;
+records say 1 slot or 4 slots as the hypothesis requires; slot context 40,960 (qwen) or 50,944
+(llama); engine `b11235-6c7a87f7e`. Ten conversations (tasks 12, 44, 18, 10, 23, 14, 24, 48, 7,
+32), full requests of 9,829 to 16,276 tokens (qwen) and 9,949 to 15,655 (llama), compacted requests of
+7,327 to 14,912 and 7,672 to 13,962.
+
+**Verdict.** Every trial of every run matches: the compacted request reused exactly what the
+hypothesis's rule predicts from the two stored token lists. By the rule of 0039, `H-M5L1`, `H-M5LD`
+and `H-M5LC` are `HELD`.
+
+**The same compaction, priced three ways.** *d* — the tokens the compacted request shares with the
+full one from the start — is the head: the system text, the tools, the greeting and the first user
+message, 4,872 to 4,880 tokens on qwen and 5,646 to 5,656 on llama, between 0.33 and 0.74 of the
+compacted request, far above the 0.10 threshold in every trial.
+
+| server | `trim` (early turns removed) | `summary` (early turns replaced by one message) |
+|---|---|---|
+| `--parallel 1` | reuses *d*; recomputes the whole kept tail: 2,455 to 9,992 tokens (qwen), 2,025 to 8,269 (llama) | reuses *d*; recomputes the summary and the tail |
+| defaults | the same, *d* above the threshold in all 20 trials per model | the same |
+| `--parallel 1 --cache-reuse 256` | **reuses everything but one token** (*n* − 1 in 10 of 10 trials per model): the walk found the kept tail later in the held prompt and shifted it whole, one chunk of 2,455 to 9,992 tokens (qwen) and 2,025 to 8,269 (llama) | reuses *d*: nothing shifted in 10 of 10 trials per model — the summary's tokens match nothing in the held prompt, and the walk never advances past a token of the new prompt it cannot match |
+
+The one engine mechanism that can save a compaction, `--cache-reuse`, saves the trim completely and
+the summary not at all; and it is off at the defaults. The price of a compaction at the defaults is
+everything after the cut, on both models.
+
+**Controls.** The full request reused at most its header in all 120 trials: on qwen 0 to 6 tokens of a
+header of 29 to 37; on llama 0 or 3,911 to 3,912 of a header of 3,924 to 3,934 — with
+`tools_in_user_message: false` Llama's template renders the tools before the system text, so the nonce
+follows the tool schemas, which the previous trial's prompt shares; the bound is 0002's definition and
+holds. At the defaults the qwen full requests reused 0 (the least recently used slot, 0005) and the
+llama ones 3,911 (the held slot, chosen by a similarity of 0.39, keeping the tools).
+
+**Known limits.** Not measured: compactions at a cut other than the midpoint; a summary written into
+the system text rather than a user message; `--cache-reuse` with a chunk size other than 256; a
+server that cannot shift its memory (both models here can, and no warning appears in the server
+logs, which are not committed). The compaction bodies carry a nonce (0039): these are trials, as
+M1's, not the no-nonce replay of M8.
+
+**Status.** `H-M5L1`, `H-M5LD` and `H-M5LC` are `[BASELINE]`, no refuter yet.
+### 0043 — 2026-10-12 — H-M6LA, H-M6LB and H-M6LR held: a model change ends the match for one request; a restart ends everything; a saved slot survives it
+
+prior-entries-sha256: e5a8c85438699de5847b6f50dbb9df7c3d8d82a0956e5f606d9b64f04c7b4022
+
+verdict: H-M6LA = HELD
+
+verdict: H-M6LB = HELD
+
+verdict: H-M6LR = HELD
+
+**Outcome** `[BASELINE]`. The six runs registered by 0040 were made at commit `819fd22` (the M6 code
+is that of `5531078`, which registered it), one per hypothesis per family, the driver starting and
+stopping the servers itself. Their records and requests are committed with this entry. Every figure
+below is from `summarize_m6 --run` on those files, or from the `server` field of the records.
+
+| run | child A | server | trials counted, matching |
+|---|---|---|---|
+| `20261012T175203Z…` | qwen | `--parallel 1 --slot-save-path` | 6, 6 |
+| `20261012T175324Z…` | llama | `--parallel 1 --slot-save-path` | 6, 6 |
+| `20261012T175501Z…` | qwen | router, `--models-max 4` | 3, 3 |
+| `20261012T175537Z…` | llama | router, `--models-max 4` | 3, 3 |
+| `20261012T175618Z…` | qwen | router, `--models-max 1` | 3, 3 |
+| `20261012T175723Z…` | llama | router, `--models-max 1` | 3, 3 |
+
+All six: outcome ALL MATCH; no failed control, no unmeasurable field; one local date per run; child A
+reports 1 slot (restart) or 4 slots (router) and a slot context of 40,960 (qwen) or 50,944 (llama)
+alone, 16,384 for every child under the router's preset; engine `b11235-6c7a87f7e`; child B
+`qwen17q4`, every response naming the child asked.
+
+**Verdict.** Every trial of every run matches. By the rule of 0040, `H-M6LA`, `H-M6LB` and `H-M6LR`
+are `HELD`.
+
+**What the trials read.** Anchors of 4,866 to 4,872 tokens (qwen) and 5,643 to 5,652 (llama).
+
+| cell | B's request | A again, or the resend | the loaded set before the resend |
+|---|---|---|---|
+| router, four children allowed | 0 in 6 of 6 | *n* − 1 in 6 of 6 (4,865 to 4,871; 5,643 to 5,645) | A and B, in every trial |
+| router, one child allowed | 0 in 6 of 6 | 0 in 6 of 6 | B alone, in every trial: loading B unloaded A, and the resend reloaded A into a fresh process |
+| restart, bare | — | 0 in 6 of 6 | — |
+| restart, slot saved before and restored after | — | *n* − 1 in 6 of 6 (4,871, 4,865, 4,871; 5,651, 5,649, 5,648) | — |
+
+The process generation rose by one across every restart (1 to 7 over each restart run); every save
+and restore reported the anchor's token count. Every anchor reused at most its header: 0 under the
+router (a fresh or an empty slot), 0 to 5 (qwen) and 0 to 32 (llama) at one slot, the header shared
+with the previous trial's prompt.
+
+So the README's sentence — a model change kills the prefix — is true for exactly one request: the
+one that changed model, which another process answers. The request that changes back finds its slot
+alive as long as its child stayed loaded, and reads 0 only when the router had to unload it
+(`--models-max 1`). A restart of the serving process ends every held prompt and the prompt cache with
+it; a slot saved to disk before the restart and restored after is an identical resend into a held
+slot, *n* − 1 (0003).
+
+**Known limits.** Not measured: a LoRA change (no adapters here); eviction of a child under queue
+pressure rather than `--models-max`; a switch while the child is busy; a restart under the defaults
+(four slots) rather than one. B's reuse is a control, not a result: for `qwen` B's render is the same
+text as A's (the same template family), for `llama` it differs, and B reused nothing either way. The
+save files (about 700 MB each) are not committed; the records carry the counts the server reported.
+
+**Status.** `H-M6LA`, `H-M6LB` and `H-M6LR` are `[BASELINE]`, no refuter yet. With this entry every
+cause of 0001 is measured on llama.cpp: edit position, serialization drift, templating, idle expiry,
+rebuild, model switch, eviction by intervening requests, and lifespan along real conversations.

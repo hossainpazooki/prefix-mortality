@@ -18,7 +18,7 @@ entry 0033 the comparison table (one edit, four prices), and entry 0034 the refu
 whole qwen17 cell with two prose corrections, entry 0035 registers the four hypotheses on
 templating and serialization drift on vLLM, entry 0036 holds all four, entry 0037 validates
 them after a ninth refuter, and entries 0038, 0039 and 0040 register lifespan on recorded runs,
-rebuild, and model switch and restart on llama.cpp; entry 0041 holds lifespan on recorded runs.
+rebuild, and model switch and restart on llama.cpp; entries 0041, 0042 and 0043 hold them.
 
 ## Rules
 - The chassis is copied from lag-ladder, not shared. Never import `lag_ladder`, `linear_ceiling` or
@@ -219,9 +219,12 @@ server's slot and prompt-cache policy (`slotsim`), read from the source and prob
 models before registration. Rebuild (M5: `config/m5.toml`, `trim` and `summary` arms, cells
 `H-M5L1`/`H-M5LD`/`H-M5LC`, the last under `--cache-reuse 256`) and model switch and restart (M6:
 `config/m6.toml`, router cells `H-M6LA`/`H-M6LB` with child B `qwen17q4` pinned there, restart cell
-`H-M6LR` with slot save/restore) are registered by ledgers 0039 and 0040 (`registered_by = "0039"`
-/ `"0040"`), all six ids `[STRETCH]`, not run; every cell was probed live on `qwen` before
-registration. Ledger 0041 holds `H-M8L1` and `H-M8LD` `[BASELINE]` on seven runs (2,374 requests ALL
+`H-M6LR` with slot save/restore) are registered by ledgers 0039 and 0040 and held by 0042 and 0043
+`[BASELINE]` (120 of 120 M5 trials: a trim is shifted whole under `--cache-reuse 256`, a summary
+costs everything after it, the defaults pay everything after the cut; 24 of 24 M6 trials: the switch
+to B and back finds A's slot alive under `--models-max 4`, reads 0 under `--models-max 1`, a bare
+restart reads 0 and a saved slot reads n - 1). Every cause of 0001 is now measured on llama.cpp;
+the eleven `[BASELINE]` hypotheses of 0041-0043 await one refuter. Ledger 0041 holds `H-M8L1` and `H-M8LD` `[BASELINE]` on seven runs (2,374 requests ALL
 MATCH; one slot: shares 0.96/0.97, no deaths; interleaved: shares fall to 0.73 at C = 12 with a death
 on most turns, the cache searched only past twice the head, evictions at C = 12); the llama C = 12 run
 could not be made — Llama's template writes the date and M8's nonce-free bodies collide in the request
