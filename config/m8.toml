@@ -1,0 +1,46 @@
+# Lifespan on recorded runs (M8) on llama.cpp: fifty published tau2-bench airline conversations
+# replayed against the server, one request per assistant turn, with no nonce — a real deployment
+# shares its system prompt across conversations, and this replay is not an isolated trial.
+#
+# Registered by a ledger entry, which fixes these values. A change to any of them needs a new entry;
+# the driver refuses to run while `registered_by` is empty. Request parameters (tokens to generate,
+# temperature) are those of config/controls.toml. The similarity threshold, the cache size and the
+# KV geometry restate config/m7.toml's values (registered by 0012) because that file is sealed by the
+# hashes in its records; the prediction is the server's slot and prompt-cache policy at the pinned
+# commit applied to the stored token lists (prefix_mortality.slotsim).
+[m8]
+recorded_dir = "corpus/recorded/tau2-airline-claude-3-7-sonnet"
+similarity_threshold = 0.10       # --slot-prompt-similarity, the server's default at the pinned commit
+cache_ram_mib = 8192              # --cache-ram, its default at the pinned commit
+corpus_dir = "corpus/live/m8"
+results_dir = "results/m8"
+registered_by = "0038"
+
+# A cached prompt's KV state is tokens x n_layer x 2 (K and V) x n_head_kv x head_dim x bytes_per_value.
+[m8.kv_geometry.qwen]
+n_layer = 36
+n_head_kv = 8
+head_dim = 128
+bytes_per_value = 2
+[m8.kv_geometry.llama]
+n_layer = 32
+n_head_kv = 8
+head_dim = 128
+bytes_per_value = 2
+
+# Chat-template arguments per family. The conversations open with an assistant greeting; Llama's
+# template otherwise takes the first non-system message as the user message that carries the tools
+# and refuses a request with none. Qwen's template takes no argument here.
+[m8.template_kwargs.llama]
+tools_in_user_message = false
+[m8.template_kwargs.qwen]
+
+# `slots` is what the server must report. `interleave` lists the values of C a run may use: C = 1
+# replays every conversation, one after another, in file order; C > 1 replays the C conversations
+# with the most assistant turns in round robin, one request from each in turn.
+[m8.hypotheses.H-M8L1]            # server started with --parallel 1
+slots = 1
+interleave = [1]
+[m8.hypotheses.H-M8LD]            # server at its defaults
+slots = 4
+interleave = [2, 6, 12]

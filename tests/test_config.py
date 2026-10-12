@@ -5,7 +5,7 @@ import pytest
 from prefix_mortality.config import (load_controls_config, load_engines_config, load_l17_config, load_m1_config,
                                      load_m1q17_config, load_m2_config, load_m3_config, load_m4_config,
                                      load_m7_config, load_seal_config, load_vllm_config, load_vm1_config,
-                                     load_vm2_config, load_vm3_config)
+                                     load_m8_config, load_vm2_config, load_vm3_config)
 
 
 def _write(tmp_path, name, text):
@@ -606,3 +606,35 @@ def test_vm3_config_refuses_bad_values(tmp_path, mutate, msg):
     p.write_text(mutate(text), encoding="utf-8")
     with pytest.raises(ValueError, match=msg):
         load_vm3_config(p, tmp_path)
+
+
+def test_m8_config_loads_with_its_geometry_arguments_and_interleave(tmp_path):
+    from prefix_mortality import REPO_ROOT
+    cfg = load_m8_config(REPO_ROOT / "config" / "m8.toml", REPO_ROOT)
+    assert [(h.id, h.slots, h.interleave) for h in cfg.hypotheses] == [("H-M8L1", 1, (1,)), ("H-M8LD", 4, (2, 6, 12))]
+    assert cfg.registered_by == "0038"
+    m7 = load_m7_config(REPO_ROOT / "config" / "m7.toml", REPO_ROOT)
+    assert cfg.cache_limit_bytes == m7.cache_limit_bytes and cfg.similarity_threshold == 0.10
+    for fam in ("qwen", "llama"):
+        assert cfg.bytes_per_token(fam) == m7.bytes_per_token(fam)            # restated from the sealed m7.toml
+    assert cfg.kwargs("llama") == {"tools_in_user_message": False} and cfg.kwargs("qwen") is None
+    assert cfg.recorded_dir.name == "tau2-airline-claude-3-7-sonnet"
+    with pytest.raises(ValueError, match="no kv_geometry for family"):
+        cfg.bytes_per_token("mistral")
+    with pytest.raises(ValueError, match="no template_kwargs table"):
+        cfg.kwargs("mistral")
+
+
+@pytest.mark.parametrize("edit,message", [
+    ("[m8.hypotheses.H-M8L1]", "[m8.hypotheses.H-M1L1]\nslots = 1\ninterleave = [1]\n[m8.hypotheses.H-M8L1]"),
+    ("interleave = [2, 6, 12]", "interleave = [6, 2, 12]"),
+    ("similarity_threshold = 0.10", "similarity_threshold = 1.5"),
+    ("[m8.template_kwargs.qwen]", "[m8.template_kwargs.qwen]\nenable_thinking = [1]"),
+])
+def test_m8_config_refuses_bad_values(tmp_path, edit, message):
+    from prefix_mortality import REPO_ROOT
+    text = (REPO_ROOT / "config" / "m8.toml").read_text(encoding="utf-8")
+    assert text.count(edit) == 1
+    (tmp_path / "m8.toml").write_text(text.replace(edit, message), encoding="utf-8")
+    with pytest.raises(ValueError):
+        load_m8_config(tmp_path / "m8.toml", REPO_ROOT)

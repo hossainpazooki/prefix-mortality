@@ -16,8 +16,8 @@ entry 0029 their pass in both configurations, entry 0030 the two hypotheses on e
 that family, entry 0031 their verdicts, entry 0032 the descriptive cross-engine d agreement, and
 entry 0033 the comparison table (one edit, four prices), and entry 0034 the refuter's pass on the
 whole qwen17 cell with two prose corrections, entry 0035 registers the four hypotheses on
-templating and serialization drift on vLLM, entry 0036 holds all four, and entry 0037 validates
-them after a ninth refuter.
+templating and serialization drift on vLLM, entry 0036 holds all four, entry 0037 validates
+them after a ninth refuter, and entry 0038 registers lifespan on recorded runs on llama.cpp.
 
 ## Rules
 - The chassis is copied from lag-ladder, not shared. Never import `lag_ladder`, `linear_ceiling` or
@@ -74,6 +74,9 @@ them after a ninth refuter.
 .venv/Scripts/python.exe -m prefix_mortality.vm23 probe --experiment vm3 --url URL --hypothesis H-M3V32 --arms thinking-off,thinking-on
 .venv/Scripts/python.exe -m prefix_mortality.vm23 run --experiment vm2 --url URL --hypothesis H-M2V32 --family qwen17 --model-dir DIR
 .venv/Scripts/python.exe -m prefix_mortality.summarize_vm23 --experiment vm3 --run RUN_ID
+.venv/Scripts/python.exe -m prefix_mortality.m8 probe --url URL --hypothesis H-M8LD --family qwen --task-ids 12,18 --turns 4
+.venv/Scripts/python.exe -m prefix_mortality.m8 run --url URL --hypothesis H-M8LD --family qwen --c 6 --model-path PATH
+.venv/Scripts/python.exe -m prefix_mortality.summarize_m8 --run RUN_ID
 ```
 On macOS/Linux the interpreter is `.venv/bin/python`. The project pins Python 3.12.
 
@@ -87,7 +90,11 @@ hashes `config/engines.toml`, which therefore never changes); `config/l17.toml` 
 and `config/m1.toml` is likewise sealed by the committed M1 records, so edit position on `qwen17`
 lives in `config/m1q17.toml` with its own ids `H-M1L1Q17`/`H-M1LDQ17`, same CLIs); `config/vm3.toml`
 and `config/vm2.toml` for templating and serialization drift on vLLM (`vm23` driver, arms in place
-of sites, vm1's formula verbatim). Every llama.cpp experiment's `run` also refuses a server that does not report the number of
+of sites, vm1's formula verbatim); `config/m8.toml` for lifespan on recorded runs (`m8` driver: the
+vendored conversations replayed one request per assistant turn with no nonce, `--c` conversations in
+round robin, the prediction being the pinned server's slot and prompt-cache policy in `slotsim`
+over the stored token lists; `m8.toml` restates `m7.toml`'s geometry and cache size because that
+file is sealed by its records). Every llama.cpp experiment's `run` also refuses a server that does not report the number of
 slots its hypothesis requires; `m7 run` and `m4 run` refuse one that reports no slot context, and send
 no trial whose anchor does not fit it. `m4` sends nothing inside a gap but one `GET /props` at its
 end: at the pinned commit a render or a tokenization wakes a sleeping server. After a run, `manifest
@@ -100,7 +107,7 @@ in the fixture's provenance, so editing it turns `tests/test_base_prefix.py` red
 
 ## Layout
 `src/prefix_mortality/` — `hashing` · `rng` · `seal` · `ledger_check` · `lint_scope` (chassis) ·
-`config` (seal, controls, m1, m2, m3, m4, m7, engines, vllm) · `nonce` · `manifest` · `llamacpp` (engine client) ·
+`config` (seal, controls, m1, m2, m3, m4, m7, m8, engines, vllm, vm1, vm2, vm3, l17, m1q17) · `nonce` · `manifest` · `llamacpp` (engine client) ·
 `record` (request log) · `clock` (time as the drivers read it) · `controls` (driver) · `summarize` (the rules, and the recomputation) · `edits`
 (one word replaced at a named site) · `m1` (driver) · `summarize_m1` (its rules, and the recomputation)
 · `m7` (driver: anchor, K foreign requests, resend) · `summarize_m7` (its rule, and the recomputation)
@@ -110,9 +117,14 @@ and M3) · `m2`, `summarize_m2` (serialization drift) · `m3`, `summarize_m3` (t
 vendored tau2 simulations: extract with provenance, load, statistics) · `vllm` (the V engine client:
 chat-shaped tokenize + detokenize give the render; reuse read from usage details) · `vcontrols`,
 `summarize_vcontrols` (the V controls: block arithmetic, measured write side) · `vm1`,
-`summarize_vm1` (edit position on V: the block formulas on the first differing token).
+`summarize_vm1` (edit position on V: the block formulas on the first differing token) · `vm23`,
+`summarize_vm23` (templating and serialization drift on V, arms over vm1's formula) · `replay`
+(a recorded conversation as chat requests at turn t; trim or summary compaction) · `slotsim` (the
+pinned server's slot and prompt-cache policy as a pure predictor; the `--cache-reuse` walk) · `m8`,
+`summarize_m8` (lifespan on recorded runs: the policy over the stored token lists, per-conversation
+share and deaths).
 `config/` — `seal.toml`, `controls.toml`, `m1.toml`, `m2.toml`, `m3.toml`, `m4.toml`, `m7.toml`,
-`engines.toml`, `vllm.toml`, `vm1.toml`, `l17.toml`, `m1q17.toml`, `vm2.toml`, `vm3.toml`.
+`m8.toml`, `engines.toml`, `vllm.toml`, `vm1.toml`, `l17.toml`, `m1q17.toml`, `vm2.toml`, `vm3.toml`.
 `ledger/` — `ledger.md`, `predictions/`.
 `corpus/` — `base_prefix/tau2-airline/`, `recorded/tau2-airline-claude-3-7-sonnet/` (50 simulations +
 `provenance.json`), `live/`, `requests/`, `MANIFEST.json`. `tools/` —
@@ -185,4 +197,9 @@ ledger 0036 holds all four `HELD` and ledger 0037 makes them `[VALIDATED]` after
 — sixteen validated hypotheses across two engines (ALL MATCH, 10 of 10 each: appended think block and
 normalised key order price as an identical resend at both block sizes; preserved property order
 dies at the first reordered tool and block 128 recomputes 64 more tokens than block 32 for the
-same *d*). Three causes remain `[FUTURE]`: rebuild, model switch, lifespan on recorded runs.
+same *d*). Ledger 0038 registers lifespan on recorded runs (`config/m8.toml`, `registered_by =
+"0038"`): `H-M8L1` (one slot, the 50 conversations one after another) and `H-M8LD` (defaults, the C
+longest interleaved, C in {2, 6, 12}), both `[STRETCH]`, not run; the prediction is the pinned
+server's slot and prompt-cache policy (`slotsim`), read from the source and probed live on both
+models before registration. Two causes remain `[FUTURE]`: rebuild (M5, designed with `trim` and
+`summary` arms and a `--cache-reuse` cell) and model switch (M6, router mode and a restart).

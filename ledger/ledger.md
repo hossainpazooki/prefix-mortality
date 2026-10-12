@@ -32,6 +32,8 @@ numerator nor a denominator. It is never written as a zero.
 | H-M3V128 | The same at `--block-size 128`, with 128 in the formula. | entry 0035 | HELD |
 | H-M2V32 | On vLLM `b6d8e8af` (CPU backend) started with `--block-size 32`, a request whose tool schemas are written differently but carry the same JSON value reads cached = floor(min(*d*, *n* − 1)/32)·32 and creates floor(*n*/32)·32 minus that, under the same *d*. | entry 0035 | HELD |
 | H-M2V128 | The same at `--block-size 128`, with 128 in the formula. | entry 0035 | HELD |
+| H-M8L1 | On llama.cpp `b11235` started with `--parallel 1`, fifty recorded tau2-bench airline conversations replayed one request per assistant turn, one after another and with no nonce, reuse per request what the pinned server's slot and prompt-cache policy predicts from the stored token lists: the common prefix with the held prompt, the shared head across conversations included. | entry 0038 | unresolved |
+| H-M8LD | The same at the server's defaults (4 slots, 8192 MiB prompt cache) with the C longest conversations interleaved in round robin, C in {2, 6, 12}: reuse per request what the same policy predicts, the slot choice by similarity, the cache searched only when under half of the held prompt would be kept, restores and evictions by the registered geometry. | entry 0038 | unresolved |
 
 ## Entries
 
@@ -1781,3 +1783,81 @@ access to the one that produced the code and the entries, nor to the earlier ref
 validated hypotheses across two engines. The drift half of the program is closed on vLLM — the
 same renders die at the same sites on both engines (0016/0017, the probes of 0035), and the price
 of the death is engine policy: exact *d* on llama.cpp, block-rounded *d* on vLLM.
+### 0038 — 2026-10-11 — Lifespan on recorded runs registered on llama.cpp: H-M8L1, H-M8LD
+
+prior-entries-sha256: 182f7f81542d417bce8c5f91ca45465ffd9625c842ab7d45c581d48dc046d295
+
+**Registers** `config/m8.toml`, now `registered_by = "0038"`, and two hypotheses. Engine, models and
+machine are those of 0002, the request parameters (one token generated, temperature 0) those of
+`config/controls.toml`. The similarity threshold (0.10), the cache size (8192 MiB) and the KV
+geometry restate `config/m7.toml`'s values (0012), because that file is sealed by the hashes in its
+records.
+
+**Id.** `M8` is the eighth cause of 0001, lifespan along real conversations; `1` and `D` as in 0006.
+Ruled by the operator on 2026-10-06 and 2026-10-11: both 8B families; no per-conversation nonce (a
+deployment shares its system prompt across conversations, and a replay is not an isolated trial);
+Llama with `tools_in_user_message: false` (the conversations open with an assistant greeting, which
+its template otherwise takes as the user message that carries the tools); one registering and one
+results entry per experiment.
+
+| id | server | the records must say | predicted reuse of each request |
+|---|---|---|---|
+| `H-M8L1` | Started with `--parallel 1`. | 1 slot, and a slot context every request fits. | The policy below over the stored token lists, sent one conversation after another in file order, all fifty. |
+| `H-M8LD` | Started with no flag but the model. | 4 slots, and a slot context every request fits. | The same policy, the *C* conversations with the most assistant turns sent in round robin, one run per *C* in {2, 6, 12}: tasks 12 and 44; those plus 18, 10, 23, 14; those plus 24, 48, 7, 32, 4, 21. |
+
+**The replay.** `corpus/recorded/tau2-airline-claude-3-7-sonnet/` holds fifty of tau2-bench's
+published airline conversations (0019; 762 assistant turns, 3 to 52 per conversation). For each
+assistant turn the driver sends the fixture's system text and tool schemas followed by every recorded
+message before that turn, in the OpenAI chat shape (`prefix_mortality.replay`), and reads the reuse.
+The first turn of every conversation is the greeting, so its request carries the system text and the
+tools alone and is byte-identical across conversations. Every request fits both slot contexts (the
+largest conversation is about 14,000 tokens; the records carry 40,960 and 50,944).
+
+**The reading** (`tools/server/server-context.cpp` 1558–1668, 2447–2463 and 551; `server-task.cpp`
+1710–1775 and 1793–1830 at the pin), implemented once as `prefix_mortality.slotsim` and fed the stored
+token lists in send order:
+
+| the server does | so |
+|---|---|
+| A request goes to the idle slot whose held prompt shares the largest fraction of the request above 0.10 (lcp over the request's length); with none, to the least recently used slot. | A conversation's request finds whichever slot holds a prompt sharing its head. |
+| A slot chosen by similarity is saved to and searched in the prompt cache **only if** the request would keep under half of the slot's prompt (`f_keep < 0.5`); an LRU-chosen slot always is. | Two conversations sharing a 4,800-token head and holding under 9,600 tokens take each other's slot without a cache search: each reuses only the shared head and re-prompts its own history, and neither's state is ever restored. Past 9,600 tokens the cache is searched. |
+| A cached prompt replaces the slot's only if at least a quarter of it is kept and it beats the slot's prompt on both the kept fraction and the similarity, strictly, entries tried in arrival order. A save is skipped when the prompt is already a prefix of a cached one and erases cached prompts that are prefixes of it; a state larger than the limit is not cached; the oldest entries go until the new one fits. One token's state is the registered geometry. | The cache holds one state per conversation, the newest; a conversation whose state was evicted re-prompts from the shared head. |
+| The reuse is the common prefix of the slot's prompt and the request, one below the request's length when the prompt is wholly held (0003). After the request the slot holds the prompt — a slot that stops after its first sampled token is released without it (line 551 runs only for a slot that keeps generating) — and every other idle slot is saved and cleared (`--cache-idle-slots`, `--kv-unified`, both on at the defaults). | A request that extends its conversation's previous request reuses exactly that request's token count. The one generated token is recorded as text and never held. |
+
+A prediction is a function of the stored token lists sent before it, the registered constants and
+the policy, and of nothing else. The driver writes it before the request is sent, with the policy's
+intermediate readings (slot chosen by similarity or LRU, kept fraction, cache searched, saved,
+restored, erased, evicted); `summarize_m8` recomputes all of it from the stored tokens and refuses a
+record that carries another value. A request the policy decides by one token or less is reported and
+not counted, as 0006's margin.
+
+**A run** is the whole schedule, one request per assistant turn: 762 requests for `H-M8L1`; for
+`H-M8LD` the turns of the chosen conversations, each conversation dropping out when it ends. The
+server is started fresh for each run. What the run measures, per conversation: the share of its tokens
+served from a held prefix, and its deaths — requests that reused less than the common prefix with the
+conversation's own previous request. The first request of a conversation has no own previous request;
+what it reuses from another conversation's held prompt is the shared head, predicted and counted.
+
+**What decides.**
+
+| case | rule |
+|---|---|
+| A request matches. | Its reuse equals the prediction, and its two counts add up to its token count and its two reuse fields agree. |
+| `HELD` | Every counted request of every run under the hypothesis matches, on both models. |
+| `NOT CONFIRMED` | At least one counted request does not match. The results entry states, per run, every mismatching request with its prediction and its reading, and what the policy read at that request. |
+| A control fails. | The first request of a run reuses anything but 0; a request's counts do not add up or its reuse fields disagree. The run stops, and no verdict follows from it. |
+| NOT MEASURABLE | The server does not report a field or a slot context; a request has at least as many tokens as the slot context; the local date changed inside a run. The verdict stays `unresolved`. |
+| The records say another number of slots, more than one slot context, a *C* not registered, a corpus other than the vendored one, or requests out of the registered schedule. | The run is not that experiment. |
+
+**Known before the run.**
+
+| fact | consequence |
+|---|---|
+| Twenty-seven unrecorded requests were sent before this entry, on 2026-10-11: `qwen` at one slot (5, conversation 12) and at the defaults (8, conversations 12 and 18 interleaved); `llama` at one slot (4 + 4, conversation 12) and at the defaults (6, the same two). | Nothing from them is evidence and no figure from them appears here beyond the head's size above, which the registered prediction does not use. One of them refuted a first reading: the held prompt was taken to include the one sampled token, and a Llama turn whose generated token equalled the recorded continuation's first token read one less than predicted. The source (line 551) settles it as stated above; the reading registered here is the corrected one, and the policy was probed again under it. |
+| The prediction is a policy, not a formula. | What a mismatch refutes is the reading of the policy at that request; the summarizer reports which branch the policy took, so a results entry can say where the reading failed. The simulator is checked against the test stand-in on random sequences, and the stand-in is written from the same lines; agreement shows the two readings agree, not that either is right — the runs do that. |
+| The cache's token-count pass (`limit_tokens`) is not modelled: it is off at the defaults, and with the size limit set it binds no earlier than the size pass. | A cliff earlier than the size pass predicts would be a result about that reading. |
+| The per-request time is dominated by prompt processing after a death: a conversation that re-prompts 5,000 to 14,000 tokens on this machine takes tens of seconds per request. | A run under `H-M8LD` at *C* = 12 is long (about an hour per model) and no run crosses local midnight; the records carry the date. |
+| Not measured: requests in flight together; conversations other than the vendored fifty; a server with a cache size other than the default. | Stated in the results entry as what the runs do not show. |
+
+**Status.** `H-M8L1` and `H-M8LD` are `[STRETCH]`: registered, not run. `qwen` runs first, one slot
+first.

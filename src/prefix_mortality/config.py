@@ -912,3 +912,116 @@ def load_vm2_config(path: Path, repo_root: Path) -> VmArmConfig:
 def load_vm3_config(path: Path, repo_root: Path) -> VmArmConfig:
     return _load_vmarm(path, repo_root, "vm3", _VM3_ID,
                        "an id is H-M3V and the block size it runs under", _VM3_ARMS)
+
+
+# --- lifespan on recorded runs (M8) ----------------------------------------------------------------
+
+_M8_ID = re.compile(r"H-M8L[A-Za-z0-9]")
+_M8_KEYS = ("recorded_dir", "similarity_threshold", "cache_ram_mib", "kv_geometry", "template_kwargs",
+            "corpus_dir", "results_dir", "registered_by", "hypotheses")
+_M8_HYPOTHESIS_KEYS = ("slots", "interleave")
+
+
+@dataclass(frozen=True)
+class M8Hypothesis:
+    """One server configuration: the slots it must report and the values of C (conversations replayed
+    in round robin; 1 = one after another) a run under it may use."""
+    id: str
+    slots: int
+    interleave: tuple[int, ...]
+
+
+@dataclass(frozen=True)
+class M8Config:
+    """Lifespan on recorded runs. Request parameters come from the controls config; the prediction is
+    the pinned server's slot and prompt-cache policy (slotsim) under these constants."""
+    recorded_dir: Path
+    similarity_threshold: float
+    cache_ram_mib: int
+    kv_geometry: tuple[tuple[str, KVGeometry], ...]
+    template_kwargs: tuple[tuple[str, tuple[tuple[str, object], ...]], ...]
+    corpus_dir: Path
+    results_dir: Path
+    hypotheses: tuple[M8Hypothesis, ...]
+    registered_by: str
+    config_path: Path
+
+    @property
+    def cache_limit_bytes(self) -> int:
+        return self.cache_ram_mib * 1024 * 1024
+
+    def geometry(self, family: str) -> KVGeometry:
+        for fam, g in self.kv_geometry:
+            if fam == family:
+                return g
+        raise ValueError(f"{self.config_path.name} has no kv_geometry for family {family!r}; "
+                         f"known: {[f for f, _ in self.kv_geometry]}")
+
+    def bytes_per_token(self, family: str) -> int:
+        return self.geometry(family).bytes_per_token
+
+    def kwargs(self, family: str) -> dict | None:
+        """The family's chat-template arguments, or None when its table is empty."""
+        for fam, kw in self.template_kwargs:
+            if fam == family:
+                return dict(kw) or None
+        raise ValueError(f"{self.config_path.name} has no template_kwargs table for family {family!r}; "
+                         f"known: {[f for f, _ in self.template_kwargs]}")
+
+    def hypothesis(self, hid: str) -> M8Hypothesis:
+        return _find(self.hypotheses, hid, "hypothesis", self.config_path.name)
+
+
+def _geometries(c: dict, name: str) -> tuple[tuple[str, KVGeometry], ...]:
+    geometry = []
+    for family, g in (c["kv_geometry"] or {}).items():
+        gname = f"{name}.kv_geometry.{family}"
+        _require(g, _M7_GEOMETRY_KEYS, gname)
+        geometry.append((family, KVGeometry(*(_int(g, k, gname, minimum=1) for k in _M7_GEOMETRY_KEYS))))
+    if not geometry:
+        raise ValueError(f"{name} has no kv_geometry; nothing sizes a cached prompt")
+    return tuple(geometry)
+
+
+def _template_kwargs(c: dict, name: str) -> tuple[tuple[str, tuple[tuple[str, object], ...]], ...]:
+    out = []
+    for family, kw in (c["template_kwargs"] or {}).items():
+        if not isinstance(kw, dict):
+            raise ValueError(f"{name}.template_kwargs.{family} must be a table")
+        for k, v in kw.items():
+            if not isinstance(v, (bool, int, float, str)):
+                raise ValueError(f"{name}.template_kwargs.{family}.{k} must be a scalar, got {type(v).__name__}")
+        out.append((family, tuple(kw.items())))
+    if not out:
+        raise ValueError(f"{name} has no template_kwargs table; one per family, empty when the template takes none")
+    return tuple(out)
+
+
+def load_m8_config(path: Path, repo_root: Path) -> M8Config:
+    path = Path(path)
+    name = f"{path.name} [m8]"
+    c = _read(path)["m8"]
+    _require(c, _M8_KEYS, name)
+    threshold = _number(c, "similarity_threshold", name)
+    if not 0 < threshold < 1:
+        raise ValueError(f"{name} similarity_threshold must be between 0 and 1, got {threshold!r}")
+    hypotheses = []
+    for hid, h in c["hypotheses"].items():
+        hname = f"{name}.hypotheses.{hid}"
+        if not _M8_ID.fullmatch(hid):
+            raise ValueError(f"{hname}: an id is H-M8L and one letter or digit for the configuration")
+        _require(h, _M8_HYPOTHESIS_KEYS, hname)
+        interleave = _ascending(h, "interleave", hname, int, 1, 1000)
+        if not interleave:
+            raise ValueError(f"{hname} interleave names no C")
+        hypotheses.append(M8Hypothesis(id=hid, slots=_int(h, "slots", hname, minimum=1), interleave=interleave))
+    if not hypotheses:
+        raise ValueError(f"{name} registers no hypothesis")
+    root = Path(repo_root)
+    return M8Config(
+        recorded_dir=root / c["recorded_dir"], similarity_threshold=threshold,
+        cache_ram_mib=_int(c, "cache_ram_mib", name, minimum=1), kv_geometry=_geometries(c, name),
+        template_kwargs=_template_kwargs(c, name), corpus_dir=root / c["corpus_dir"],
+        results_dir=root / c["results_dir"], hypotheses=tuple(hypotheses),
+        registered_by=_registered_by(c["registered_by"], name), config_path=path,
+    )

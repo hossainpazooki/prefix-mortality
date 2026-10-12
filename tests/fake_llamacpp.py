@@ -57,6 +57,10 @@ class TemplateError(ValueError):
     pass
 
 
+class NotSupported(ValueError):
+    pass
+
+
 TEMPLATES = ("generic", "llama", "qwen")
 
 
@@ -73,7 +77,8 @@ class Engine:
     def __init__(self, mode: str = "faithful", build_info: str = "b11235-6c7a87f", slots: int = 1,
                  similarity: float = 0.10, cache_limit_bytes: int | None = None, bytes_per_token: int = 1,
                  n_ctx: int = 8192, report_n_ctx: bool = True, template: str = "generic",
-                 sleep_idle_seconds: int = -1, clock=time.monotonic, expire_after_seconds: float | None = None):
+                 sleep_idle_seconds: int = -1, clock=time.monotonic, expire_after_seconds: float | None = None,
+                 cache_reuse_n: int = 0, model_name: str = "model", save_store: dict | None = None):
         assert mode in MODES, mode
         self.mode, self.build_info, self.similarity = mode, build_info, similarity
         self.cache_limit_bytes, self.bytes_per_token = cache_limit_bytes, bytes_per_token
@@ -81,6 +86,7 @@ class Engine:
         assert template in TEMPLATES, template
         self.template = template
         self.sleep_idle_seconds, self.clock, self.expire_after_seconds = sleep_idle_seconds, clock, expire_after_seconds
+        self.cache_reuse_n, self.model_name, self.save_store = cache_reuse_n, model_name, save_store
         self.sleeping, self.reloads = False, 0
         self.last_task = clock()
         self.slots: list[list[int]] = [[] for _ in range(slots)]
@@ -114,14 +120,62 @@ class Engine:
         self._tick()
         return self.sleeping
 
-    def _cache_add(self, ids: list[int]) -> None:
-        """Arrival order; with a limit, the oldest entries go until the new one fits."""
+    def _size(self, ids: list[int]) -> int:
+        return len(ids) * self.bytes_per_token
+
+    def _cache_add(self, ids: list[int]) -> bool:
+        """server_prompt_cache::alloc: skipped when the prompt is already a prefix of a cached one or
+        larger than the limit; erases cached prompts that are prefixes of it; arrival order; with a
+        limit, the oldest entries go until the new one fits."""
+        if any(_lcp(c, ids) == len(ids) for c in self.cache):
+            return False
+        new = self._size(ids)
+        if self.cache_limit_bytes is not None and new > self.cache_limit_bytes:
+            return False
+        self.cache = [c for c in self.cache if _lcp(c, ids) != len(c)]
         if self.cache_limit_bytes is not None:
-            new = len(ids) * self.bytes_per_token
-            while self.cache and sum(len(c) for c in self.cache) * self.bytes_per_token + new > self.cache_limit_bytes:
+            while self.cache and sum(self._size(c) for c in self.cache) + new > self.cache_limit_bytes:
                 self.cache.pop(0)
                 self.evictions += 1
-        self.cache.append(ids)
+        self.cache.append(list(ids))
+        return True
+
+    def _walk(self, held: list[int], ids: list[int], n_past: int) -> int:
+        """--cache-reuse N: shift every later matching run of at least N tokens into place."""
+        head_c = head_p = n_past
+        while head_c < len(held) and head_p < len(ids):
+            n_match = 0
+            while head_c + n_match < len(held) and head_p + n_match < len(ids) and held[head_c + n_match] == ids[head_p + n_match]:
+                n_match += 1
+            if n_match >= self.cache_reuse_n:
+                n_past += n_match
+                head_c += n_match
+                head_p += n_match
+            else:
+                head_c += 1
+        return n_past
+
+    def slot_action(self, id_slot: int, action: str, filename: str) -> dict:
+        """POST /slots/{id}?action=save|restore|erase, as the server does it with --slot-save-path."""
+        if self.save_store is None:
+            raise NotSupported("This server does not support slots action. Start it with `--slot-save-path`")
+        if not 0 <= id_slot < len(self.slots):
+            raise TemplateError("Invalid slot ID")
+        if action == "save":
+            self.save_store[filename] = list(self.slots[id_slot])
+            return {"id_slot": id_slot, "filename": filename, "n_saved": len(self.slots[id_slot])}
+        if action == "restore":
+            if filename not in self.save_store:
+                raise TemplateError("Unable to restore slot, no available space in KV cache or invalid slot save file")
+            restored = list(self.save_store[filename])
+            if len(restored) >= self.n_ctx:
+                raise TemplateError("Restored prompt does not fit in the slot context")
+            self.slots[id_slot] = restored
+            return {"id_slot": id_slot, "filename": filename, "n_restored": len(restored)}
+        if action == "erase":
+            self.slots[id_slot] = []
+            return {"id_slot": id_slot, "n_erased": 1}
+        raise TemplateError("Invalid action")
 
     def render(self, body: dict) -> str:
         self._tick()
@@ -181,16 +235,17 @@ class Engine:
                 self.slots[where] = found
         return where
 
-    def chat(self, body: dict) -> dict:
-        self._tick()
-        self._wake()
-        ids = [t["id"] for t in self.tokenize(self.render(body))]
+    def _serve_ids(self, ids: list[int]) -> int:
+        """One completion over these prompt ids: the slot choice, the reuse, the walk, the sampled
+        token held after the prompt, every idle slot saved and cleared. Returns the reuse."""
         n = len(ids)
         if n >= self.n_ctx:
             raise ContextExceeded(f"request ({n} tokens) exceeds the available context size ({self.n_ctx} tokens), "
                                   "try increasing it")
         where = self._choose(ids)
         reuse = _lcp(self.slots[where], ids)
+        if self.cache_reuse_n > 0:
+            reuse = self._walk(self.slots[where], ids, reuse)
         if reuse == n and n > 0:
             reuse -= 1
         if self.mode == "no_cache":
@@ -199,12 +254,21 @@ class Engine:
             reuse = n - 1
         self.requests += 1
         self.last_task = self.clock()                    # a chat is a task: it restarts the idle timer
-        self.slots[where], self.last_used[where] = ids, self.requests
+        # the one sampled token is never fed back (completion_tokens 1): the slot holds the prompt only
+        self.slots[where], self.last_used[where] = list(ids), self.requests
         for i, held in enumerate(self.slots):           # every idle slot is copied to the cache and cleared
             if i != where and held:
                 self._cache_add(held)
                 self.slots[i] = []
-        out = {"choices": [{"message": {"role": "assistant", "content": "ok"}}],
+        return reuse
+
+    def chat(self, body: dict) -> dict:
+        self._tick()
+        self._wake()
+        ids = [t["id"] for t in self.tokenize(self.render(body))]
+        n = len(ids)
+        reuse = self._serve_ids(ids)
+        out = {"model": self.model_name, "choices": [{"message": {"role": "assistant", "content": "ok"}}],
                "usage": {"prompt_tokens": n, "completion_tokens": 1, "total_tokens": n + 1,
                          "prompt_tokens_details": {"cached_tokens": reuse}},
                "timings": {"cache_n": reuse, "prompt_n": n - reuse, "predicted_n": 1}}
@@ -239,10 +303,16 @@ def _handler(engine: Engine):
                     self._reply({"prompt": engine.render(body)})
                 elif self.path == "/tokenize":
                     self._reply({"tokens": engine.tokenize(body["content"])})
+                elif self.path.startswith("/slots/"):
+                    route, _, query = self.path.partition("?")
+                    action = dict(p.split("=", 1) for p in query.split("&") if "=" in p).get("action", "")
+                    self._reply(engine.slot_action(int(route.rsplit("/", 1)[1]), action, body.get("filename", "")))
                 else:
                     self._reply(engine.chat(body))
             except ContextExceeded as e:
                 self._reply({"error": {"code": 400, "message": str(e), "type": "exceed_context_size_error"}}, 400)
+            except NotSupported as e:
+                self._reply({"error": {"code": 501, "message": str(e), "type": "not_supported_error"}}, 501)
             except TemplateError as e:
                 self._reply({"error": {"code": 400, "message": str(e), "type": "invalid_request_error"}}, 400)
     return Handler
