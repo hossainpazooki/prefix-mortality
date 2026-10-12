@@ -17,7 +17,8 @@ that family, entry 0031 their verdicts, entry 0032 the descriptive cross-engine 
 entry 0033 the comparison table (one edit, four prices), and entry 0034 the refuter's pass on the
 whole qwen17 cell with two prose corrections, entry 0035 registers the four hypotheses on
 templating and serialization drift on vLLM, entry 0036 holds all four, entry 0037 validates
-them after a ninth refuter, and entry 0038 registers lifespan on recorded runs on llama.cpp.
+them after a ninth refuter, and entries 0038, 0039 and 0040 register lifespan on recorded runs,
+rebuild, and model switch and restart on llama.cpp.
 
 ## Rules
 - The chassis is copied from lag-ladder, not shared. Never import `lag_ladder`, `linear_ceiling` or
@@ -77,6 +78,12 @@ them after a ninth refuter, and entry 0038 registers lifespan on recorded runs o
 .venv/Scripts/python.exe -m prefix_mortality.m8 probe --url URL --hypothesis H-M8LD --family qwen --task-ids 12,18 --turns 4
 .venv/Scripts/python.exe -m prefix_mortality.m8 run --url URL --hypothesis H-M8LD --family qwen --c 6 --model-path PATH
 .venv/Scripts/python.exe -m prefix_mortality.summarize_m8 --run RUN_ID
+.venv/Scripts/python.exe -m prefix_mortality.m5 probe --url URL --hypothesis H-M5LC --family qwen --task-ids 12
+.venv/Scripts/python.exe -m prefix_mortality.m5 run --url URL --hypothesis H-M5LC --family qwen --model-path PATH
+.venv/Scripts/python.exe -m prefix_mortality.summarize_m5 --run RUN_ID
+.venv/Scripts/python.exe -m prefix_mortality.m6 probe --url URL --hypothesis H-M6LA --family qwen --server-argv '[...]' --server-log LOG
+.venv/Scripts/python.exe -m prefix_mortality.m6 run --url URL --hypothesis H-M6LR --family qwen --server-argv '[...]' --server-log LOG --model-path PATH [--child-b-path PATH]
+.venv/Scripts/python.exe -m prefix_mortality.summarize_m6 --run RUN_ID
 ```
 On macOS/Linux the interpreter is `.venv/bin/python`. The project pins Python 3.12.
 
@@ -94,7 +101,12 @@ of sites, vm1's formula verbatim); `config/m8.toml` for lifespan on recorded run
 vendored conversations replayed one request per assistant turn with no nonce, `--c` conversations in
 round robin, the prediction being the pinned server's slot and prompt-cache policy in `slotsim`
 over the stored token lists; `m8.toml` restates `m7.toml`'s geometry and cache size because that
-file is sealed by its records). Every llama.cpp experiment's `run` also refuses a server that does not report the number of
+file is sealed by its records); `config/m5.toml` for rebuild (`m5` driver: a recorded conversation in
+full, then compacted at its midpoint by a `trim` or a `summary`, M1's two rules plus the `--cache-reuse`
+walk); `config/m6.toml` for model switch and restart (`m6` driver: it starts and stops the server itself
+through `procs.Subprocess` from `--server-argv`, router cells with child B pinned in that file, a
+restart cell with `--slot-save-path`; records carry a process generation, never the command line).
+Every llama.cpp experiment's `run` also refuses a server that does not report the number of
 slots its hypothesis requires; `m7 run` and `m4 run` refuse one that reports no slot context, and send
 no trial whose anchor does not fit it. `m4` sends nothing inside a gap but one `GET /props` at its
 end: at the pinned commit a render or a tokenization wakes a sleeping server. After a run, `manifest
@@ -107,7 +119,7 @@ in the fixture's provenance, so editing it turns `tests/test_base_prefix.py` red
 
 ## Layout
 `src/prefix_mortality/` — `hashing` · `rng` · `seal` · `ledger_check` · `lint_scope` (chassis) ·
-`config` (seal, controls, m1, m2, m3, m4, m7, m8, engines, vllm, vm1, vm2, vm3, l17, m1q17) · `nonce` · `manifest` · `llamacpp` (engine client) ·
+`config` (seal, controls, m1, m2, m3, m4, m5, m6, m7, m8, engines, vllm, vm1, vm2, vm3, l17, m1q17) · `nonce` · `manifest` · `llamacpp` (engine client) ·
 `record` (request log) · `clock` (time as the drivers read it) · `controls` (driver) · `summarize` (the rules, and the recomputation) · `edits`
 (one word replaced at a named site) · `m1` (driver) · `summarize_m1` (its rules, and the recomputation)
 · `m7` (driver: anchor, K foreign requests, resend) · `summarize_m7` (its rule, and the recomputation)
@@ -122,9 +134,12 @@ chat-shaped tokenize + detokenize give the render; reuse read from usage details
 (a recorded conversation as chat requests at turn t; trim or summary compaction) · `slotsim` (the
 pinned server's slot and prompt-cache policy as a pure predictor; the `--cache-reuse` walk) · `m8`,
 `summarize_m8` (lifespan on recorded runs: the policy over the stored token lists, per-conversation
-share and deaths).
-`config/` — `seal.toml`, `controls.toml`, `m1.toml`, `m2.toml`, `m3.toml`, `m4.toml`, `m7.toml`,
-`m8.toml`, `engines.toml`, `vllm.toml`, `vm1.toml`, `l17.toml`, `m1q17.toml`, `vm2.toml`, `vm3.toml`.
+share and deaths) · `m5`, `summarize_m5` (rebuild: full then compacted, prefix/threshold/walk) ·
+`procs` (a server process under the driver: start, health, stop, generation) · `m6`, `summarize_m6`
+(model switch through the router, restart with slot save/restore).
+`config/` — `seal.toml`, `controls.toml`, `m1.toml`, `m2.toml`, `m3.toml`, `m4.toml`, `m5.toml`,
+`m6.toml`, `m7.toml`, `m8.toml`, `engines.toml`, `vllm.toml`, `vm1.toml`, `l17.toml`, `m1q17.toml`,
+`vm2.toml`, `vm3.toml`.
 `ledger/` — `ledger.md`, `predictions/`.
 `corpus/` — `base_prefix/tau2-airline/`, `recorded/tau2-airline-claude-3-7-sonnet/` (50 simulations +
 `provenance.json`), `live/`, `requests/`, `MANIFEST.json`. `tools/` —
@@ -201,5 +216,10 @@ same *d*). Ledger 0038 registers lifespan on recorded runs (`config/m8.toml`, `r
 "0038"`): `H-M8L1` (one slot, the 50 conversations one after another) and `H-M8LD` (defaults, the C
 longest interleaved, C in {2, 6, 12}), both `[STRETCH]`, not run; the prediction is the pinned
 server's slot and prompt-cache policy (`slotsim`), read from the source and probed live on both
-models before registration. Two causes remain `[FUTURE]`: rebuild (M5, designed with `trim` and
-`summary` arms and a `--cache-reuse` cell) and model switch (M6, router mode and a restart).
+models before registration. Rebuild (M5: `config/m5.toml`, `trim` and `summary` arms, cells
+`H-M5L1`/`H-M5LD`/`H-M5LC`, the last under `--cache-reuse 256`) and model switch and restart (M6:
+`config/m6.toml`, router cells `H-M6LA`/`H-M6LB` with child B `qwen17q4` pinned there, restart cell
+`H-M6LR` with slot save/restore) are registered by ledgers 0039 and 0040 (`registered_by = "0039"`
+/ `"0040"`), all six ids `[STRETCH]`, not run; every cell was probed live on `qwen` before
+registration. `H-M8L1` ran on both models (ALL MATCH, 762 of 762 each; results entry pending the
+`H-M8LD` runs).

@@ -48,9 +48,13 @@ class Client:
             raise EngineError("/apply-template returned no `prompt` string")
         return out["prompt"]
 
-    def tokenize(self, text: str) -> list[dict]:
-        """[{id, piece}] for `text`, tokenized the way the server tokenizes a chat prompt."""
-        body = json.dumps({"content": text, "add_special": True, "parse_special": True, "with_pieces": True})
+    def tokenize(self, text: str, model: str | None = None) -> list[dict]:
+        """[{id, piece}] for `text`, tokenized the way the server tokenizes a chat prompt. `model` names
+        the child a router forwards the call to; a single server ignores it."""
+        req = {"content": text, "add_special": True, "parse_special": True, "with_pieces": True}
+        if model is not None:
+            req["model"] = model
+        body = json.dumps(req)
         toks = self._call("/tokenize", body.encode("utf-8")).get("tokens")
         if not isinstance(toks, list) or not all(isinstance(t, dict) and "id" in t and "piece" in t for t in toks):
             raise EngineError("/tokenize returned no list of {id, piece}")

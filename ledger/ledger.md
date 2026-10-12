@@ -34,6 +34,12 @@ numerator nor a denominator. It is never written as a zero.
 | H-M2V128 | The same at `--block-size 128`, with 128 in the formula. | entry 0035 | HELD |
 | H-M8L1 | On llama.cpp `b11235` started with `--parallel 1`, fifty recorded tau2-bench airline conversations replayed one request per assistant turn, one after another and with no nonce, reuse per request what the pinned server's slot and prompt-cache policy predicts from the stored token lists: the common prefix with the held prompt, the shared head across conversations included. | entry 0038 | unresolved |
 | H-M8LD | The same at the server's defaults (4 slots, 8192 MiB prompt cache) with the C longest conversations interleaved in round robin, C in {2, 6, 12}: reuse per request what the same policy predicts, the slot choice by similarity, the cache searched only when under half of the held prompt would be kept, restores and evictions by the registered geometry. | entry 0038 | unresolved |
+| H-M5L1 | On llama.cpp `b11235` started with `--parallel 1`, a recorded conversation sent in full and then compacted at its midpoint — the early turns trimmed, or replaced by one summary message — reuses, for the compacted request, exactly the tokens the two prompts share from the start. | entry 0039 | unresolved |
+| H-M5LD | The same at the server's defaults: that prefix when it is above 0.10 of the compacted request, else 0. | entry 0039 | unresolved |
+| H-M5LC | The same started with `--parallel 1 --cache-reuse 256`: that prefix plus every later run of at least 256 matching tokens shifted into place — the trimmed tail whole, nothing past an inserted summary. | entry 0039 | unresolved |
+| H-M6LA | On llama.cpp `b11235` in router mode with `--models-max 4`, the base request sent to child A, its messages to child B, then A again: B reuses nothing, and A again reuses *n* − 1 — a model switch ends the match for the request that switched and not for the one that switches back, while the child stays loaded. | entry 0040 | unresolved |
+| H-M6LB | The same with `--models-max 1`: loading B unloads A, and A again reuses 0. | entry 0040 | unresolved |
+| H-M6LR | On llama.cpp `b11235` with one slot and `--slot-save-path`, the base request resent after the process is stopped and started reuses 0; with the slot saved before the stop and restored after, *n* − 1. | entry 0040 | unresolved |
 
 ## Entries
 
@@ -1861,3 +1867,136 @@ what it reuses from another conversation's held prompt is the shared head, predi
 
 **Status.** `H-M8L1` and `H-M8LD` are `[STRETCH]`: registered, not run. `qwen` runs first, one slot
 first.
+### 0039 — 2026-10-11 — Rebuild registered on llama.cpp: H-M5L1, H-M5LD, H-M5LC
+
+prior-entries-sha256: d04fb66cb4a0e0ef84a36f112afcc44243b2f7d21442a0e27335505aa80a5035
+
+**Registers** `config/m5.toml`, now `registered_by = "0039"`, and three hypotheses. Engine, models and
+machine are those of 0002, the request parameters those of `config/controls.toml`; each trial runs
+under its own nonce, as the M1 trials do. The similarity threshold (0.10) and its margin (0.002)
+restate `config/m1.toml`'s (0006).
+
+**Id.** `M5` is the fifth cause of 0001, rebuild: the client rewriting its own context, as an agent
+harness does when it compacts. `1` and `D` as in 0006; `C` is a server started with `--cache-reuse`
+(ruled 2026-10-06 §9). Ruled by the operator on 2026-10-11: both 8B families; one registering and one
+results entry per experiment.
+
+| id | server | the records must say | predicted reuse of the compacted request |
+|---|---|---|---|
+| `H-M5L1` | Started with `--parallel 1`. | 1 slot, a slot context both requests fit. | *d*, the tokens the two stored prompts share from the start (0010's prefix rule). |
+| `H-M5LD` | Started with no flag but the model. | 4 slots, the same. | *d* when *d*/*n* is above 0.10, else 0 (0010's threshold rule); a trial within 0.002 of the threshold is reported and not counted. |
+| `H-M5LC` | Started with `--parallel 1 --cache-reuse 256`. | 1 slot, the same. | *d* plus every later run of at least 256 tokens the walk below matches, one below *n* when that is the whole request. |
+
+**A trial** is two requests under one fresh nonce: a recorded conversation
+(`corpus/recorded/tau2-airline-claude-3-7-sonnet/`, 0019) replayed in full at its last assistant turn
+— the fixture's system text behind `run <nonce>`, the tool schemas, every recorded message before that
+turn — and the same conversation compacted at its midpoint: the messages from the first user message
+up to the last user message before the middle assistant turn are removed (`trim`) or replaced by one
+user message carrying the registered summary text (`summary`). The ten conversations with the most
+assistant turns (tasks 12, 44, 18, 10, 23, 14, 24, 48, 7, 32), two arms each: 20 trials and 40 requests
+per run, six runs. The full request is a control inside the trial: a fresh prompt reuses at most the
+tokens before its nonce (0003, 0009).
+
+**The reading** (`tools/server/server-context.cpp` 3225–3300 and 3414–3416 at the pin). With
+`--cache-reuse N` (0 at the defaults) the server, after the common prefix, walks the held prompt and
+the new one together: a run of at least *N* tokens that matches is shifted into its new position and
+counted as reused, and on a miss the **held** cursor advances by one — the new prompt's cursor never
+does. So the tokens that follow a trim, which sit verbatim later in the held prompt, are found and
+shifted; the tokens that follow an inserted summary are never reached, because the summary's own
+tokens match nothing in the held prompt and hold the walk at that position until the held prompt runs
+out. A prompt wholly reused still has one token evaluated (3414). `prefix_mortality.slotsim.
+cache_reuse_walk` is that walk, over the stored token lists; `summarize_m5` recomputes *d*, the walk
+and the prediction from the stored tokens and refuses a record that carries another value or another
+chunk list.
+
+**What decides.**
+
+| case | rule |
+|---|---|
+| A trial matches. | The compacted request's reuse equals its prediction; both requests' two counts add up to their token counts and their two reuse fields agree. |
+| `HELD` | Every counted trial of both models matches. Each hypothesis is decided on its own runs. |
+| `NOT CONFIRMED` | At least one counted trial does not match. The results entry states every mismatching trial with *d*, the chunks and the reading. |
+| A control fails. | The full request reuses more than its header; the compacted request's bytes equal the full one's; a record lies between them; the stored prediction or chunk list differs from the recomputation. The run stops, and no verdict follows from it. |
+| NOT MEASURABLE | The server does not report a field or a slot context; a request has at least as many tokens as the slot context; the local date changed inside a trial. The verdict stays `unresolved`. |
+| The records say another number of slots, more than one slot context, an arm or a conversation not registered, or a corpus other than the vendored one. | The run is not that experiment. |
+
+**Known before the run.**
+
+| fact | consequence |
+|---|---|
+| The server does not report `--cache-reuse`. | The run script passes it; the records read it back only through the walk's result, as 0019 reads the idle timer through `is_sleeping`. A `C` run whose compacted requests reuse only *d* would be a server without the flag or a walk read wrongly, and would be a mismatch. |
+| Four unrecorded requests were sent before this entry, on 2026-10-11: `qwen` under `--parallel 1 --cache-reuse 256`, conversation 12, both arms. | Nothing from them is evidence and no figure from them appears here. |
+| `--cache-reuse` needs a memory that can shift (`llama_memory_can_shift`); the server logs a warning and ignores the flag otherwise. | Both models have standard attention; a `C` run reading only *d* throughout would be reported as such, with the server log read. |
+| The `D` cell's compactions all leave *d*/*n* far above 0.10 (the head alone is about 4,800 of some 10,000 tokens). | `H-M5LD` re-measures 0010's rule at this scale and is expected to read *d*; it is registered because the claim "a compaction costs you everything after it" is what harness authors act on, and the price under the defaults is what they pay. |
+| The longest conversation is about 16,000 tokens in full; the records carry contexts of 40,960 and 50,944. | Every request fits. |
+
+**Status.** `H-M5L1`, `H-M5LD` and `H-M5LC` are `[STRETCH]`: registered, not run. `qwen` runs first.
+### 0040 — 2026-10-11 — Model switch and restart registered on llama.cpp: H-M6LA, H-M6LB, H-M6LR
+
+prior-entries-sha256: 782831a4d12df600cc7e70512c31cdfab1f56e7bf409c50fc985a34799f56479
+
+**Registers** `config/m6.toml`, now `registered_by = "0040"`, and three hypotheses. Engine, child A's
+models and the machine are those of 0002; the request parameters those of `config/controls.toml`, the
+bodies carrying a `model` field that names the child. Child B is a second, small model pinned in
+`config/m6.toml` — `unsloth/Qwen3-1.7B-GGUF` `Qwen3-1.7B-Q4_K_M.gguf`, a third-party conversion of the
+owner's weights (the owner's repository ships Q8_0 only), sha256 the Hub's LFS digest at revision
+`d7f544ee`, read 2026-10-11 — because `config/engines.toml` is sealed by the hashes in its records.
+Ruled by the operator on 2026-10-11: both 8B families as child A; this Q4_K_M as child B; one
+registering and one results entry per experiment.
+
+**Id.** `M6` is the sixth cause of 0001, model switch; `A` and `B` are the router with four and with
+one child allowed, `R` a restart of a single server (ruled 2026-10-06 §9: the redeploy a client meets
+is the process event, so it is a registered cell and not a probe).
+
+| id | server | a trial | predicted reuse |
+|---|---|---|---|
+| `H-M6LA` | Router (`--models-dir`, a preset giving every child `ctx-size 16384`, `--models-max 4`), A and B loaded before the trial. | The base request to A; its messages to B; the anchor's bytes to A. | A: at most the tokens before its nonce (a control); B: the same; A again: *n*_A − 1. |
+| `H-M6LB` | The same with `--models-max 1`. | The same. | A and B as above; A again: 0. |
+| `H-M6LR` | One server, child A alone, `--parallel 1 --slot-save-path`. | (i) anchor; stop, start; resend. (ii) a fresh anchor; `POST /slots/0?action=save`; stop, start; `action=restore`; resend. | (i) 0; (ii) *n* − 1. |
+
+Three repetitions per cell per family: 9 requests per router run, 8 per restart run with four
+restarts. Child A's records must say 4 slots (router) or 1 slot (restart) and a slot context every
+request fits.
+
+**The reading** (`tools/server/server.cpp` 205–248; `server-models.cpp` 264–384, 1074–1090,
+1931–1960, 2025–2075; `server-context.cpp` 4784–4811, 5304–5315, 2606–2665 at the pin). The router
+forwards a completion, a render (`/apply-template`), a tokenization and a slot action to the child
+the body's `model` names, loading it first when it is not running; `GET /props?model=NAME` is
+forwarded, `GET /models` lists every child with its status. A child is another process with its own
+slots and prompt cache: it has never seen a prompt sent to its sibling. A child that was switched away
+from keeps its slots as long as it stays loaded; with `--models-max N` the router unloads the least
+recently used idle child when an (N+1)-th must load, and a child loaded again is a fresh process. So a
+model change ends the match for the request that changed — and not for the next request that changes
+back, while the child lives; `--models-max 1` is the case where it does not. A restart is the same event
+for a single server: every slot and the prompt cache are gone. `action=save` writes the slot's tokens
+and KV state to a file under `--slot-save-path`; `action=restore` after the restart reads them back into
+the slot, and the resend is an identical resend into a held slot, *n* − 1 (0003).
+
+The driver (`prefix_mortality.m6`) starts and stops the server itself, from the command line the run
+script gives it, and records what it can observe of the process — a generation number, a pid and a
+start time — never the command line. Before each router request it records the loaded set from `GET
+/models`, and each record carries the child's `/props` and the name the response reports.
+
+**What decides.**
+
+| case | rule |
+|---|---|
+| A trial matches. | The resend's reuse equals its prediction; every request's two counts add up to its token count and its two reuse fields agree. |
+| `HELD` | Every counted trial of both families matches. Each hypothesis is decided on its own runs. |
+| `NOT CONFIRMED` | At least one counted trial does not match. The results entry states every mismatching trial with the loaded set, or the generations, it recorded. |
+| A control fails. | The anchor, or B's request, reuses more than its header; the resend is not the anchor's bytes; a record lies between the trial's requests; a response names a child other than the one asked; the loaded set is not what the cell requires (A and B loaded at the resend under `--models-max 4`; A not loaded, at most one child loaded, under `--models-max 1`); the generation did not rise by one across a restart; the save or the restore reports a count other than the anchor's. The run stops, and no verdict follows from it. |
+| NOT MEASURABLE | Child A does not report a field or a slot context; a request has at least as many tokens as that context; the local date changed inside a trial. The verdict stays `unresolved`. |
+| The records say another number of slots for child A, more than one slot context, a part or a repetition not registered. | The run is not that experiment. |
+
+**Known before the run.**
+
+| fact | consequence |
+|---|---|
+| Ten unrecorded requests were sent before this entry, on 2026-10-11, child A `qwen`: 4 under the restart cell (both parts), 3 under each router cell. Two earlier router attempts sent no request: the driver read the loaded set before the child had come up, and was corrected to wait for `loaded` (the router reports `loading` for about ten seconds). A router was also started once with no request sent, to read `GET /models` and `/props?model=`. | Nothing from them is evidence and no figure from them appears here. |
+| The router forwards a render or a tokenization to the child named, loading it if needed. | Every trial's bodies are rendered and tokenized before its first request is sent, so under `--models-max 1` the loads the preparation causes precede the anchor; between the anchor, B's request and the resend nothing but those three requests is sent, and the loaded set each record carries says so. |
+| B's prompt is B's own render of the anchor's messages. For `qwen` the render is the same text (the same template family); for `llama` it differs. | B reuses nothing either way: it is another process. Its reuse is a control, not a result. |
+| The children's context is set by the preset to 16,384; the base request is about 4,900 tokens. | Both children fit the machine beside each other (memory read at the probe: 85% free after the run); every request fits. |
+| The restart cell's saved state is about 700 MB per save and is deleted with the run's results folder; the restore reports the token count read back. | The records carry the counts, not the file. |
+| Not measured: a LoRA change (no adapters here); eviction of a child under queue pressure; a switch while the child is busy. | Stated in the results entry as what the runs do not show. |
+
+**Status.** `H-M6LA`, `H-M6LB` and `H-M6LR` are `[STRETCH]`: registered, not run. `qwen` runs first.

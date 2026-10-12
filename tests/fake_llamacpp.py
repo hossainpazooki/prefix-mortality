@@ -78,7 +78,8 @@ class Engine:
                  similarity: float = 0.10, cache_limit_bytes: int | None = None, bytes_per_token: int = 1,
                  n_ctx: int = 8192, report_n_ctx: bool = True, template: str = "generic",
                  sleep_idle_seconds: int = -1, clock=time.monotonic, expire_after_seconds: float | None = None,
-                 cache_reuse_n: int = 0, model_name: str = "model", save_store: dict | None = None):
+                 cache_reuse_n: int = 0, model_name: str = "model", save_store: dict | None = None,
+                 ids: dict | None = None):
         assert mode in MODES, mode
         self.mode, self.build_info, self.similarity = mode, build_info, similarity
         self.cache_limit_bytes, self.bytes_per_token = cache_limit_bytes, bytes_per_token
@@ -92,7 +93,8 @@ class Engine:
         self.slots: list[list[int]] = [[] for _ in range(slots)]
         self.last_used = [-1] * slots
         self.cache: list[list[int]] = []
-        self.ids: dict[str, int] = {}
+        # the vocabulary belongs to the model, not the process: a restarted stand-in may share it
+        self.ids: dict[str, int] = {} if ids is None else ids
         self.renders = self.requests = self.evictions = self.props_reads = 0
 
     def _forget(self) -> None:

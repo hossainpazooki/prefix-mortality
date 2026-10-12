@@ -5,7 +5,7 @@ import pytest
 from prefix_mortality.config import (load_controls_config, load_engines_config, load_l17_config, load_m1_config,
                                      load_m1q17_config, load_m2_config, load_m3_config, load_m4_config,
                                      load_m7_config, load_seal_config, load_vllm_config, load_vm1_config,
-                                     load_m8_config, load_vm2_config, load_vm3_config)
+                                     load_m5_config, load_m6_config, load_m8_config, load_vm2_config, load_vm3_config)
 
 
 def _write(tmp_path, name, text):
@@ -638,3 +638,17 @@ def test_m8_config_refuses_bad_values(tmp_path, edit, message):
     (tmp_path / "m8.toml").write_text(text.replace(edit, message), encoding="utf-8")
     with pytest.raises(ValueError):
         load_m8_config(tmp_path / "m8.toml", REPO_ROOT)
+
+
+def test_m5_and_m6_configs_load_registered():
+    from prefix_mortality import REPO_ROOT
+    m5 = load_m5_config(REPO_ROOT / "config" / "m5.toml", REPO_ROOT)
+    assert m5.registered_by == "0039" and m5.arms == ("trim", "summary") and m5.conversations == 10
+    assert [(h.id, h.slots, h.rule) for h in m5.hypotheses] == [("H-M5L1", 1, "prefix"), ("H-M5LD", 4, "threshold"), ("H-M5LC", 1, "walk")]
+    m1 = load_m1_config(REPO_ROOT / "config" / "m1.toml", REPO_ROOT)
+    assert (m5.similarity_threshold, m5.threshold_margin) == (m1.similarity_threshold, m1.threshold_margin)
+    assert m5.cache_reuse_n == 256 and m5.kwargs("llama") == {"tools_in_user_message": False} and m5.kwargs("qwen") is None
+    m6 = load_m6_config(REPO_ROOT / "config" / "m6.toml", REPO_ROOT)
+    assert m6.registered_by == "0040" and m6.repetitions == 3 and m6.child_context == 16384
+    assert (m6.child_b.family, m6.child_b.file) == ("qwen17q4", "Qwen3-1.7B-Q4_K_M.gguf") and len(m6.child_b.sha256) == 64
+    assert [(h.id, h.mode, h.models_max, h.slots) for h in m6.hypotheses] == [("H-M6LA", "router", 4, 4), ("H-M6LB", "router", 1, 4), ("H-M6LR", "restart", 0, 1)]

@@ -1,0 +1,40 @@
+# Rebuild (M5) on llama.cpp: a recorded conversation at its last assistant turn, then the same request
+# with the messages from the first user message up to the midpoint cut removed — a trim — or replaced
+# by one summary message, as an agent harness compacts its context.
+#
+# Registered by a ledger entry, which fixes these values. A change to any of them needs a new entry;
+# the driver refuses to run while `registered_by` is empty. Request parameters (tokens to generate,
+# temperature, nonce length) are those of config/controls.toml; each trial runs under its own nonce,
+# as the M1 trials do. The similarity threshold and margin restate config/m1.toml's (0006).
+[m5]
+recorded_dir = "corpus/recorded/tau2-airline-claude-3-7-sonnet"
+conversations = 10                # the conversations with the most assistant turns
+arms = ["trim", "summary"]
+summary = "Summary of the conversation so far: the customer contacted support about an existing reservation; the agent verified the customer's identity and the reservation details and explained the applicable policy. Continue from here."
+similarity_threshold = 0.10       # --slot-prompt-similarity, the server's default at the pinned commit
+threshold_margin = 0.002          # a trial this close to the threshold is reported and not counted
+cache_reuse_n = 256               # --cache-reuse for the C cell; the walk's minimum chunk
+corpus_dir = "corpus/live/m5"
+results_dir = "results/m5"
+registered_by = "0039"
+
+# Chat-template arguments per family, as config/m8.toml: the conversations open with an assistant
+# greeting, which Llama's template otherwise takes as the user message that carries the tools.
+[m5.template_kwargs.llama]
+tools_in_user_message = false
+[m5.template_kwargs.qwen]
+
+# `slots` is what the server must report. `rule` is how the compacted request's reuse is predicted
+# from the full request's stored tokens and its own:
+#   prefix     d, the tokens the two share from the start
+#   threshold  d when d / n is above similarity_threshold, else 0
+#   walk       d plus every later matching run of at least cache_reuse_n tokens, shifted into place
+[m5.hypotheses.H-M5L1]            # server started with --parallel 1
+slots = 1
+rule = "prefix"
+[m5.hypotheses.H-M5LD]            # server at its defaults
+slots = 4
+rule = "threshold"
+[m5.hypotheses.H-M5LC]            # server started with --parallel 1 --cache-reuse 256
+slots = 1
+rule = "walk"

@@ -1,0 +1,42 @@
+# Model switch and restart (M6) on llama.cpp. Child A is the family under test (config/engines.toml);
+# child B is a second, small model pinned here, because config/engines.toml is sealed by the hashes in
+# its records. The router (`--models-dir`, `--models-preset`, `--models-max`) serves both children; a
+# preset gives every child the context below so both fit the machine. The restart cell runs a single
+# server with `--parallel 1 --slot-save-path`.
+#
+# Registered by a ledger entry, which fixes these values. A change to any of them needs a new entry;
+# the driver refuses to run while `registered_by` is empty. Request parameters (tokens to generate,
+# temperature, nonce length, user message) are those of config/controls.toml; the bodies carry a
+# `model` field naming the child.
+[m6]
+repetitions = 3                   # trials per cell, per family
+child_context = 16384             # the preset's ctx-size for every child; every base request fits
+corpus_dir = "corpus/live/m6"
+results_dir = "results/m6"
+registered_by = "0040"
+
+# Third-party conversion of the owner's weights (the owner's GGUF repository ships Q8_0 only); Apache-2.0.
+# sha256 is the Hub's recorded LFS digest at repository revision d7f544eead698dbd1f15126ef60b45a1e1933222,
+# read 2026-10-11. The driver hashes the local file and refuses on a mismatch.
+[m6.child_b]
+name = "qwen17q4"
+hf_repo = "unsloth/Qwen3-1.7B-GGUF"
+file = "Qwen3-1.7B-Q4_K_M.gguf"
+sha256 = "b139949c5bd74937ad8ed8c8cf3d9ffb1e99c866c823204dc42c0d91fa181897"
+
+# `mode` is what the driver does: `router` runs A and B as children of one router and switches between
+# them; `restart` runs A alone, stops and starts the process between an anchor and its resend, and once
+# more with the slot saved before the stop and restored after. `models_max` is the router's
+# --models-max, read back through the loaded set the router reports; `slots` is what A must report.
+[m6.hypotheses.H-M6LA]
+mode = "router"
+models_max = 4
+slots = 4
+[m6.hypotheses.H-M6LB]
+mode = "router"
+models_max = 1
+slots = 4
+[m6.hypotheses.H-M6LR]
+mode = "restart"
+models_max = 0
+slots = 1

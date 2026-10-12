@@ -1025,3 +1025,148 @@ def load_m8_config(path: Path, repo_root: Path) -> M8Config:
         results_dir=root / c["results_dir"], hypotheses=tuple(hypotheses),
         registered_by=_registered_by(c["registered_by"], name), config_path=path,
     )
+
+
+# --- rebuild (M5) ---------------------------------------------------------------------------------
+
+_M5_ID = re.compile(r"H-M5L[A-Za-z0-9]")
+_M5_KEYS = ("recorded_dir", "conversations", "arms", "summary", "similarity_threshold", "threshold_margin",
+            "cache_reuse_n", "template_kwargs", "corpus_dir", "results_dir", "registered_by", "hypotheses")
+_M5_ARMS = ("trim", "summary")
+M5_RULES = ("prefix", "threshold", "walk")
+
+
+@dataclass(frozen=True)
+class M5Config:
+    """Rebuild: a recorded conversation compacted at its midpoint. Request parameters come from the
+    controls config; the rules are M1's two plus the --cache-reuse walk (slotsim)."""
+    recorded_dir: Path
+    conversations: int
+    arms: tuple[str, ...]
+    summary: str
+    similarity_threshold: float
+    threshold_margin: float
+    cache_reuse_n: int
+    template_kwargs: tuple[tuple[str, tuple[tuple[str, object], ...]], ...]
+    corpus_dir: Path
+    results_dir: Path
+    hypotheses: tuple[RuleHypothesis, ...]
+    registered_by: str
+    config_path: Path
+
+    def kwargs(self, family: str) -> dict | None:
+        for fam, kw in self.template_kwargs:
+            if fam == family:
+                return dict(kw) or None
+        raise ValueError(f"{self.config_path.name} has no template_kwargs table for family {family!r}; "
+                         f"known: {[f for f, _ in self.template_kwargs]}")
+
+    def hypothesis(self, hid: str) -> RuleHypothesis:
+        return _find(self.hypotheses, hid, "hypothesis", self.config_path.name)
+
+
+def load_m5_config(path: Path, repo_root: Path) -> M5Config:
+    path = Path(path)
+    name = f"{path.name} [m5]"
+    c = _read(path)["m5"]
+    _require(c, _M5_KEYS, name)
+    arms = tuple(c["arms"])
+    if not arms or len(set(arms)) != len(arms) or any(a not in _M5_ARMS for a in arms):
+        raise ValueError(f"{name} arms must be distinct names from {_M5_ARMS}, got {c['arms']!r}")
+    if not isinstance(c["summary"], str) or not c["summary"].strip():
+        raise ValueError(f"{name} summary must be a non-empty string")
+    threshold, margin = _number(c, "similarity_threshold", name), _number(c, "threshold_margin", name)
+    if not 0 < threshold < 1:
+        raise ValueError(f"{name} similarity_threshold must be between 0 and 1, got {threshold!r}")
+    if not 0 < margin < threshold:
+        raise ValueError(f"{name} threshold_margin must be between 0 and the threshold, got {margin!r}")
+    hypotheses = []
+    for hid, h in (c.get("hypotheses") or {}).items():
+        hname = f"{name}.hypotheses.{hid}"
+        if not _M5_ID.fullmatch(hid):
+            raise ValueError(f"{hname}: an id is H-M5L and one letter or digit for the configuration")
+        _require(h, _RULE_HYPOTHESIS_KEYS, hname)
+        if h["rule"] not in M5_RULES:
+            raise ValueError(f"{hname} rule must be one of {M5_RULES}, got {h['rule']!r}")
+        hypotheses.append(RuleHypothesis(id=hid, slots=_int(h, "slots", hname, minimum=1), rule=h["rule"]))
+    if not hypotheses:
+        raise ValueError(f"{name} registers no hypothesis")
+    root = Path(repo_root)
+    return M5Config(
+        recorded_dir=root / c["recorded_dir"], conversations=_int(c, "conversations", name, minimum=1), arms=arms,
+        summary=c["summary"], similarity_threshold=threshold, threshold_margin=margin,
+        cache_reuse_n=_int(c, "cache_reuse_n", name, minimum=1), template_kwargs=_template_kwargs(c, name),
+        corpus_dir=root / c["corpus_dir"], results_dir=root / c["results_dir"], hypotheses=tuple(hypotheses),
+        registered_by=_registered_by(c["registered_by"], name), config_path=path,
+    )
+
+
+# --- model switch and restart (M6) ---------------------------------------------------------------
+
+_M6_ID = re.compile(r"H-M6L[A-Za-z0-9]")
+_M6_KEYS = ("repetitions", "child_context", "corpus_dir", "results_dir", "registered_by", "child_b", "hypotheses")
+_M6_CHILD_KEYS = ("name", "hf_repo", "file", "sha256")
+_M6_HYPOTHESIS_KEYS = ("mode", "models_max", "slots")
+M6_MODES = ("router", "restart")
+
+
+@dataclass(frozen=True)
+class M6Hypothesis:
+    """One process arrangement: `router` with its --models-max, or `restart` of a single server."""
+    id: str
+    mode: str
+    models_max: int
+    slots: int
+
+
+@dataclass(frozen=True)
+class M6Config:
+    """Model switch and restart. Child A is the family under test; child B is pinned here."""
+    repetitions: int
+    child_context: int
+    child_b: EngineModel
+    corpus_dir: Path
+    results_dir: Path
+    hypotheses: tuple[M6Hypothesis, ...]
+    registered_by: str
+    config_path: Path
+
+    def hypothesis(self, hid: str) -> M6Hypothesis:
+        return _find(self.hypotheses, hid, "hypothesis", self.config_path.name)
+
+
+def load_m6_config(path: Path, repo_root: Path) -> M6Config:
+    path = Path(path)
+    name = f"{path.name} [m6]"
+    c = _read(path)["m6"]
+    _require(c, _M6_KEYS, name)
+    b = c["child_b"]
+    _require(b, _M6_CHILD_KEYS, f"{name}.child_b")
+    if not _SHA256.fullmatch(str(b["sha256"])):
+        raise ValueError(f"{name}.child_b sha256 must be 64 hex characters")
+    if not str(b["name"]).strip() or not str(b["file"]).strip():
+        raise ValueError(f"{name}.child_b name and file must be non-empty")
+    hypotheses = []
+    for hid, h in (c.get("hypotheses") or {}).items():
+        hname = f"{name}.hypotheses.{hid}"
+        if not _M6_ID.fullmatch(hid):
+            raise ValueError(f"{hname}: an id is H-M6L and one letter or digit for the configuration")
+        _require(h, _M6_HYPOTHESIS_KEYS, hname)
+        if h["mode"] not in M6_MODES:
+            raise ValueError(f"{hname} mode must be one of {M6_MODES}, got {h['mode']!r}")
+        models_max = _int(h, "models_max", hname, minimum=0)
+        if h["mode"] == "router" and models_max < 1:
+            raise ValueError(f"{hname}: a router cell needs models_max of 1 or more")
+        if h["mode"] == "restart" and models_max != 0:
+            raise ValueError(f"{hname}: a restart cell runs no router; models_max must be 0")
+        hypotheses.append(M6Hypothesis(id=hid, mode=h["mode"], models_max=models_max,
+                                       slots=_int(h, "slots", hname, minimum=1)))
+    if not hypotheses:
+        raise ValueError(f"{name} registers no hypothesis")
+    root = Path(repo_root)
+    return M6Config(
+        repetitions=_int(c, "repetitions", name, minimum=1), child_context=_int(c, "child_context", name, minimum=1),
+        child_b=EngineModel(family=str(b["name"]), hf_repo=str(b["hf_repo"]), file=str(b["file"]), sha256=str(b["sha256"])),
+        corpus_dir=root / c["corpus_dir"], results_dir=root / c["results_dir"], hypotheses=tuple(hypotheses),
+        registered_by=_registered_by(c["registered_by"], name), config_path=path,
+    )

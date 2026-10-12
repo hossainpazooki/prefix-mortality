@@ -65,11 +65,12 @@ def test_required_ids_are_checked_when_named(monkeypatch):
 def test_repo_required_ids_are_the_registered_hypotheses_and_each_has_a_row():
     from prefix_mortality.config import (load_m1_config, load_m1q17_config, load_m2_config, load_m3_config,
                                          load_m4_config, load_m7_config, load_vm1_config, load_vm2_config,
-                                         load_vm3_config, load_m8_config)
+                                         load_vm3_config, load_m8_config, load_m5_config, load_m6_config)
     assert REQUIRED_IDS == ledger_check.REQUIRED_IDS == ("H-M1L1", "H-M1LD", "H-M7LD", "H-M2L1", "H-M3L1",
                                                          "H-M3LD", "H-M4LD", "H-M4LS", "H-M1V32", "H-M1V128",
                                                          "H-M1L1Q17", "H-M1LDQ17", "H-M3V32", "H-M3V128",
-                                                         "H-M2V32", "H-M2V128", "H-M8L1", "H-M8LD")
+                                                         "H-M2V32", "H-M2V128", "H-M8L1", "H-M8LD",
+                                                         "H-M5L1", "H-M5LD", "H-M5LC", "H-M6LA", "H-M6LB", "H-M6LR")
     cfgs = [load_m1_config(REPO_ROOT / "config" / "m1.toml", REPO_ROOT), load_m7_config(REPO_ROOT / "config" / "m7.toml", REPO_ROOT),
             load_m2_config(REPO_ROOT / "config" / "m2.toml", REPO_ROOT), load_m3_config(REPO_ROOT / "config" / "m3.toml", REPO_ROOT),
             load_m4_config(REPO_ROOT / "config" / "m4.toml", REPO_ROOT),
@@ -77,7 +78,9 @@ def test_repo_required_ids_are_the_registered_hypotheses_and_each_has_a_row():
             load_m1q17_config(REPO_ROOT / "config" / "m1q17.toml", REPO_ROOT),
             load_vm2_config(REPO_ROOT / "config" / "vm2.toml", REPO_ROOT),
             load_vm3_config(REPO_ROOT / "config" / "vm3.toml", REPO_ROOT),
-            load_m8_config(REPO_ROOT / "config" / "m8.toml", REPO_ROOT)]
+            load_m8_config(REPO_ROOT / "config" / "m8.toml", REPO_ROOT),
+            load_m5_config(REPO_ROOT / "config" / "m5.toml", REPO_ROOT),
+            load_m6_config(REPO_ROOT / "config" / "m6.toml", REPO_ROOT)]
     assert set(REQUIRED_IDS) == {h.id for c in cfgs for h in c.hypotheses}
     rows = parse_ledger((REPO_ROOT / "ledger" / "ledger.md").read_text(encoding="utf-8"))["hypotheses"]
     assert set(REQUIRED_IDS) <= set(rows)
