@@ -2400,3 +2400,42 @@ prompt was 15,630 tokens. No run crossed a local midnight.
 llama C = 12 run is new evidence no refuter has seen and is `[BASELINE]` as a cell; the three
 repeated runs add nothing a refuter has not already recomputed, since their reuse series are
 0041's. Phase 1's planned runs are complete on both engines.
+### 0048 — 2026-10-12 — 0047 survived a refuter: the llama set is [VALIDATED]; two sentences corrected, one of them about what a record can see
+
+prior-entries-sha256: 133ee4342aaf0c680209c0007ce5467fcd746336fa5154ff85da42658f765df5
+
+**Under rule 5** (entry 0008). The results of 0047 were given to an eleventh refuter, independent of
+the author as in 0010, 0011, 0014, 0018, 0021, 0024, 0027, 0034, 0037 and 0045: a separate session
+with no access to the one that produced the code and the entries, nor to the earlier refuters' work.
+
+| | |
+|---|---|
+| what it read | An export of commit `5bcbc38`, the whole tree, and the two server source files at the pinned llama.cpp commit by address. It read all 1,337 records of the four runs and the 2,377 records of 0041's seven runs with their stored requests, recomputed every figure with its own code — including its own implementation of the slot and prompt-cache policy from the cited source lines, written before it opened `slotsim.py` — and recomputed the chain. Denied git and the servers: that the runs happened as described is, as always, trusted as recorded. |
+| the brief | Re-implement the policy from the source; recompute every count, control and figure of 0047 from the stored tokens; test the identity claim against 0041's llama runs request for request; check the schedules against the vendored corpus; attack the eviction prediction and the search-count explanation with alternative readings; recompute the chain; quote any sentence whose number does not reproduce. |
+| verdict | NOT REFUTED. "Both HELD verdicts and every number in 0047 reproduce from the raw records with my own policy implementation. Two prose sentences overstate or misstate; neither is load-bearing." |
+
+**What it tried and what survived**, from its report.
+
+| tried | found |
+|---|---|
+| The policy, re-implemented from the source. | Every stored prediction and every intermediate reading reproduce for all 1,337 requests of 0047 and, again, for all of 0041's runs including qwen's eleven evictions and three `near` requests; the reading equals the prediction in all 1,337. Counts, deaths, shares, per-conversation ranges, first-request reuse, the reuse of every dead request (5,630 to 5,635) and the loss figures (per run and pooled) all as tabled. |
+| The record fields. | Every record names `config: m8l` and hashes `config/m8l.toml` to the one value, which equals the file's; the two configs differ only in `registered_by` and `date_string`. Every body carries the pinned date and every render `Today Date: 11 Oct 2026`, none the day of the run; every body's history equals the vendored conversation's messages before its turn; 713 new bodies, none referenced by another run. |
+| The identity with 0041. | At C = 1, 2 and 6 the (conversation, turn, observed, predicted) series equal 0041's llama runs request for request; token lists and renders equal per position; every body hash differs, and the only differing key is the template argument. Schedules as 0038 rules. |
+| The share's definition. | 0.7454 is tokens reused over tokens sent, pooled over the run, as 0041 used; the per-request mean would read 0.7544. |
+| The search-count explanation. | Rescaling each request's shared prefix to a 4,830-token head over the same held lengths gives 92 similarity-path searches plus one LRU search: 93, qwen's count. The longer head accounts for 48 against 93. |
+| The chain. | 0046 and 0047 reproduce from the normalized entries section. |
+| Its strongest counter-cases. | (1) **Eviction is not observed at C = 12 on llama.** The refuter's simulator, with the cache limit set anywhere from about 5,500 MiB up to the registered 8,192 MiB, or the state size inflated by 1.30 for per-cell metadata, predicts ONE eviction in this run and the same reuse for all 297 requests; mismatches begin only below about 5,000 MiB. By its simulation the run's peak cache content is 6,028 MiB. So the records show that no eviction changed any reuse, and bound the effective capacity above about 5 GiB; they do not witness the absence of eviction. Qwen's C = 12 run did discriminate (a 7,000 MiB limit would mismatch 6 requests). (2) Exact ties in the cache's strict comparisons: 47 of 297 requests had one; a tie-inclusive reading restores 36 states instead of 35 and changes no reuse. No `f_keep` was exactly 0.5. (3) The source's LRU tie rule picks the last idle slot and the records say slot 0; one slot ever holds a prompt, so no reuse depends on it (as 0045 noted). |
+
+**Corrections.** Two sentences of 0047 are superseded here, in the form of 0034; the entry is
+immutable.
+
+| entry | sentence | corrected |
+|---|---|---|
+| 0047 | "the policy's gate for searching the cache — the slot keeps less than half of the new prompt — opens later" | The gate is that the request would keep under half of the *slot's held prompt* — `f_keep` is the shared prefix over the held prompt's length, as 0038's table states — not of the new prompt. The explanation (a longer head opens the gate later: 48 searches against 93) stands under the right definition, and the refuter's rescaling reproduces qwen's count. |
+| 0047 | "the registered geometry predicted no eviction from the 8192 MiB cache in this run, and none occurred" | None was predicted, and no reuse reading contradicts it; that is all the records can say. `evicted` is a prediction field of the simulation, not a measurement, and an eviction that changed no request's reuse is invisible to this ledger's controls. The llama C = 12 run therefore bounds the cache's effective capacity (above about 5,000 MiB by the refuter's simulation) and does not witness eviction; the eviction regime is measured on qwen's C = 12 run alone, as 0047's closing sentence already says. |
+
+**Consequences.** `H-M8L1` and `H-M8LD` are `[VALIDATED]` on the llama set of 0047 as well as on the
+runs of 0041: the llama half of both hypotheses is one configuration, one day, four runs, refuted
+once. Twenty-seven validated hypotheses stand across two engines; the eleventh refuter found no
+error in any registered number. Phase 1 is closed on both engines; what remains of this ledger's
+programme is the post and, on the operator's ruling, the request upstream (0046).

@@ -22,7 +22,8 @@ rebuild, and model switch and restart on llama.cpp; entries 0041, 0042 and 0043 
 registers the Llama configuration with the template's date pinned; entry 0045 validates the eleven
 after a tenth refuter and corrects three figures; entry 0046 (descriptive) indexes the server-side
 parameters that priced every death and that neither server reports; entry 0047 holds `H-M8L1` and
-`H-M8LD` on Llama under `m8l` (four runs, 1,337 of 1,337 match), the llama half now one set.
+`H-M8LD` on Llama under `m8l` (four runs, 1,337 of 1,337 match), the llama half now one set; entry
+0048 validates it after an eleventh refuter and corrects two sentences.
 
 ## Rules
 - The chassis is copied from lag-ladder, not shared. Never import `lag_ladder`, `linear_ceiling` or
@@ -249,5 +250,11 @@ C = 1, 2 and 6 runs reproduce 0041's per-request reuse series exactly (bodies di
 only) and supersede 0041's llama runs for the llama half; the C = 12 cell reads share 0.7454, 229
 deaths of 297, every dead request back at the 5,615-token head, 48 cache searches against qwen's 93
 and no eviction (predicted by the geometry) — the eviction regime stays measured on qwen alone. The
-llama C = 12 run is `[BASELINE]` as a cell, unseen by a refuter. Phase 1's planned runs are complete;
-Phase 2 (one blog post, built around the feature request of 0046) is next.
+Ledger 0048: the eleventh refuter passed 0047 (own policy implementation, all 1,337 requests and
+0041's 2,377 reproduced, identity with 0041's llama runs confirmed request for request) —
+`[VALIDATED]` on the llama set; two sentences corrected: the search gate is f_keep over the SLOT'S
+held prompt (0038's wording), and "no eviction occurred" overstates — `evicted` is a prediction
+field, the llama C = 12 records only show no eviction that changed a reuse and bound the effective
+cache above about 5,000 MiB (the refuter's simulation), so eviction is witnessed on qwen alone.
+Phase 1 is closed on both engines; Phase 2 (one blog post, built around the feature request of 0046)
+is next, then on the operator's ruling the request upstream.
