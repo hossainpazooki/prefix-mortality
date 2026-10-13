@@ -19,15 +19,17 @@ whole qwen17 cell with two prose corrections, entry 0035 registers the four hypo
 templating and serialization drift on vLLM, entry 0036 holds all four, entry 0037 validates
 them after a ninth refuter, and entries 0038, 0039 and 0040 register lifespan on recorded runs,
 rebuild, and model switch and restart on llama.cpp; entries 0041, 0042 and 0043 hold them; entry 0044
-registers the Llama configuration with the template's date pinned; entry 0045 validates the eleven
-after a tenth refuter and corrects three figures; entry 0046 (descriptive) indexes the server-side
+registers the Llama configuration with the template's date pinned; entry 0045 validates the eight
+after a tenth refuter and corrects three figures (its title says eleven; 0050 corrects the count); entry 0046 (descriptive) indexes the server-side
 parameters that priced every death and that neither server reports; entry 0047 holds `H-M8L1` and
 `H-M8LD` on Llama under `m8l` (four runs, 1,337 of 1,337 match), the llama half now one set; entry
 0048 validates it after an eleventh refuter and corrects two sentences; entry 0049 (descriptive)
 corrects one sentence of 0046, 0022, 0025 and the `config/vllm.toml` comment: vLLM publishes its
 `CacheConfig` as labels of `vllm:cache_config_info` on `/metrics` by default, and in full on
 `/server_info` under `VLLM_SERVER_DEV_MODE`; llama.cpp's `/props` and `/metrics` publish none of
-the six parameters.
+the six parameters; entry 0050 records the twelfth refuter's pass on 0049's source readings and its
+refutation of the count: twenty-four validated hypotheses, not twenty-seven (0045's "eleven" is
+eight).
 
 ## Rules
 - The chassis is copied from lag-ladder, not shared. Never import `lag_ladder`, `linear_ceiling` or
@@ -236,8 +238,8 @@ costs everything after it, the defaults pay everything after the cut; 24 of 24 M
 to B and back finds A's slot alive under `--models-max 4`, reads 0 under `--models-max 1`, a bare
 restart reads 0 and a saved slot reads n - 1). Every cause of 0001 is now measured on llama.cpp.
 Ledger 0045: the tenth refuter passed all eleven (own policy and walk implementations from the
-source, every prediction and control reproduced) — `[VALIDATED]`, twenty-seven validated hypotheses
-across two engines; three prose figures corrected (0042's llama full-request reuse is 3,910–3,912
+source, every prediction and control reproduced) — `[VALIDATED]`, twenty-four validated hypotheses
+across two engines (0045 and 0048 say twenty-seven; 0050 corrects the count: 16 + 8, not 16 + 11); three prose figures corrected (0042's llama full-request reuse is 3,910–3,912
 with similarity 0.25–0.39; 0041's llama death-loss median is 2,550, 2,888 the mean; 0038's turn range
 is 6 to 52). Ledger 0046 (descriptive, no run) indexes the parameters that priced every death and
 that no client can read from either server — the block size on vLLM; the cache size, similarity

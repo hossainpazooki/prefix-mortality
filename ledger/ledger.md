@@ -2501,3 +2501,45 @@ Other versions of either engine may differ.
 
 **Status.** Descriptive; it changes no verdict. Twenty-seven validated hypotheses stand. The post
 cites this entry for every sentence about what the servers publish.
+### 0050 — 2026-10-13 — 0049 survived a twelfth refuter on every source reading; the ledger's own count corrected: twenty-four validated hypotheses, not twenty-seven
+
+prior-entries-sha256: 9e51089deb04b39677350aecc0105a8dbe55fb73ce3cb2ce7de6e9d158f38b53
+
+**Under rule 5** (entry 0008). Entry 0049 was given to a twelfth refuter, independent of the author
+as in 0010, 0011, 0014, 0018, 0021, 0024, 0027, 0034, 0037, 0045 and 0048: a separate session, a
+git-archive export of commit `a817260`, its own code, no git, nothing imported from the package,
+network limited to the two engines' sources at the pins, no server contacted.
+
+| | |
+|---|---|
+| what it read | The export whole; the vLLM source at `b6d8e8af` and the llama.cpp server source at `b11235` from the public raw files. Eleven numbered claims: the two llama.cpp endpoints, the two vLLM endpoints and their gating, 0022's flag list and the driver's endpoints, where the records live in the tree, `CacheConfig`'s fields, the four quoted sentences and their attribution, 0046's closing request, the count of validated hypotheses, and 0049's chain line. |
+| verdict | REFUTED on one claim of eleven — the count. The ten source readings: NOT REFUTED, every cited line range saying what 0049 says it says, with the overstatements below. The chain line recomputed equal (`378a38f8…`). |
+| what it added | The caller 0049 did not cite: `vllm/v1/engine/async_llm.py` 197–206 builds the `StatLoggerManager` and calls `log_engine_initialized()` under `if self.log_stats`, where `log_stats = not disable_log_stats` (262, 288); `PrometheusStatLogger` is appended at `loggers.py` 1360–1363 outside the log-level and client-count guards. The author re-read each line. |
+
+**The count.** 0045's title says "eleven hypotheses `[VALIDATED]`" and its verdict cell quotes "All
+eleven HELD verdicts"; the entry names eight ids, `H-M8L1`, `H-M8LD`, `H-M5L1`, `H-M5LD`, `H-M5LC`,
+`H-M6LA`, `H-M6LB`, `H-M6LR`, and 0041, 0042 and 0043 carry eight `verdict:` lines (2, 3, 3). No
+enumeration in 0045 yields eleven. Sixteen (0037) plus eight is twenty-four, which is the number of
+rows in the hypotheses table; refuter entries confer `[VALIDATED]` on 8 (0010, 0011, 0014, 0018,
+0021) + 2 (0027) + 2 (0034) + 4 (0037) + 8 (0045) = 24 ids. "Twenty-seven" in 0045, 0048 and 0049 is
+16 + 11 with the 11 unsupported. The author recounted from the table and the `verdict:` lines: 24.
+
+**Corrections.** Entries are immutable; the sentences below are superseded here. No verdict changes
+and no figure other than the count.
+
+| entry, sentence | correction |
+|---|---|
+| 0045, title "eleven hypotheses `[VALIDATED]`" and verdict cell "All eleven" | Eight: the eight ids the entry names. |
+| 0045, 0048 and 0049, "twenty-seven validated hypotheses" | Twenty-four, every row of the hypotheses table. |
+| 0049, "`vllm.py` reads `/version` and `/v1/models` only" | Only for self-description. The driver also posts to `/tokenize`, `/detokenize` and `/v1/chat/completions` (`src/prefix_mortality/vllm.py` 43, 49, 63, 69, 77, 86); none of those returns a cache-policy parameter either. |
+| 0049, "label names are every field of `CacheConfig`" | Every field plus `engine` (`loggers.py` 1074, 1092); the gauge is set once per engine index at 1091–1094, just past the cited range. |
+| 0049, `/server_info` returns "every `VLLM_*` environment variable not containing `KEY`, plus the system environment" | The `VLLM_*` settings whose value is not `None` (`api_router.py` 25–35), and the "system environment" is `vllm.collect_env.get_env_info()`, the torch/CUDA/OS report, not the process's environment variables. |
+
+One word the refuter would not credit from the cited files alone, "`/metrics` itself is mounted
+unconditionally", the author completed: `vllm/entrypoints/launchers/api_server/routers.py` 12–20
+(`register_api_routers` calls `register_vllm_serve_api_routers(app)` with no condition) and
+`vllm/entrypoints/serve/__init__.py` 20–22 (which calls `register_instrumentator_api_routers(app)`
+with no condition). The sentence stands.
+
+**Status.** 0049's readings of both engines stand as corrected above; the post cites 0049 and this
+entry together for what the servers publish. Twenty-four validated hypotheses across two engines.
