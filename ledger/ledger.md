@@ -2439,3 +2439,65 @@ runs of 0041: the llama half of both hypotheses is one configuration, one day, f
 once. Twenty-seven validated hypotheses stand across two engines; the eleventh refuter found no
 error in any registered number. Phase 1 is closed on both engines; what remains of this ledger's
 programme is the post and, on the operator's ruling, the request upstream (0046).
+### 0049 — 2026-10-13 — Where each engine does publish its cache-policy parameters: one sentence of 0046 corrected, and the same sentence in 0022, 0025 and `config/vllm.toml`
+
+prior-entries-sha256: 378a38f8f119f76fd7c70a51c9bd2357f8d2dba68e61cde7f1934aff23faf5aa
+
+**Descriptive.** No run, no hypothesis, no verdict. In the form of 0034: entries are immutable, and
+the sentences below are superseded here. Evidence is a reading of the vLLM source at the pinned
+commit `b6d8e8af` and of the llama.cpp server source at `b11235`, the same standard 0046 used; no
+server was contacted.
+
+**What 0046 says, and what the source says.** 0046 lists the parameters that priced every death on
+this ledger and states that they are ones "no client can read from either server's self-description".
+For llama.cpp that is as read: `GET /props` at `b11235` (`tools/server/server-context.cpp` lines
+4623–4646) reports `total_slots`, `model_*`, the endpoint flags, the chat template, `build_info`,
+`is_sleeping` and `default_generation_settings`, and none of `--cache-ram`,
+`--slot-prompt-similarity`, `--cache-reuse`, `--cache-idle-slots`, `--kv-unified` or
+`--sleep-idle-seconds`; its `GET /metrics` (off by default; `--metrics`; `tools/server/server-task.cpp`
+lines 1523–1617, `to_metrics`) emits counters and gauges only — prompt and predicted token totals and
+rates, decode counts, busy slots, `prompt_tokens_cached_total`, requests processing and deferred,
+speculative-decoding counts — and none of the six either. For vLLM it is true of `GET /version` and
+`GET /v1/models`, which is what 0046's vLLM paragraph says; it is not true of the server as a whole.
+
+| where | what is published | gated by | source at `b6d8e8af` |
+|---|---|---|---|
+| `GET /metrics` | one gauge, `vllm:cache_config_info`, whose label names are every field of `CacheConfig` and whose label values are `str(value)` of each — `block_size` among them, `num_gpu_blocks` and `gpu_memory_utilization` too | emitted once on engine initialisation by the Prometheus stat logger, which is installed unless `--disable-log-stats` (default `False`); `/metrics` itself is mounted unconditionally | `vllm/v1/metrics/loggers.py` 1072–1090 (`log_metrics_info`) and 1298–1299 (`log_engine_initialized`); `vllm/config/cache.py` 311–314 (`metrics_info`); `vllm/entrypoints/serve/instrumentator/__init__.py` 16–18 and `…/instrumentator/metrics.py` 56–81 (the mount); `vllm/engine/arg_utils.py` 605 (the default) |
+| `GET /server_info` | the whole `VllmConfig`, as text or JSON (`?config_format=`), plus every `VLLM_*` environment variable not containing `KEY`, plus the system environment | `VLLM_SERVER_DEV_MODE`; registering the development routers logs "SECURITY WARNING: Development endpoints are enabled! This should NOT be used in production!" | `vllm/entrypoints/launchers/api_server/routers.py` 34–37; `vllm/entrypoints/serve/__init__.py` 43–69; `vllm/entrypoints/serve/dev/server_info/api_router.py` 43–59 |
+
+0022 records every flag the V runs were started with (`--max-model-len 16384`, `--enforce-eager`,
+`--enable-prompt-tokens-details`, `--block-size` per run, `VLLM_CPU_KVCACHE_SPACE=4`);
+`--disable-log-stats` is not among them. The servers that produced every V record on this ledger
+were therefore publishing their block size, as a string label on `/metrics`, for the whole of every
+run. No driver on this repository reads `/metrics`; `vllm.py` reads `/version` and `/v1/models`
+only, as 0022 registered. The records those entries call committed are in the tree under
+`corpus/live/` (one folder per experiment: `vcontrols`, `vm1`, `vm2`, `vm3` for the V runs) with
+their request snapshots under `corpus/requests/`; `results/` holds only summarizer reports and is
+gitignored past its placeholder.
+
+`CacheConfig` at the pin has no field for the CPU backend's KV-cache space: `VLLM_CPU_KVCACHE_SPACE`
+is read in `vllm/envs.py`, and so is not a `cache_config_info` label. Whether that capacity is
+published anywhere on this server was not determined; 0046's row for it stands as written.
+
+**Corrections.** The same overstatement appears in four places; the tables and figures they
+accompany stand unchanged.
+
+| entry, sentence | correction |
+|---|---|
+| 0046, "the server-side parameters … that no client can read from either server's self-description"; and "the number the server did not publish". | On llama.cpp, as read. On vLLM: not published on the OpenAI-compatible API or on `/version`; published as string labels of `vllm:cache_config_info` on `GET /metrics` under a default-on logger, and in full on `GET /server_info` under a development flag the server warns against in production. |
+| 0022, "The server does not report its block size; the run script passes it, and the records read it back only through the block arithmetic below." | The server does not report it on any endpoint the driver reads. It does report it on `/metrics`. The second clause is as read: the records recover it from the arithmetic alone, and that recovery (0023, 0026) is unaffected. |
+| 0025, the row of its controls table "The server does not report its block size, and at prompt lengths where *n* mod 128 < 32 the counters of the CONTROLS cannot discriminate it (0023)." | "… does not report its block size on any endpoint the driver reads …"; the rest as read. |
+| `config/vllm.toml`, the comment "The server does not report its block size". | The comment is hashed into every V record and cannot change; it is read as "does not report it on `/version` or `/v1/models`". |
+
+**What this means for the request.** 0046's closing paragraph asked for "the block size on vLLM's
+`/version` or model listing". The fields exist and are already serialised, as strings, for Prometheus.
+The vLLM request narrows to promotion: the cache-policy fields that `cache_config_info` already
+carries, typed, on `GET /version` or a sibling `/v1/…` endpoint, for clients that reach the model
+through a gateway and never see the metrics port. The llama.cpp request is unchanged: the six
+parameters above added to `GET /props`, where `total_slots` already is.
+
+**Known limits.** Every endpoint above was read from source at the pins, not from a running server.
+Other versions of either engine may differ.
+
+**Status.** Descriptive; it changes no verdict. Twenty-seven validated hypotheses stand. The post
+cites this entry for every sentence about what the servers publish.

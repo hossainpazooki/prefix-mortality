@@ -23,7 +23,11 @@ registers the Llama configuration with the template's date pinned; entry 0045 va
 after a tenth refuter and corrects three figures; entry 0046 (descriptive) indexes the server-side
 parameters that priced every death and that neither server reports; entry 0047 holds `H-M8L1` and
 `H-M8LD` on Llama under `m8l` (four runs, 1,337 of 1,337 match), the llama half now one set; entry
-0048 validates it after an eleventh refuter and corrects two sentences.
+0048 validates it after an eleventh refuter and corrects two sentences; entry 0049 (descriptive)
+corrects one sentence of 0046, 0022, 0025 and the `config/vllm.toml` comment: vLLM publishes its
+`CacheConfig` as labels of `vllm:cache_config_info` on `/metrics` by default, and in full on
+`/server_info` under `VLLM_SERVER_DEV_MODE`; llama.cpp's `/props` and `/metrics` publish none of
+the six parameters.
 
 ## Rules
 - The chassis is copied from lag-ladder, not shared. Never import `lag_ladder`, `linear_ceiling` or
@@ -256,5 +260,13 @@ Ledger 0048: the eleventh refuter passed 0047 (own policy implementation, all 1,
 held prompt (0038's wording), and "no eviction occurred" overstates — `evicted` is a prediction
 field, the llama C = 12 records only show no eviction that changed a reuse and bound the effective
 cache above about 5,000 MiB (the refuter's simulation), so eviction is witnessed on qwen alone.
-Phase 1 is closed on both engines; Phase 2 (one blog post, built around the feature request of 0046)
-is next, then on the operator's ruling the request upstream.
+Ledger 0049 (descriptive, source read at both pins, no server contacted): 0046's "no client can read
+from either server's self-description" is as read for llama.cpp (`/props` and the off-by-default
+`/metrics` carry none of the six parameters) but overstated for vLLM, which emits every `CacheConfig`
+field as string labels of `vllm:cache_config_info` on `/metrics` under a default-on logger (the V
+runs never passed `--disable-log-stats`) and dumps the whole config on `/server_info` under a
+development flag; the same sentence in 0022, 0025 and the sealed `config/vllm.toml` comment is
+corrected by reading. The vLLM request narrows to promotion of those fields, typed, onto the API a
+client calls; the llama.cpp request is unchanged. Phase 1 is closed on both engines; Phase 2 (one
+blog post, both engines, vLLM's request the headline, by the rulings of 2026-10-12) is next, then on
+the operator's ruling the requests upstream.
