@@ -22,7 +22,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from prefix_mortality import REPO_ROOT
-from prefix_mortality.config import ControlsConfig, VllmConfig, load_controls_config, load_vllm_config
+from prefix_mortality.config import (FAMILY_FILES, ControlsConfig, VFamilyConfig, VllmConfig,
+                                     load_controls_config, load_vfamily_config, load_vllm_config)
 from prefix_mortality.controls import FIXTURE, Refusal
 from prefix_mortality.hashing import sha256_file_bytes, sha256_text_file
 from prefix_mortality.nonce import new_nonce
@@ -62,14 +63,41 @@ def scramble_text(client: Client, rng, system_text: str) -> str:
     return " ".join(drawn[:lo])
 
 
-def _gate_local(controls: ControlsConfig, cfg: VllmConfig, family: str, block_size: int, model_dir: Path) -> None:
+def _maybe_vfamily(cfg: VllmConfig, family: str) -> VFamilyConfig | None:
+    """The family's own pin file on this lane (config.FAMILY_FILES, e.g. vsm3.toml for smollm3), when
+    the family is not one of vllm.toml's. An unknown family is refused with every known family named."""
+    if any(m.family == family for m in cfg.models):
+        return None
+    fname = (FAMILY_FILES.get(family) or (None, None))[1]
+    if fname is None:
+        raise Refusal(f"no model of family {family!r}: vllm.toml has {[m.family for m in cfg.models]}, "
+                      f"family files cover {sorted(k for k, v in FAMILY_FILES.items() if v[1])}")
+    vfam = load_vfamily_config(REPO_ROOT / "config" / fname)
+    if vfam.model.family != family:
+        raise Refusal(f"no model of family {family!r}: vllm.toml has {[m.family for m in cfg.models]}, "
+                      f"{fname} has {vfam.model.family!r}")
+    return vfam
+
+
+def _family_model(cfg: VllmConfig, family: str, vfam: VFamilyConfig | None):
+    """The family's model pin and served name: vllm.toml's, or the family file's."""
+    if vfam is not None and family == vfam.model.family:
+        return vfam.model, vfam.served_model_name
+    return cfg.model(family), cfg.served_model_name
+
+
+def _gate_local(controls: ControlsConfig, cfg: VllmConfig, family: str, block_size: int, model_dir: Path,
+                vfam: VFamilyConfig | None = None) -> None:
     """Everything that can be refused before the server is contacted."""
-    for name, reg in ((controls.config_path.name, controls.registered_by), (cfg.config_path.name, cfg.registered_by)):
+    gated = [(controls.config_path.name, controls.registered_by), (cfg.config_path.name, cfg.registered_by)]
+    if vfam is not None and family == vfam.model.family:
+        gated.append((vfam.config_path.name, vfam.registered_by))
+    for name, reg in gated:
         if not reg:
             raise Refusal(f"{name} is UNREGISTERED (registered_by is empty); a ledger entry registers it first")
     if block_size not in cfg.block_sizes:
         raise Refusal(f"block size {block_size} is not registered; registered: {list(cfg.block_sizes)}")
-    model = cfg.model(family)
+    model, _ = _family_model(cfg, family, vfam)
     for f in model.files:
         p = Path(model_dir) / f.name
         if not p.is_file():
@@ -79,13 +107,14 @@ def _gate_local(controls: ControlsConfig, cfg: VllmConfig, family: str, block_si
             raise Refusal(f"{p} hashes to {digest}, config pins {f.sha256}")
 
 
-def _gate_server(cfg: VllmConfig, client: Client) -> dict:
+def _gate_server(cfg: VllmConfig, client: Client, served: str | None = None) -> dict:
+    served = cfg.served_model_name if served is None else served
     version = client.version()
     if version != cfg.version:
         raise Refusal(f"the server reports version {version!r}; config pins {cfg.version!r}")
     ids = client.model_ids()
-    if cfg.served_model_name not in ids:
-        raise Refusal(f"the server serves {ids}; config pins {cfg.served_model_name!r}")
+    if served not in ids:
+        raise Refusal(f"the server serves {ids}; config pins {served!r}")
     return {"version": version, "model_ids": ids}
 
 
@@ -98,9 +127,11 @@ def _send(client: Client, body: bytes, requests_dir: Path) -> tuple[str, dict, s
 
 
 def run(controls: ControlsConfig, cfg: VllmConfig, family: str, block_size: int, client: Client,
-        model_dir: Path, repo_root: Path = REPO_ROOT, fixture: Path = FIXTURE) -> dict:
-    _gate_local(controls, cfg, family, block_size, Path(model_dir))
-    server = _gate_server(cfg, client)
+        model_dir: Path, repo_root: Path = REPO_ROOT, fixture: Path = FIXTURE,
+        vfam: VFamilyConfig | None = None) -> dict:
+    _gate_local(controls, cfg, family, block_size, Path(model_dir), vfam)
+    model, served = _family_model(cfg, family, vfam)
+    server = _gate_server(cfg, client, served)
     system_text = (fixture / "system.txt").read_bytes().decode("utf-8")
     tools = json.loads((fixture / "tools.json").read_text(encoding="utf-8"))
     requests_dir = repo_root / "corpus" / "requests"
@@ -108,22 +139,23 @@ def run(controls: ControlsConfig, cfg: VllmConfig, family: str, block_size: int,
     log = cfg.corpus_dir / f"{run_id}.jsonl"
     if log.exists():
         raise Refusal(f"{log} already exists; a run never appends to another run's records")
-    model = cfg.model(family)
+    hashes = {"controls": sha256_text_file(controls.config_path), "vllm": sha256_text_file(cfg.config_path)}
+    if vfam is not None and family == vfam.model.family:
+        hashes[vfam.config_path.stem] = sha256_text_file(vfam.config_path)   # "vsm3", ...
     base = {"schema_version": SCHEMA_VERSION, "run_id": run_id, "experiment": "vcontrols", "family": family,
             "engine_repo": cfg.repo, "engine_commit": cfg.commit, "engine_version": cfg.version,
-            "served_model_name": cfg.served_model_name, "dtype": cfg.dtype, "max_model_len": cfg.max_model_len,
+            "served_model_name": served, "dtype": cfg.dtype, "max_model_len": cfg.max_model_len,
             "kvcache_space_gib": cfg.kvcache_space_gib, "block_size": block_size,
             "model_hf_repo": model.hf_repo, "model_files": [{"name": f.name, "sha256": f.sha256} for f in model.files],
             "server": server,
-            "config_sha256": {"controls": sha256_text_file(controls.config_path),
-                              "vllm": sha256_text_file(cfg.config_path)}}
+            "config_sha256": hashes}
     rng = make_rng(controls.seed)
     records, seq = [], 0
     for rep in range(1, controls.repetitions + 1):
         nonce = new_nonce(controls.nonce_bytes)
-        write = build_body(controls, cfg.served_model_name, system_text, tools, nonce)
+        write = build_body(controls, served, system_text, tools, nonce)
         other = new_nonce(controls.nonce_bytes)
-        scramble = build_body(controls, cfg.served_model_name, scramble_text(client, rng, system_text), tools, other)
+        scramble = build_body(controls, served, scramble_text(client, rng, system_text), tools, other)
         for control, body, n in (("write", write, nonce), ("read", write, nonce), ("scramble", scramble, other)):
             sha, response, start, end = _send(client, body, requests_dir)
             seq += 1
@@ -183,7 +215,8 @@ def main(argv=None) -> int:
         if a.cmd == "probe":
             print(json.dumps(probe(controls, cfg, client, pad_words=a.pad_words), indent=2, ensure_ascii=True))
             return 0
-        report = run(controls, cfg, a.family, a.block_size, client, Path(a.model_dir))
+        vfam = _maybe_vfamily(cfg, a.family)
+        report = run(controls, cfg, a.family, a.block_size, client, Path(a.model_dir), vfam=vfam)
     except (Refusal, EngineError, ValueError) as e:
         print(f"VCONTROLS REFUSED: {e}".encode("ascii", "backslashreplace").decode("ascii"), file=sys.stderr)
         return 2

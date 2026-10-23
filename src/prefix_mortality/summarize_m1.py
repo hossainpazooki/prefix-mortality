@@ -27,7 +27,7 @@ import sys
 from pathlib import Path
 
 from prefix_mortality import REPO_ROOT
-from prefix_mortality.config import M1Config, load_m1_config, load_m1q17_config
+from prefix_mortality.config import M1Config, load_m1_config, load_m1q17_config, load_m1sm3_config
 from prefix_mortality.edits import site_names
 from prefix_mortality.hashing import sha256_text_file
 from prefix_mortality.record import load_request, read
@@ -36,6 +36,7 @@ from prefix_mortality.summarize import FIELDS, header_tokens
 ROLES = ("base", "edited")
 CONFIGS = ("controls", "engines", "m1")
 CONFIGS_Q17 = ("controls", "engines", "m1q17", "l17")
+CONFIGS_SM3 = ("controls", "engines", "m1sm3", "lsm3")
 
 
 def common_prefix(a: list[int], b: list[int]) -> int:
@@ -174,9 +175,12 @@ def render(report: dict) -> str:
 
 def summarize(run_id: str, repo_root: Path = REPO_ROOT) -> tuple[dict, str]:
     cfg, configs = load_m1_config(repo_root / "config" / "m1.toml", repo_root), CONFIGS
-    if not (cfg.corpus_dir / f"{run_id}.jsonl").exists():
+    if not (cfg.corpus_dir / f"{run_id}.jsonl").exists() and (repo_root / "config" / "m1q17.toml").exists():
         # the qwen17 cell: its own experiment file, plus the family's own model pin (config/l17.toml)
         cfg, configs = load_m1q17_config(repo_root / "config" / "m1q17.toml", repo_root), CONFIGS_Q17
+    if not (cfg.corpus_dir / f"{run_id}.jsonl").exists() and (repo_root / "config" / "m1sm3.toml").exists():
+        # the smollm3 cell, the same shape (config/lsm3.toml)
+        cfg, configs = load_m1sm3_config(repo_root / "config" / "m1sm3.toml", repo_root), CONFIGS_SM3
     records = read(cfg.corpus_dir / f"{run_id}.jsonl")
     current = {k: sha256_text_file(repo_root / "config" / f"{k}.toml") for k in configs}
     for r in records:

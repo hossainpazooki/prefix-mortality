@@ -23,7 +23,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from prefix_mortality import REPO_ROOT
-from prefix_mortality.config import (ControlsConfig, VllmConfig, Vm1Config, load_controls_config,
+from prefix_mortality.config import (ControlsConfig, VFamilyConfig, VllmConfig, Vm1Config, load_controls_config,
                                      load_vllm_config, load_vm1_config)
 from prefix_mortality.controls import FIXTURE, Refusal
 from prefix_mortality.edits import apply, site_names
@@ -31,7 +31,7 @@ from prefix_mortality.hashing import sha256_text_file
 from prefix_mortality.nonce import new_nonce
 from prefix_mortality.record import SCHEMA_VERSION, append, store_request, utc_now
 from prefix_mortality.summarize_vm1 import evaluate, evaluate_trial, prediction, render
-from prefix_mortality.vcontrols import _gate_local, _gate_server, build_body
+from prefix_mortality.vcontrols import _family_model, _gate_local, _gate_server, _maybe_vfamily, build_body
 from prefix_mortality.vllm import Client, EngineError, observed
 
 
@@ -43,12 +43,14 @@ def _bodies(controls: ControlsConfig, cfg: Vm1Config, served: str, site: str, sy
 
 
 def run(cfg: Vm1Config, controls: ControlsConfig, vllm: VllmConfig, family: str, hid: str, client: Client,
-        model_dir: Path, repo_root: Path = REPO_ROOT, fixture: Path = FIXTURE) -> dict:
+        model_dir: Path, repo_root: Path = REPO_ROOT, fixture: Path = FIXTURE,
+        vfam: VFamilyConfig | None = None) -> dict:
     hyp = cfg.hypothesis(hid)
     if not cfg.registered_by:
         raise Refusal(f"{cfg.config_path.name} is UNREGISTERED (registered_by is empty); a ledger entry registers it first")
-    _gate_local(controls, vllm, family, hyp.block_size, Path(model_dir))
-    server = _gate_server(vllm, client)
+    _gate_local(controls, vllm, family, hyp.block_size, Path(model_dir), vfam)
+    model, served = _family_model(vllm, family, vfam)
+    server = _gate_server(vllm, client, served)
     system_text = (fixture / "system.txt").read_bytes().decode("utf-8")
     tools = json.loads((fixture / "tools.json").read_text(encoding="utf-8"))
     requests_dir = repo_root / "corpus" / "requests"
@@ -56,23 +58,25 @@ def run(cfg: Vm1Config, controls: ControlsConfig, vllm: VllmConfig, family: str,
     log = cfg.corpus_dir / f"{run_id}.jsonl"
     if log.exists():
         raise Refusal(f"{log} already exists; a run never appends to another run's records")
-    model = vllm.model(family)
-    common = {"schema_version": SCHEMA_VERSION, "run_id": run_id, "experiment": "vm1", "hypothesis": hid,
+    hashes = {"controls": sha256_text_file(controls.config_path), "vllm": sha256_text_file(vllm.config_path),
+              cfg.config_path.stem: sha256_text_file(cfg.config_path)}       # "vm1", "vm1sm3", ...
+    if vfam is not None and family == vfam.model.family:
+        hashes[vfam.config_path.stem] = sha256_text_file(vfam.config_path)   # "vsm3", ...
+    common = {"schema_version": SCHEMA_VERSION, "run_id": run_id, "experiment": cfg.config_path.stem,
+              "hypothesis": hid,
               "family": family, "engine_repo": vllm.repo, "engine_commit": vllm.commit,
-              "engine_version": vllm.version, "served_model_name": vllm.served_model_name,
+              "engine_version": vllm.version, "served_model_name": served,
               "dtype": vllm.dtype, "max_model_len": vllm.max_model_len,
               "kvcache_space_gib": vllm.kvcache_space_gib, "block_size": hyp.block_size,
               "model_hf_repo": model.hf_repo,
               "model_files": [{"name": f.name, "sha256": f.sha256} for f in model.files],
               "server": server,
-              "config_sha256": {"controls": sha256_text_file(controls.config_path),
-                                "vllm": sha256_text_file(vllm.config_path),
-                                "vm1": sha256_text_file(cfg.config_path)}}
+              "config_sha256": hashes}
     records, seq, prev_base_ids, halted = [], 0, None, False
     for rep in range(1, cfg.repetitions + 1):
         for site in site_names(cfg):
             nonce = new_nonce(controls.nonce_bytes)
-            base_body, edited_body = _bodies(controls, cfg, vllm.served_model_name, site, system_text,
+            base_body, edited_body = _bodies(controls, cfg, served, site, system_text,
                                              tools, nonce)
             base_ids: list[int] = []
             for role, body in (("base", base_body), ("edited", edited_body)):
@@ -146,6 +150,9 @@ def main(argv=None) -> int:
     a = ap.parse_args(argv)
     try:
         cfg = load_vm1_config(REPO_ROOT / "config" / "vm1.toml", REPO_ROOT)
+        sm3 = REPO_ROOT / "config" / "vm1sm3.toml"
+        if a.hypothesis not in {h.id for h in cfg.hypotheses} and sm3.exists():
+            cfg = load_vm1_config(sm3, REPO_ROOT)   # a later family's own M1V file (vm1.toml is sealed)
         controls = load_controls_config(REPO_ROOT / "config" / "controls.toml", REPO_ROOT)
         vllm = load_vllm_config(REPO_ROOT / "config" / "vllm.toml", REPO_ROOT)
         client = Client(a.url, controls.request_timeout_seconds)
@@ -153,7 +160,8 @@ def main(argv=None) -> int:
             print(json.dumps(probe(cfg, controls, vllm, a.hypothesis, a.sites.split(","), client),
                              indent=2, ensure_ascii=True))
             return 0
-        report = run(cfg, controls, vllm, a.family, a.hypothesis, client, Path(a.model_dir))
+        vfam = _maybe_vfamily(vllm, a.family)
+        report = run(cfg, controls, vllm, a.family, a.hypothesis, client, Path(a.model_dir), vfam=vfam)
     except (Refusal, EngineError, ValueError) as e:
         print(f"VM1 REFUSED: {e}".encode("ascii", "backslashreplace").decode("ascii"), file=sys.stderr)
         return 2

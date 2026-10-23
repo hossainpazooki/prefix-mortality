@@ -21,7 +21,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from prefix_mortality import REPO_ROOT
-from prefix_mortality.config import (ControlsConfig, VllmConfig, VmArmConfig, load_controls_config,
+from prefix_mortality.config import (ControlsConfig, VFamilyConfig, VllmConfig, VmArmConfig, load_controls_config,
                                      load_vllm_config, load_vm2_config, load_vm3_config)
 from prefix_mortality.controls import FIXTURE, Refusal
 from prefix_mortality.hashing import sha256_text_file
@@ -29,7 +29,7 @@ from prefix_mortality.nonce import new_nonce
 from prefix_mortality.record import SCHEMA_VERSION, append, store_request, utc_now
 from prefix_mortality.summarize_vm1 import evaluate_trial, prediction
 from prefix_mortality.summarize_vm23 import evaluate, render
-from prefix_mortality.vcontrols import _gate_local, _gate_server, build_body
+from prefix_mortality.vcontrols import _family_model, _gate_local, _gate_server, _maybe_vfamily, build_body
 from prefix_mortality.vllm import Client, EngineError, observed
 
 
@@ -63,12 +63,14 @@ def variant_body(cfg: VmArmConfig, controls: ControlsConfig, served: str, arm: s
 
 
 def run(cfg: VmArmConfig, controls: ControlsConfig, vllm: VllmConfig, family: str, hid: str,
-        client: Client, model_dir: Path, repo_root: Path = REPO_ROOT, fixture: Path = FIXTURE) -> dict:
+        client: Client, model_dir: Path, repo_root: Path = REPO_ROOT, fixture: Path = FIXTURE,
+        vfam: VFamilyConfig | None = None) -> dict:
     hyp = cfg.hypothesis(hid)
     if not cfg.registered_by:
         raise Refusal(f"{cfg.config_path.name} is UNREGISTERED (registered_by is empty); a ledger entry registers it first")
-    _gate_local(controls, vllm, family, hyp.block_size, Path(model_dir))
-    server = _gate_server(vllm, client)
+    _gate_local(controls, vllm, family, hyp.block_size, Path(model_dir), vfam)
+    model, served = _family_model(vllm, family, vfam)
+    server = _gate_server(vllm, client, served)
     system_text = (fixture / "system.txt").read_bytes().decode("utf-8")
     tools = json.loads((fixture / "tools.json").read_text(encoding="utf-8"))
     requests_dir = repo_root / "corpus" / "requests"
@@ -76,24 +78,25 @@ def run(cfg: VmArmConfig, controls: ControlsConfig, vllm: VllmConfig, family: st
     log = cfg.corpus_dir / f"{run_id}.jsonl"
     if log.exists():
         raise Refusal(f"{log} already exists; a run never appends to another run's records")
-    model = vllm.model(family)
+    hashes = {"controls": sha256_text_file(controls.config_path), "vllm": sha256_text_file(vllm.config_path),
+              cfg.experiment: sha256_text_file(cfg.config_path)}
+    if vfam is not None and family == vfam.model.family:
+        hashes[vfam.config_path.stem] = sha256_text_file(vfam.config_path)   # "vsm3", ...
     common = {"schema_version": SCHEMA_VERSION, "run_id": run_id, "experiment": cfg.experiment,
               "hypothesis": hid, "family": family, "engine_repo": vllm.repo, "engine_commit": vllm.commit,
-              "engine_version": vllm.version, "served_model_name": vllm.served_model_name,
+              "engine_version": vllm.version, "served_model_name": served,
               "dtype": vllm.dtype, "max_model_len": vllm.max_model_len,
               "kvcache_space_gib": vllm.kvcache_space_gib, "block_size": hyp.block_size,
               "model_hf_repo": model.hf_repo,
               "model_files": [{"name": f.name, "sha256": f.sha256} for f in model.files],
               "server": server,
-              "config_sha256": {"controls": sha256_text_file(controls.config_path),
-                                "vllm": sha256_text_file(vllm.config_path),
-                                cfg.experiment: sha256_text_file(cfg.config_path)}}
+              "config_sha256": hashes}
     records, seq, prev_base_ids, halted = [], 0, None, False
     for rep in range(1, cfg.repetitions + 1):
         for arm in cfg.arms:
             nonce = new_nonce(controls.nonce_bytes)
-            base_body = build_body(controls, vllm.served_model_name, system_text, tools, nonce)
-            var_body = variant_body(cfg, controls, vllm.served_model_name, arm, system_text, tools, nonce)
+            base_body = build_body(controls, served, system_text, tools, nonce)
+            var_body = variant_body(cfg, controls, served, arm, system_text, tools, nonce)
             base_ids: list[int] = []
             for role, body in (("base", base_body), ("edited", var_body)):
                 prepared = client.prepare(body)
@@ -175,7 +178,8 @@ def main(argv=None) -> int:
             print(json.dumps(probe(cfg, controls, vllm, a.hypothesis, a.arms.split(","), client),
                              indent=2, ensure_ascii=True))
             return 0
-        report = run(cfg, controls, vllm, a.family, a.hypothesis, client, Path(a.model_dir))
+        vfam = _maybe_vfamily(vllm, a.family)
+        report = run(cfg, controls, vllm, a.family, a.hypothesis, client, Path(a.model_dir), vfam=vfam)
     except (Refusal, EngineError, ValueError) as e:
         print(f"VM23 REFUSED: {e}".encode("ascii", "backslashreplace").decode("ascii"), file=sys.stderr)
         return 2

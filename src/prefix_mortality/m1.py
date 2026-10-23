@@ -23,7 +23,8 @@ from pathlib import Path
 
 from prefix_mortality import REPO_ROOT
 from prefix_mortality.config import (ControlsConfig, EngineConfig, L17Config, M1Config, M1Hypothesis,
-                                     load_controls_config, load_engines_config, load_m1_config, load_m1q17_config)
+                                     load_controls_config, load_engines_config, load_m1_config, load_m1q17_config,
+                                     load_m1sm3_config)
 from prefix_mortality.controls import (FIXTURE, Refusal, _gate_local, _gate_server, _maybe_l17, _resolve_model,
                                        _server, build_body)
 from prefix_mortality.edits import apply, site_names
@@ -78,7 +79,7 @@ def run(m1: M1Config, controls: ControlsConfig, engine: EngineConfig, family: st
     hashes = {"controls": sha256_text_file(controls.config_path), "engines": sha256_text_file(engine.config_path),
               m1.config_path.stem: sha256_text_file(m1.config_path)}
     if l17 is not None and family == l17.model.family:
-        hashes["l17"] = sha256_text_file(l17.config_path)
+        hashes[l17.config_path.stem] = sha256_text_file(l17.config_path)   # "l17", "lsm3", ...
     common = {"schema_version": SCHEMA_VERSION, "run_id": run_id, "experiment": m1.config_path.stem,
               "hypothesis": hid, "family": family, "engine_release": engine.release, "engine_commit": engine.commit,
               "model_file": model.file, "model_sha256": model.sha256,
@@ -157,7 +158,11 @@ def main(argv=None) -> int:
     try:
         m1 = load_m1_config(REPO_ROOT / "config" / "m1.toml", REPO_ROOT)
         if a.hypothesis not in {h.id for h in m1.hypotheses}:
+            # a later family's own M1 file (the committed records seal m1.toml by hash)
             m1 = load_m1q17_config(REPO_ROOT / "config" / "m1q17.toml", REPO_ROOT)
+            sm3 = REPO_ROOT / "config" / "m1sm3.toml"
+            if a.hypothesis not in {h.id for h in m1.hypotheses} and sm3.exists():
+                m1 = load_m1sm3_config(sm3, REPO_ROOT)
         controls = load_controls_config(REPO_ROOT / "config" / "controls.toml", REPO_ROOT)
         client = Client(a.url, controls.request_timeout_seconds)
         if a.cmd == "probe":

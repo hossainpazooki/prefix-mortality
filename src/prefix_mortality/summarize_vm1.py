@@ -30,7 +30,8 @@ import sys
 from pathlib import Path
 
 from prefix_mortality import REPO_ROOT
-from prefix_mortality.config import Vm1Config, load_controls_config, load_vllm_config, load_vm1_config
+from prefix_mortality.config import (FAMILY_FILES, Vm1Config, load_controls_config, load_vfamily_config,
+                                     load_vllm_config, load_vm1_config)
 from prefix_mortality.hashing import sha256_text_file
 from prefix_mortality.record import load_request, read
 from prefix_mortality.summarize_vcontrols import FIELDS, _lcp
@@ -142,11 +143,22 @@ def summarize(run_id: str, repo_root: Path = REPO_ROOT) -> dict:
     controls = load_controls_config(repo_root / "config" / "controls.toml", repo_root)
     vllm = load_vllm_config(repo_root / "config" / "vllm.toml", repo_root)
     cfg = load_vm1_config(repo_root / "config" / "vm1.toml", repo_root)
+    sm3 = repo_root / "config" / "vm1sm3.toml"
+    if not (cfg.corpus_dir / f"{run_id}.jsonl").exists() and sm3.exists():
+        cfg = load_vm1_config(sm3, repo_root)   # a later family's own M1V file (vm1.toml is sealed)
     records = read(cfg.corpus_dir / f"{run_id}.jsonl")
     current = {"controls": sha256_text_file(controls.config_path), "vllm": sha256_text_file(vllm.config_path),
-               "vm1": sha256_text_file(cfg.config_path)}
+               cfg.config_path.stem: sha256_text_file(cfg.config_path)}
+    # a record of a later family additionally hashes that family's own pin file, under the file's stem
+    vfams = {}
+    for fname in sorted({v[1] for v in FAMILY_FILES.values() if v[1]}):
+        if (repo_root / "config" / fname).exists():
+            vf = load_vfamily_config(repo_root / "config" / fname)
+            vfams[vf.model.family] = vf
     for r in records:
-        if r.get("config_sha256") != current:
+        vf = vfams.get(r.get("family"))
+        expected = dict(current, **{vf.config_path.stem: sha256_text_file(vf.config_path)}) if vf else current
+        if r.get("config_sha256") != expected:
             raise ValueError(f"record {r.get('seq')} was written under a different config than the one on disk")
     rp = cfg.results_dir / run_id / "report.json"
     if not rp.exists():

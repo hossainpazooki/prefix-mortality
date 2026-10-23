@@ -155,6 +155,7 @@ def load_controls_config(path: Path, repo_root: Path) -> ControlsConfig:
 M1_RULES = ("prefix", "threshold")
 _M1_ID = re.compile(r"H-M1L[A-Za-z0-9]")
 _M1Q17_ID = re.compile(r"H-M1L[A-Za-z0-9]Q17")
+_M1SM3_ID = re.compile(r"H-M1L[A-Za-z0-9]SM3")
 
 
 @dataclass(frozen=True)
@@ -216,6 +217,13 @@ def load_m1q17_config(path: Path, repo_root: Path) -> M1Config:
     sealed. Byte-parity of the sites with m1.toml is held by a test, not by this loader."""
     return _load_m1_like(path, repo_root, "m1q17", _M1Q17_ID,
                          "an id is H-M1L, one letter or digit for the configuration, then Q17 for the family")
+
+
+def load_m1sm3_config(path: Path, repo_root: Path) -> M1Config:
+    """config/m1sm3.toml: the M1 instrument on the smollm3 family (config/lsm3.toml), m1q17's shape
+    and reasons. Byte-parity of the sites with m1.toml is held by a test, not by this loader."""
+    return _load_m1_like(path, repo_root, "m1sm3", _M1SM3_ID,
+                         "an id is H-M1L, one letter or digit for the configuration, then SM3 for the family")
 
 
 def _load_m1_like(path: Path, repo_root: Path, table: str, id_re: re.Pattern, id_msg: str) -> M1Config:
@@ -660,31 +668,66 @@ def load_engines_config(path: Path) -> dict[str, EngineConfig]:
     return out
 
 
-# --- a later model family on the pinned llama.cpp (config/l17.toml) -------------------------------
+# --- later model families on the pinned engines (config/l17.toml, lsm3.toml, vsm3.toml) ---------
+
+# family -> (its llama.cpp family file, its vLLM family file). None where the lane's main config
+# (engines.toml, vllm.toml) pins the family itself. The committed records seal those two files by
+# hash, so every later family lives in files of its own; a record of such a family hashes its file
+# under the file's stem.
+FAMILY_FILES: dict[str, tuple[str | None, str | None]] = {
+    "qwen17": ("l17.toml", None),          # entry 0028; on vLLM the family is config/vllm.toml's own
+    "smollm3": ("lsm3.toml", "vsm3.toml"),  # design of 2026-10-23; unregistered until an entry names it
+}
+
+
+@dataclass(frozen=True)
+class ChatTemplatePin:
+    """A chat template served in place of the model file's embedded one (`--chat-template-file`),
+    pinned to a repository revision and a digest. Present only when the registering entry names the
+    override."""
+    hf_repo: str
+    revision: str
+    file: str
+    sha256: str
+
 
 @dataclass(frozen=True)
 class L17Config:
     """One more model family served by the engine pinned in config/engines.toml, in its own file
     because the committed records seal engines.toml by hash. A run under this family gates on this
-    file's registration and hashes it into its records."""
+    file's registration and hashes it into its records. The name is the first such file's; the
+    loader reads any family file whose table is the file's stem."""
     model: EngineModel
     registered_by: str
     config_path: Path
+    chat_template: ChatTemplatePin | None = None
 
 
 _L17_KEYS = ("registered_by", "model")
+_TEMPLATE_KEYS = ("hf_repo", "revision", "file", "sha256")
 
 
 def load_l17_config(path: Path) -> L17Config:
     path = Path(path)
-    name = f"{path.name} [l17]"
-    c = _read(path)["l17"]
-    _require(c, _L17_KEYS, name)
-    m, mname = c["model"], f"{path.name} [l17.model]"
+    table = path.stem
+    name = f"{path.name} [{table}]"
+    c = _read(path)[table]
+    _require(c, _L17_KEYS + (("chat_template",) if "chat_template" in c else ()), name)   # the pin is optional
+    m, mname = c["model"], f"{path.name} [{table}.model]"
     _require(m, _MODEL_KEYS, mname)
     model = EngineModel(family=_text(m, "family", mname), hf_repo=_text(m, "hf_repo", mname),
                         file=_text(m, "file", mname), sha256=_digest(m, "sha256", mname, _SHA256))
-    return L17Config(model=model, registered_by=_registered_by(c["registered_by"], name), config_path=path)
+    template = None
+    if "chat_template" in c:
+        t, tname = c["chat_template"], f"{path.name} [{table}.chat_template]"
+        _require(t, _TEMPLATE_KEYS, tname)
+        template = ChatTemplatePin(hf_repo=_text(t, "hf_repo", tname), revision=_text(t, "revision", tname),
+                                   file=_text(t, "file", tname), sha256=_digest(t, "sha256", tname, _SHA256))
+    return L17Config(model=model, registered_by=_registered_by(c["registered_by"], name), config_path=path,
+                     chat_template=template)
+
+
+load_family_config = load_l17_config
 
 
 # --- vLLM (the V instrument) -----------------------------------------------------------------------
@@ -700,6 +743,7 @@ class VllmModel:
     family: str
     hf_repo: str
     files: tuple[VllmModelFile, ...]
+    revision: str = ""      # the repository revision the files were taken from; "" where none was pinned
 
 
 @dataclass(frozen=True)
@@ -732,6 +776,19 @@ _VLLM_MODEL_KEYS = ("family", "hf_repo", "files")
 _VLLM_FILE_KEYS = ("name", "sha256")
 
 
+def _vllm_model(m: dict, mname: str) -> VllmModel:
+    _require(m, _VLLM_MODEL_KEYS + (("revision",) if "revision" in m else ()), mname)   # revision is optional
+    files = []
+    for f in m["files"]:
+        _require(f, _VLLM_FILE_KEYS, f"{mname}.files")
+        files.append(VllmModelFile(name=_text(f, "name", mname), sha256=_digest(f, "sha256", mname, _SHA256)))
+    if not files:
+        raise ValueError(f"{mname} pins no file; nothing gates the local model")
+    revision = _text(m, "revision", mname) if "revision" in m else ""
+    return VllmModel(family=_text(m, "family", mname), hf_repo=_text(m, "hf_repo", mname), files=tuple(files),
+                     revision=revision)
+
+
 def load_vllm_config(path: Path, repo_root: Path) -> VllmConfig:
     path = Path(path)
     name = f"{path.name} [vllm]"
@@ -743,15 +800,7 @@ def load_vllm_config(path: Path, repo_root: Path) -> VllmConfig:
     models = []
     for m in c["models"]:
         mname = f"{name}.models"
-        _require(m, _VLLM_MODEL_KEYS, mname)
-        files = []
-        for f in m["files"]:
-            _require(f, _VLLM_FILE_KEYS, f"{mname}.files")
-            files.append(VllmModelFile(name=_text(f, "name", mname), sha256=_digest(f, "sha256", mname, _SHA256)))
-        if not files:
-            raise ValueError(f"{mname} pins no file; nothing gates the local model")
-        models.append(VllmModel(family=_text(m, "family", mname), hf_repo=_text(m, "hf_repo", mname),
-                                files=tuple(files)))
+        models.append(_vllm_model(m, mname))
     families = [m.family for m in models]
     if not models or len(set(families)) != len(families):
         raise ValueError(f"{name} needs at least one model and distinct families, got {families}")
@@ -768,6 +817,32 @@ def load_vllm_config(path: Path, repo_root: Path) -> VllmConfig:
         kvcache_space_gib=_int(c, "kvcache_space_gib", name, minimum=1), block_sizes=blocks,
         corpus_dir=root / c["corpus_dir"], results_dir=root / c["results_dir"], models=tuple(models),
         registered_by=_registered_by(c["registered_by"], name), config_path=path)
+
+
+@dataclass(frozen=True)
+class VFamilyConfig:
+    """One more model family served by the vLLM pinned in config/vllm.toml, in its own file because
+    the committed V records seal vllm.toml by hash (the l17.toml pattern on this lane). Carries the
+    served model name and every pinned file; engine, dtype, context, KV space and block sizes stay
+    vllm.toml's."""
+    model: VllmModel
+    served_model_name: str
+    registered_by: str
+    config_path: Path
+
+
+_VFAMILY_KEYS = ("registered_by", "served_model_name", "model")
+
+
+def load_vfamily_config(path: Path) -> VFamilyConfig:
+    path = Path(path)
+    table = path.stem
+    name = f"{path.name} [{table}]"
+    c = _read(path)[table]
+    _require(c, _VFAMILY_KEYS, name)
+    model = _vllm_model(c["model"], f"{path.name} [{table}.model]")
+    return VFamilyConfig(model=model, served_model_name=_text(c, "served_model_name", name),
+                         registered_by=_registered_by(c["registered_by"], name), config_path=path)
 
 
 # --- edit position on vLLM (M1V) ------------------------------------------------------------------
@@ -811,9 +886,12 @@ _VM1_HYPOTHESIS_KEYS = ("block_size",)
 
 
 def load_vm1_config(path: Path, repo_root: Path) -> Vm1Config:
+    """config/vm1.toml, or a later family's own copy (config/vm1sm3.toml: the committed vm1 records
+    seal vm1.toml by hash). The table is the file's stem; the ids carry the family after the block."""
     path = Path(path)
-    name = f"{path.name} [vm1]"
-    c = _read(path)["vm1"]
+    table = path.stem
+    name = f"{path.name} [{table}]"
+    c = _read(path)[table]
     _require(c, _VM1_KEYS, name)
     if not isinstance(c["edit_user_message"], bool):
         raise ValueError(f"{name} edit_user_message must be true or false")

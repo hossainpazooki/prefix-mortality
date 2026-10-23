@@ -16,8 +16,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from prefix_mortality import REPO_ROOT
-from prefix_mortality.config import (ControlsConfig, EngineConfig, L17Config, load_controls_config,
-                                     load_engines_config, load_l17_config)
+from prefix_mortality.config import (FAMILY_FILES, ControlsConfig, EngineConfig, L17Config,
+                                     load_controls_config, load_engines_config, load_l17_config)
 from prefix_mortality.hashing import sha256_file_bytes, sha256_text_file
 from prefix_mortality.llamacpp import Client, EngineError, observed
 from prefix_mortality.nonce import new_nonce
@@ -33,14 +33,19 @@ class Refusal(RuntimeError):
 
 
 def _maybe_l17(engine: EngineConfig, family: str) -> L17Config | None:
-    """config/l17.toml, when the family is not one of engines.toml's. An unknown family still fails
-    in the model lookup, with both files' families named."""
+    """The family's own pin file (config.FAMILY_FILES: l17.toml for qwen17, lsm3.toml for smollm3),
+    when the family is not one of engines.toml's. An unknown family is refused with every known
+    family named; a family file whose model is another family is refused too."""
     if any(m.family == family for m in engine.models):
         return None
-    l17 = load_l17_config(REPO_ROOT / "config" / "l17.toml")
+    fname = (FAMILY_FILES.get(family) or (None, None))[0]
+    if fname is None:
+        raise Refusal(f"no model of family {family!r}: engines.toml has {[m.family for m in engine.models]}, "
+                      f"family files cover {sorted(k for k, v in FAMILY_FILES.items() if v[0])}")
+    l17 = load_l17_config(REPO_ROOT / "config" / fname)
     if l17.model.family != family:
         raise Refusal(f"no model of family {family!r}: engines.toml has {[m.family for m in engine.models]}, "
-                      f"l17.toml has {l17.model.family!r}")
+                      f"{fname} has {l17.model.family!r}")
     return l17
 
 
@@ -148,7 +153,7 @@ def run(cfg: ControlsConfig, engine: EngineConfig, family: str, client: Client, 
     model = _resolve_model(engine, family, l17)
     hashes = {"controls": sha256_text_file(cfg.config_path), "engines": sha256_text_file(engine.config_path)}
     if l17 is not None and family == l17.model.family:
-        hashes["l17"] = sha256_text_file(l17.config_path)
+        hashes[l17.config_path.stem] = sha256_text_file(l17.config_path)   # "l17", "lsm3", ...
     base = {"schema_version": SCHEMA_VERSION, "run_id": run_id, "experiment": "controls", "family": family,
             "engine_release": engine.release, "engine_commit": engine.commit,
             "model_file": model.file, "model_sha256": model.sha256,

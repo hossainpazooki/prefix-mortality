@@ -13,7 +13,8 @@ import sys
 from pathlib import Path
 
 from prefix_mortality import REPO_ROOT
-from prefix_mortality.config import VmArmConfig, load_controls_config, load_vllm_config, load_vm2_config, load_vm3_config
+from prefix_mortality.config import (FAMILY_FILES, VmArmConfig, load_controls_config, load_vfamily_config,
+                                     load_vllm_config, load_vm2_config, load_vm3_config)
 from prefix_mortality.hashing import sha256_text_file
 from prefix_mortality.record import read
 from prefix_mortality.summarize_vm1 import evaluate as _evaluate
@@ -46,8 +47,16 @@ def summarize(run_id: str, experiment: str, repo_root: Path = REPO_ROOT) -> dict
     records = read(cfg.corpus_dir / f"{run_id}.jsonl")
     current = {"controls": sha256_text_file(controls.config_path), "vllm": sha256_text_file(vllm.config_path),
                experiment: sha256_text_file(cfg.config_path)}
+    # a record of a later family additionally hashes that family's own pin file, under the file's stem
+    vfams = {}
+    for fname in sorted({v[1] for v in FAMILY_FILES.values() if v[1]}):
+        if (repo_root / "config" / fname).exists():
+            vf = load_vfamily_config(repo_root / "config" / fname)
+            vfams[vf.model.family] = vf
     for r in records:
-        if r.get("config_sha256") != current:
+        vf = vfams.get(r.get("family"))
+        expected = dict(current, **{vf.config_path.stem: sha256_text_file(vf.config_path)}) if vf else current
+        if r.get("config_sha256") != expected:
             raise ValueError(f"record {r.get('seq')} was written under a different config than the one on disk")
     rp = cfg.results_dir / run_id / "report.json"
     if not rp.exists():

@@ -106,7 +106,11 @@ position on vLLM (the vLLM engine pin lives in its own file because every commit
 hashes `config/engines.toml`, which therefore never changes); `config/l17.toml` for any run of the
 `qwen17` family on llama.cpp (the third family's model pin, in its own file for the same reason —
 and `config/m1.toml` is likewise sealed by the committed M1 records, so edit position on `qwen17`
-lives in `config/m1q17.toml` with its own ids `H-M1L1Q17`/`H-M1LDQ17`, same CLIs); `config/vm3.toml`
+lives in `config/m1q17.toml` with its own ids `H-M1L1Q17`/`H-M1LDQ17`, same CLIs; any later family
+follows the same pattern through `config.FAMILY_FILES`, which maps a family to its llama.cpp file and
+its vLLM file — `smollm3` → `lsm3.toml` and `vsm3.toml`, neither of which exists in the tree yet; a
+record of such a family hashes its family file under the file's stem, and `m1sm3.toml` / `vm1sm3.toml`
+would hold its edit-position ids); `config/vm3.toml`
 and `config/vm2.toml` for templating and serialization drift on vLLM (`vm23` driver, arms in place
 of sites, vm1's formula verbatim); `config/m8.toml` for lifespan on recorded runs (`m8` driver: the
 vendored conversations replayed one request per assistant turn with no nonce, `--c` conversations in
@@ -132,7 +136,8 @@ in the fixture's provenance, so editing it turns `tests/test_base_prefix.py` red
 
 ## Layout
 `src/prefix_mortality/` — `hashing` · `rng` · `seal` · `ledger_check` · `lint_scope` (chassis) ·
-`config` (seal, controls, m1, m2, m3, m4, m5, m6, m7, m8, engines, vllm, vm1, vm2, vm3, l17, m1q17) · `nonce` · `manifest` · `llamacpp` (engine client) ·
+`config` (seal, controls, m1, m2, m3, m4, m5, m6, m7, m8, engines, vllm, vm1, vm2, vm3, l17, m1q17; `FAMILY_FILES` and the
+family-file loaders `load_l17_config` / `load_vfamily_config` for later families) · `nonce` · `manifest` · `llamacpp` (engine client) ·
 `record` (request log) · `clock` (time as the drivers read it) · `controls` (driver) · `summarize` (the rules, and the recomputation) · `edits`
 (one word replaced at a named site) · `m1` (driver) · `summarize_m1` (its rules, and the recomputation)
 · `m7` (driver: anchor, K foreign requests, resend) · `summarize_m7` (its rule, and the recomputation)
