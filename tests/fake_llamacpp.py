@@ -79,7 +79,7 @@ class Engine:
                  n_ctx: int = 8192, report_n_ctx: bool = True, template: str = "generic",
                  sleep_idle_seconds: int = -1, clock=time.monotonic, expire_after_seconds: float | None = None,
                  cache_reuse_n: int = 0, model_name: str = "model", save_store: dict | None = None,
-                 ids: dict | None = None):
+                 ids: dict | None = None, chat_template: str | None = None):
         assert mode in MODES, mode
         self.mode, self.build_info, self.similarity = mode, build_info, similarity
         self.cache_limit_bytes, self.bytes_per_token = cache_limit_bytes, bytes_per_token
@@ -88,6 +88,7 @@ class Engine:
         self.template = template
         self.sleep_idle_seconds, self.clock, self.expire_after_seconds = sleep_idle_seconds, clock, expire_after_seconds
         self.cache_reuse_n, self.model_name, self.save_store = cache_reuse_n, model_name, save_store
+        self.chat_template = chat_template   # what GET /props reports as `chat_template`, when set
         self.sleeping, self.reloads = False, 0
         self.last_task = clock()
         self.slots: list[list[int]] = [[] for _ in range(slots)]
@@ -295,8 +296,11 @@ def _handler(engine: Engine):
         def do_GET(self):
             engine.props_reads += 1
             settings = {"n_ctx": engine.n_ctx} if engine.report_n_ctx else {}
-            self._reply({"build_info": engine.build_info, "total_slots": len(engine.slots),
-                         "default_generation_settings": settings, "is_sleeping": engine.is_sleeping()})
+            props = {"build_info": engine.build_info, "total_slots": len(engine.slots),
+                     "default_generation_settings": settings, "is_sleeping": engine.is_sleeping()}
+            if engine.chat_template is not None:
+                props["chat_template"] = engine.chat_template
+            self._reply(props)
 
         def do_POST(self):
             body = json.loads(self.rfile.read(int(self.headers["Content-Length"])).decode("utf-8"))

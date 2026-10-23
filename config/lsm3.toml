@@ -1,0 +1,30 @@
+# A fourth model family on llama.cpp: SmolLM3-3B as GGUF, for the cross-engine comparison with the
+# same family on vLLM (config/vsm3.toml). Lives in its own file because every committed llama.cpp
+# record hashes config/engines.toml, which therefore never changes (config/l17.toml's reason and
+# shape). The engine pin, server recipe and request parameters are those of config/engines.toml and
+# config/controls.toml; records of runs under this family additionally hash this file.
+#
+# Registered by the ledger entry named in `registered_by`; the drivers refuse the family while it is
+# empty. The model's owner publishes no GGUF; the file is the llama.cpp project's own conversion
+# (ggml-org), f16, its sha256 the Hub's recorded LFS digest, read 2026-10-23. The driver hashes the
+# local file and refuses on a mismatch.
+#
+# The chat template embedded in every published GGUF of this model predates the owner's fix of
+# 2025-07-09 and renders no `tools`; the server is therefore started with --chat-template-file
+# pointing at the owner's template at the revision pinned below (the same bytes config/vsm3.toml
+# pins for vLLM), and the registering entry names that override. The driver hashes the local
+# template file and refuses on a mismatch.
+[lsm3]
+registered_by = ""
+
+[lsm3.model]
+family = "smollm3"
+hf_repo = "ggml-org/SmolLM3-3B-GGUF"   # the llama.cpp project's conversion; Apache-2.0
+file = "SmolLM3-f16.gguf"
+sha256 = "8e6ad54cf7426bd8318df06597357deef1bd758e27fbed2ed87ef39ed96e6f74"
+
+[lsm3.chat_template]
+hf_repo = "HuggingFaceTB/SmolLM3-3B"   # the model's owner; Apache-2.0
+revision = "988f1dde"
+file = "chat_template.jinja"
+sha256 = "3e0e275a527f249670056e0078e474eadbdd007c134b4fdfae5a7b3089702814"

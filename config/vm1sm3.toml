@@ -1,0 +1,30 @@
+# Edit position (M1V) on vLLM for the smollm3 family (config/vsm3.toml): one word replaced at a named
+# site of the base request.
+#
+# Lives in its own file because config/vm1.toml is sealed by the hashes in the committed vm1 records.
+# Registered by the ledger entry named in `registered_by`; the driver refuses to run while it is
+# empty. Request parameters (tokens to generate, temperature, nonce length, user message) are those
+# of config/controls.toml; engine and block sizes are those of config/vllm.toml; the model is
+# config/vsm3.toml's. The sites are byte-identical to config/m1.toml's and config/vm1.toml's, so every
+# site compares across engines and families; a test holds the parity. The ids carry the family
+# (SM3) because the sealed H-M1V32/H-M1V128 verdicts rest on the first family's evidence and stay
+# sealed.
+[vm1sm3]
+repetitions = 5                       # trials per site, per hypothesis
+replacement = "zebra"                 # occurs nowhere in the base prefix
+system_fractions = [0.0, 0.1, 0.24, 0.27, 0.32, 0.5, 0.75, 0.999]
+tool_indexes = [0, 4, 9, 13]          # the first word of that tool's description
+edit_user_message = true              # the first word of the user message
+corpus_dir = "corpus/live/vm1sm3"
+results_dir = "results/vm1sm3"
+registered_by = ""
+
+# One hypothesis per server configuration: the block size. vm1.toml's formula verbatim, with B the
+# hypothesis's block:
+#   cached  = floor(min(d, n - 1) / B) * B       d = first differing token, n = edited prompt tokens
+#   created = floor(n / B) * B - cached
+[vm1sm3.hypotheses.H-M1V32SM3]
+block_size = 32
+
+[vm1sm3.hypotheses.H-M1V128SM3]
+block_size = 128

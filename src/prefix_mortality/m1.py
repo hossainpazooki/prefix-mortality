@@ -25,7 +25,8 @@ from prefix_mortality import REPO_ROOT
 from prefix_mortality.config import (ControlsConfig, EngineConfig, L17Config, M1Config, M1Hypothesis,
                                      load_controls_config, load_engines_config, load_m1_config, load_m1q17_config,
                                      load_m1sm3_config)
-from prefix_mortality.controls import (FIXTURE, Refusal, _gate_local, _gate_server, _maybe_l17, _resolve_model,
+from prefix_mortality.controls import (FIXTURE, Refusal, _gate_local, _gate_server, _gate_template_server, _maybe_l17,
+                                       _resolve_model, _template_pin,
                                        _server, build_body)
 from prefix_mortality.edits import apply, site_names
 from prefix_mortality.hashing import sha256_text_file
@@ -60,13 +61,14 @@ def _ids(tokens: list[dict]) -> list[int]:
 
 def run(m1: M1Config, controls: ControlsConfig, engine: EngineConfig, family: str, hid: str, client: Client,
         model_path: Path, repo_root: Path = REPO_ROOT, fixture: Path = FIXTURE,
-        l17: L17Config | None = None) -> dict:
+        l17: L17Config | None = None, template_path: Path | None = None) -> dict:
     hyp = m1.hypothesis(hid)
     if not m1.registered_by:
         raise Refusal(f"{m1.config_path.name} is UNREGISTERED (registered_by is empty); a ledger entry registers it first")
-    _gate_local(controls, engine, family, Path(model_path), l17)
+    _gate_local(controls, engine, family, Path(model_path), l17, template_path)
     props = client.props()
     _gate_server(engine, props)
+    _gate_template_server(l17, family, template_path, props)
     _gate_slots(hyp, props)
     system_text = (fixture / "system.txt").read_bytes().decode("utf-8")
     tools = json.loads((fixture / "tools.json").read_text(encoding="utf-8"))
@@ -84,6 +86,9 @@ def run(m1: M1Config, controls: ControlsConfig, engine: EngineConfig, family: st
               "hypothesis": hid, "family": family, "engine_release": engine.release, "engine_commit": engine.commit,
               "model_file": model.file, "model_sha256": model.sha256,
               "server": _server(props), "config_sha256": hashes}
+    pin = _template_pin(l17, family)
+    if pin is not None:
+        common["chat_template_file"], common["chat_template_sha256"] = pin.file, pin.sha256
     records, seq, halted = [], 0, False
     for rep in range(1, m1.repetitions + 1):
         for site in site_names(m1):
@@ -153,6 +158,8 @@ def main(argv=None) -> int:
         p.add_argument("--hypothesis", required=True, help="an id registered in config/m1.toml")
     sub.choices["run"].add_argument("--family", required=True)
     sub.choices["run"].add_argument("--model-path", required=True)
+    sub.choices["run"].add_argument("--chat-template-path", default=None,
+                                    help="the pinned template file, for a family whose config pins one")
     sub.choices["probe"].add_argument("--sites", required=True, help="comma-separated site names")
     a = ap.parse_args(argv)
     try:
@@ -171,7 +178,8 @@ def main(argv=None) -> int:
             return 0
         engine = load_engines_config(REPO_ROOT / "config" / "engines.toml")["llamacpp"]
         l17 = _maybe_l17(engine, a.family)
-        report = run(m1, controls, engine, a.family, a.hypothesis, client, Path(a.model_path), l17=l17)
+        report = run(m1, controls, engine, a.family, a.hypothesis, client, Path(a.model_path), l17=l17,
+                     template_path=Path(a.chat_template_path) if a.chat_template_path else None)
     except (Refusal, EngineError, ValueError) as e:
         print(f"M1 REFUSED: {e}".encode("ascii", "backslashreplace").decode("ascii"), file=sys.stderr)
         return 2

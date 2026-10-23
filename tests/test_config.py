@@ -3,8 +3,9 @@ replaced by the controls and engines loaders."""
 import pytest
 
 from prefix_mortality.config import (load_controls_config, load_engines_config, load_l17_config, load_m1_config,
-                                     load_m1q17_config, load_m2_config, load_m3_config, load_m4_config,
-                                     load_m7_config, load_seal_config, load_vllm_config, load_vm1_config,
+                                     load_m1q17_config, load_m1sm3_config, load_m2_config, load_m3_config, load_m4_config,
+                                     load_m7_config, load_seal_config, load_vfamily_config, load_vllm_config,
+                                     load_vm1_config,
                                      load_m5_config, load_m6_config, load_m8_config, load_vm2_config, load_vm3_config)
 
 
@@ -663,3 +664,39 @@ def test_m8l_is_m8_with_the_llama_date_pinned():
     for attr in ("recorded_dir", "similarity_threshold", "cache_ram_mib", "kv_geometry", "corpus_dir", "results_dir", "hypotheses"):
         assert getattr(m8l, attr) == getattr(m8, attr), attr
     assert m8.registered_by == "0038" and m8l.registered_by == "0044"
+
+
+# --- the smollm3 cell on both lanes (config/lsm3.toml, vsm3.toml, m1sm3.toml, vm1sm3.toml) ---------
+
+def test_the_smollm3_family_files_load_unregistered_and_pin_the_same_template_bytes_on_both_lanes():
+    from prefix_mortality import REPO_ROOT
+    l = load_l17_config(REPO_ROOT / "config" / "lsm3.toml")
+    v = load_vfamily_config(REPO_ROOT / "config" / "vsm3.toml")
+    assert l.registered_by == "" and v.registered_by == "", "unregistered until a ledger entry names them"
+    assert l.model.family == v.model.family == "smollm3"
+    assert l.model.hf_repo == "ggml-org/SmolLM3-3B-GGUF" and l.model.file == "SmolLM3-f16.gguf"
+    assert v.served_model_name == "smollm3-3b" and v.model.revision == "988f1dde"
+    assert l.chat_template is not None and l.chat_template.revision == v.model.revision
+    v_template = next(f for f in v.model.files if f.name == l.chat_template.file)
+    assert v_template.sha256 == l.chat_template.sha256, "one template text, both engines"
+    assert [f.name for f in v.model.files] == ["model-00001-of-00002.safetensors", "model-00002-of-00002.safetensors",
+                                               "config.json", "tokenizer.json", "tokenizer_config.json",
+                                               "chat_template.jinja", "generation_config.json",
+                                               "special_tokens_map.json"]
+
+
+def test_m1sm3_and_vm1sm3_load_unregistered_with_the_repo_sites_byte_identical_to_m1s_and_vm1s():
+    from prefix_mortality import REPO_ROOT
+    m1 = load_m1_config(REPO_ROOT / "config" / "m1.toml", REPO_ROOT)
+    s = load_m1sm3_config(REPO_ROOT / "config" / "m1sm3.toml", REPO_ROOT)
+    assert s.registered_by == ""
+    assert [(h.id, h.slots, h.rule) for h in s.hypotheses] == [("H-M1L1SM3", 1, "prefix"), ("H-M1LDSM3", 4, "threshold")]
+    assert (s.system_fractions, s.tool_indexes, s.edit_user_message, s.replacement, s.repetitions) ==            (m1.system_fractions, m1.tool_indexes, m1.edit_user_message, m1.replacement, m1.repetitions)
+    assert s.similarity_threshold == m1.similarity_threshold and s.threshold_margin == m1.threshold_margin
+    assert s.corpus_dir == REPO_ROOT / "corpus" / "live" / "m1sm3"
+    vm1 = load_vm1_config(REPO_ROOT / "config" / "vm1.toml", REPO_ROOT)
+    vs = load_vm1_config(REPO_ROOT / "config" / "vm1sm3.toml", REPO_ROOT)
+    assert vs.registered_by == ""
+    assert [(h.id, h.block_size) for h in vs.hypotheses] == [("H-M1V32SM3", 32), ("H-M1V128SM3", 128)]
+    assert (vs.system_fractions, vs.tool_indexes, vs.edit_user_message, vs.replacement, vs.repetitions) ==            (vm1.system_fractions, vm1.tool_indexes, vm1.edit_user_message, vm1.replacement, vm1.repetitions)
+    assert vs.corpus_dir == REPO_ROOT / "corpus" / "live" / "vm1sm3"

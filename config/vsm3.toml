@@ -1,0 +1,52 @@
+# A second model family on the V instrument: SmolLM3-3B in bf16 safetensors, served by the vLLM
+# pinned in config/vllm.toml. Lives in its own file because every committed V record hashes
+# config/vllm.toml, which therefore never changes (config/l17.toml's reason, on this lane). Engine,
+# dtype, context, KV space and block sizes stay config/vllm.toml's; request parameters are
+# config/controls.toml's. Records of runs under this family additionally hash this file.
+#
+# Registered by the ledger entry named in `registered_by`; the drivers refuse the family while it is
+# empty. Every file the render depends on is pinned: the weights, the model config, the tokenizer,
+# its config, the chat template (a separate file in this repository), the generation config and the
+# special-tokens map, all taken from one repository revision. Digests of the three LFS files are the
+# Hub's recorded ones; the others were hashed from the files at that revision, all read 2026-10-23.
+# The driver hashes every local file and refuses on a mismatch.
+[vsm3]
+registered_by = ""
+served_model_name = "smollm3-3b"
+
+[vsm3.model]
+family = "smollm3"
+hf_repo = "HuggingFaceTB/SmolLM3-3B"   # published by the model's owner; Apache-2.0
+revision = "988f1dde"
+
+[[vsm3.model.files]]
+name = "model-00001-of-00002.safetensors"
+sha256 = "e5eed4113a925264c33e3cdf76cd9f547c06a207ef2270914a7274a2bf685ffd"
+
+[[vsm3.model.files]]
+name = "model-00002-of-00002.safetensors"
+sha256 = "6c3ad90646457295723e4da5ee8afac47006e20407b122df5174693dd8d68a43"
+
+[[vsm3.model.files]]
+name = "config.json"
+sha256 = "c72b1031274ff4626e434d0019e88e95a767460135db9ee492eb80652b786af1"
+
+[[vsm3.model.files]]
+name = "tokenizer.json"
+sha256 = "7b6a500b662a34eb3f0374db856ba4ad7de4c81040571d78dc0d357238930005"
+
+[[vsm3.model.files]]
+name = "tokenizer_config.json"
+sha256 = "59a64b39f05ee0acf7479bbccf99a44d9e481c1a4a494eb03838ae3c35eb29be"
+
+[[vsm3.model.files]]
+name = "chat_template.jinja"
+sha256 = "3e0e275a527f249670056e0078e474eadbdd007c134b4fdfae5a7b3089702814"
+
+[[vsm3.model.files]]
+name = "generation_config.json"
+sha256 = "3458d62b3f9654f4bbe285223b0f4e5a1e67cae61c92bb6aeaadf04468bf9e01"
+
+[[vsm3.model.files]]
+name = "special_tokens_map.json"
+sha256 = "12403efb970f069ba62ddf3b66166a27254be4a198166b61ad1ee604bd3a4515"

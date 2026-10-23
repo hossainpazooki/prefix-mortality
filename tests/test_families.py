@@ -49,6 +49,8 @@ file = "chat_template.jinja"
 sha256 = "{sha}"
 '''
 
+TEMPLATE_TEXT = "{# the owner's template, standing in #}\n{{ messages }}\n"
+
 M1SM3_TOML = '''
 [m1sm3]
 repetitions = 2
@@ -111,14 +113,20 @@ def _lsm3_world(tmp_path, *, lsm3_registered="0051", m1sm3_registered="0053", te
     model = root / "model-sm3.gguf"
     model.write_bytes(b"other bytes standing in for the 3B gguf")
     tpl = root / "chat_template.jinja"
-    tpl.write_text("{{ messages }}", encoding="utf-8")
+    tpl.write_text(TEMPLATE_TEXT, encoding="utf-8", newline="\n")   # byte-exact: the gate compares bytes to /props
     pin = TEMPLATE_PIN.format(sha=sha256_file_bytes(tpl)) if template else ""
     (root / "config" / "lsm3.toml").write_text(
         LSM3_TOML.format(registered=lsm3_registered, sha=sha256_file_bytes(model), template=pin), encoding="utf-8")
     (root / "config" / "m1sm3.toml").write_text(M1SM3_TOML.format(registered=m1sm3_registered), encoding="utf-8")
-    w.update(model_sm3=model, lsm3=load_l17_config(root / "config" / "lsm3.toml"),
+    w.update(model_sm3=model, template=tpl, lsm3=load_l17_config(root / "config" / "lsm3.toml"),
              m1sm3=load_m1sm3_config(root / "config" / "m1sm3.toml", root))
     return w
+
+
+def _lserve(**kw):
+    """The stand-in started as the registering entry would start the real server: serving the pinned
+    template text."""
+    return lserve("faithful", chat_template=TEMPLATE_TEXT, **kw)
 
 
 def test_the_family_file_loads_by_its_stem_with_an_optional_chat_template_pin(tmp_path):
@@ -142,9 +150,10 @@ def test_an_m1sm3_id_must_carry_the_family_suffix(tmp_path):
 
 def test_m1_on_the_fourth_family_pins_its_file_under_its_stem_and_the_summarizer_expects_it(tmp_path):
     w = _lsm3_world(tmp_path)
-    with lserve("faithful", slots=1) as (url, _):
+    with _lserve(slots=1) as (url, _):
         report = m1_run(w["m1sm3"], w["controls"], w["engine"], FAMILY, "H-M1L1SM3", LClient(url, 30.0),
-                        w["model_sm3"], repo_root=w["root"], fixture=w["root"] / "fixture", l17=w["lsm3"])
+                        w["model_sm3"], repo_root=w["root"], fixture=w["root"] / "fixture", l17=w["lsm3"],
+                        template_path=w["template"])
     assert report["outcome"] == "ALL MATCH"
     assert [t["site"] for t in report["trials"]] == SITES * 2
     records = read(w["m1sm3"].corpus_dir / f"{report['run_id']}.jsonl")
@@ -154,15 +163,18 @@ def test_m1_on_the_fourth_family_pins_its_file_under_its_stem_and_the_summarizer
             "lsm3": sha256_text_file(w["lsm3"].config_path)}
     assert all(r["config_sha256"] == want and r["experiment"] == "m1sm3" for r in records)
     assert all(r["model_file"] == "model-sm3.gguf" and r["model_sha256"] == w["lsm3"].model.sha256 for r in records)
+    assert all(r["chat_template_file"] == "chat_template.jinja"
+               and r["chat_template_sha256"] == w["lsm3"].chat_template.sha256 for r in records)
     again, text = summarize_m1(report["run_id"], repo_root=w["root"])
     assert again == report and "H-M1L1SM3" in text
 
 
 def test_controls_on_the_fourth_family_pin_its_file_and_summarize(tmp_path):
     w = _lsm3_world(tmp_path)
-    with lserve("faithful", slots=1) as (url, _):
+    with _lserve(slots=1) as (url, _):
         report = controls_run(w["controls"], w["engine"], FAMILY, LClient(url, 30.0), w["model_sm3"],
-                              repo_root=w["root"], fixture=w["root"] / "fixture", l17=w["lsm3"])
+                              repo_root=w["root"], fixture=w["root"] / "fixture", l17=w["lsm3"],
+                              template_path=w["template"])
     assert report["verdict"] == "PASS"
     records = read(w["controls"].corpus_dir / f"{report['run_id']}.jsonl")
     assert all(r["config_sha256"]["lsm3"] == sha256_text_file(w["lsm3"].config_path) for r in records)
@@ -177,11 +189,51 @@ def test_controls_on_the_fourth_family_pin_its_file_and_summarize(tmp_path):
 ])
 def test_an_unregistered_family_or_experiment_file_refuses_and_records_nothing(tmp_path, kw, needle):
     w = _lsm3_world(tmp_path, **kw)
-    with lserve("faithful", slots=1) as (url, _):
+    with _lserve(slots=1) as (url, _):
         with pytest.raises(Refusal, match=needle):
             m1_run(w["m1sm3"], w["controls"], w["engine"], FAMILY, "H-M1L1SM3", LClient(url, 30.0), w["model_sm3"],
-                   repo_root=w["root"], fixture=w["root"] / "fixture", l17=w["lsm3"])
+                   repo_root=w["root"], fixture=w["root"] / "fixture", l17=w["lsm3"], template_path=w["template"])
     assert not list(w["m1sm3"].corpus_dir.glob("*.jsonl"))
+
+
+def _m1_sm3(w, url, **kw):
+    return m1_run(w["m1sm3"], w["controls"], w["engine"], FAMILY, "H-M1L1SM3", LClient(url, 30.0), w["model_sm3"],
+                  repo_root=w["root"], fixture=w["root"] / "fixture", l17=w["lsm3"], **kw)
+
+
+def test_a_pinned_template_needs_its_file_hashed_against_the_pin(tmp_path):
+    w = _lsm3_world(tmp_path)
+    with _lserve(slots=1) as (url, _):
+        with pytest.raises(Refusal, match="pins a chat template .*pass --chat-template-path"):
+            _m1_sm3(w, url)
+        other = w["root"] / "other.jinja"
+        other.write_text("{{ something else }}", encoding="utf-8")
+        with pytest.raises(Refusal, match="hashes to .* for chat_template.jinja"):
+            _m1_sm3(w, url, template_path=other)
+    assert not list(w["m1sm3"].corpus_dir.glob("*.jsonl"))
+
+
+def test_a_server_not_serving_the_pinned_template_is_refused_before_any_request(tmp_path):
+    w = _lsm3_world(tmp_path)
+    with lserve("faithful", slots=1) as (url, engine):              # the GGUF's own template: /props has none
+        with pytest.raises(Refusal, match="not the pinned chat_template.jinja"):
+            _m1_sm3(w, url, template_path=w["template"])
+        assert engine.requests == 0
+    with lserve("faithful", slots=1, chat_template=TEMPLATE_TEXT + "\n") as (url, engine):   # one byte off
+        with pytest.raises(Refusal, match="not the pinned chat_template.jinja"):
+            _m1_sm3(w, url, template_path=w["template"])
+    assert not list(w["m1sm3"].corpus_dir.glob("*.jsonl"))
+
+
+def test_a_family_without_a_template_pin_takes_no_template_path(tmp_path):
+    w = _lsm3_world(tmp_path, template=False)
+    with lserve("faithful", slots=1) as (url, _):
+        with pytest.raises(Refusal, match="pins no chat template"):
+            _m1_sm3(w, url, template_path=w["template"])
+        report = _m1_sm3(w, url)
+    assert report["outcome"] == "ALL MATCH"
+    records = read(w["m1sm3"].corpus_dir / f"{report['run_id']}.jsonl")
+    assert all("chat_template_sha256" not in r for r in records)
 
 
 def test_an_unknown_family_is_refused_with_every_known_family_named(tmp_path):

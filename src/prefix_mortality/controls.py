@@ -105,7 +105,7 @@ def _resolve_model(engine: EngineConfig, family: str, l17: "L17Config | None"):
 
 
 def _gate_local(cfg: ControlsConfig, engine: EngineConfig, family: str, model_path: Path,
-                l17: "L17Config | None" = None) -> None:
+                l17: "L17Config | None" = None, template_path: Path | None = None) -> None:
     """Everything that can be refused before the server is contacted."""
     gated = [(cfg.config_path.name, cfg.registered_by), (engine.config_path.name, engine.registered_by)]
     if l17 is not None and family == l17.model.family:
@@ -119,6 +119,45 @@ def _gate_local(cfg: ControlsConfig, engine: EngineConfig, family: str, model_pa
     digest = sha256_file_bytes(model_path)
     if digest != model.sha256:
         raise Refusal(f"{model_path} hashes to {digest}, config pins {model.sha256} for {model.file}")
+    _gate_template_file(l17, family, template_path)
+
+
+def _template_pin(l17: "L17Config | None", family: str):
+    """The family's chat-template override, when its file carries one."""
+    if l17 is not None and family == l17.model.family:
+        return l17.chat_template
+    return None
+
+
+def _gate_template_file(l17: "L17Config | None", family: str, template_path: Path | None) -> None:
+    """A family whose file pins a chat template is served with --chat-template-file; the driver needs
+    the same file, hashed against the pin. A family without the pin takes no template path."""
+    pin = _template_pin(l17, family)
+    if pin is None:
+        if template_path is not None:
+            raise Refusal(f"--chat-template-path given but {family!r} pins no chat template")
+        return
+    if template_path is None:
+        raise Refusal(f"{l17.config_path.name} pins a chat template ({pin.file}); pass --chat-template-path")
+    if not Path(template_path).is_file():
+        raise Refusal(f"chat template file {template_path} does not exist")
+    digest = sha256_file_bytes(template_path)
+    if digest != pin.sha256:
+        raise Refusal(f"{template_path} hashes to {digest}, config pins {pin.sha256} for {pin.file}")
+
+
+def _gate_template_server(l17: "L17Config | None", family: str, template_path: Path | None, props: dict) -> None:
+    """The server must be serving exactly the pinned template text (GET /props `chat_template` at the
+    pin is the template in use), or the render is not the one the registering entry named."""
+    pin = _template_pin(l17, family)
+    if pin is None:
+        return
+    text = Path(template_path).read_bytes().decode("utf-8")
+    served = props.get("chat_template")
+    if served != text:
+        raise Refusal(f"the server's chat_template is not the pinned {pin.file} "
+                      f"(served {len(served) if isinstance(served, str) else 'none'} chars, pinned {len(text)}); "
+                      "start it with --chat-template-file")
 
 
 def _gate_server(engine: EngineConfig, props: dict) -> None:
@@ -139,10 +178,12 @@ def _send(client: Client, body: bytes, requests_dir: Path) -> tuple[str, list[di
 
 
 def run(cfg: ControlsConfig, engine: EngineConfig, family: str, client: Client, model_path: Path,
-        repo_root: Path = REPO_ROOT, fixture: Path = FIXTURE, l17: "L17Config | None" = None) -> dict:
-    _gate_local(cfg, engine, family, Path(model_path), l17)
+        repo_root: Path = REPO_ROOT, fixture: Path = FIXTURE, l17: "L17Config | None" = None,
+        template_path: Path | None = None) -> dict:
+    _gate_local(cfg, engine, family, Path(model_path), l17, template_path)
     props = client.props()
     _gate_server(engine, props)
+    _gate_template_server(l17, family, template_path, props)
     system_text = (fixture / "system.txt").read_bytes().decode("utf-8")
     tools = json.loads((fixture / "tools.json").read_text(encoding="utf-8"))
     requests_dir = repo_root / "corpus" / "requests"
@@ -158,6 +199,9 @@ def run(cfg: ControlsConfig, engine: EngineConfig, family: str, client: Client, 
             "engine_release": engine.release, "engine_commit": engine.commit,
             "model_file": model.file, "model_sha256": model.sha256,
             "server": _server(props), "config_sha256": hashes}
+    pin = _template_pin(l17, family)
+    if pin is not None:
+        base["chat_template_file"], base["chat_template_sha256"] = pin.file, pin.sha256
     rng = make_rng(cfg.seed)
     records, seq = [], 0
     for rep in range(1, cfg.repetitions + 1):
@@ -209,6 +253,8 @@ def main(argv=None) -> int:
         p.add_argument("--url", required=True, help="the server's address, e.g. http://127.0.0.1:8080")
     sub.choices["run"].add_argument("--family", required=True)
     sub.choices["run"].add_argument("--model-path", required=True)
+    sub.choices["run"].add_argument("--chat-template-path", default=None,
+                                    help="the pinned template file, for a family whose config pins one")
     a = ap.parse_args(argv)
     cfg = load_controls_config(REPO_ROOT / "config" / "controls.toml", REPO_ROOT)
     client = Client(a.url, cfg.request_timeout_seconds)
@@ -218,7 +264,8 @@ def main(argv=None) -> int:
             return 0
         engine = load_engines_config(REPO_ROOT / "config" / "engines.toml")["llamacpp"]
         l17 = _maybe_l17(engine, a.family)
-        report = run(cfg, engine, a.family, client, Path(a.model_path), l17=l17)
+        report = run(cfg, engine, a.family, client, Path(a.model_path), l17=l17,
+                     template_path=Path(a.chat_template_path) if a.chat_template_path else None)
     except (Refusal, EngineError, ValueError) as e:
         print(f"CONTROLS REFUSED: {e}".encode("ascii", "backslashreplace").decode("ascii"), file=sys.stderr)
         return 2

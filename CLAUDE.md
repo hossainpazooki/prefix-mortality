@@ -64,6 +64,7 @@ eight).
 .venv/Scripts/python.exe -m prefix_mortality.summarize --run RUN_ID      # recomputes from disk; refuses on mismatch
 .venv/Scripts/python.exe -m prefix_mortality.m1 probe --url URL --hypothesis H-M1L1 --sites system-0.240,user
 .venv/Scripts/python.exe -m prefix_mortality.m1 run --url URL --hypothesis H-M1L1 --family qwen --model-path FILE
+.venv/Scripts/python.exe -m prefix_mortality.m1 run --url URL --hypothesis H-M1L1SM3 --family smollm3 --model-path FILE --chat-template-path FILE   # lsm3.toml + m1sm3.toml
 .venv/Scripts/python.exe -m prefix_mortality.summarize_m1 --run RUN_ID
 .venv/Scripts/python.exe -m prefix_mortality.m7 probe --url URL --hypothesis H-M7LD --family qwen --ks 1,12
 .venv/Scripts/python.exe -m prefix_mortality.m7 run --url URL --hypothesis H-M7LD --family qwen --model-path FILE
@@ -82,6 +83,7 @@ eight).
 .venv/Scripts/python.exe -m prefix_mortality.summarize_vcontrols --run RUN_ID
 .venv/Scripts/python.exe -m prefix_mortality.vm1 probe --url URL --hypothesis H-M1V32 --sites system-0.240,user
 .venv/Scripts/python.exe -m prefix_mortality.vm1 run --url URL --hypothesis H-M1V32 --family qwen17 --model-dir DIR
+.venv/Scripts/python.exe -m prefix_mortality.vm1 run --url URL --hypothesis H-M1V32SM3 --family smollm3 --model-dir DIR   # vsm3.toml + vm1sm3.toml
 .venv/Scripts/python.exe -m prefix_mortality.summarize_vm1 --run RUN_ID
 .venv/Scripts/python.exe -m prefix_mortality.vm23 probe --experiment vm3 --url URL --hypothesis H-M3V32 --arms thinking-off,thinking-on
 .venv/Scripts/python.exe -m prefix_mortality.vm23 run --experiment vm2 --url URL --hypothesis H-M2V32 --family qwen17 --model-dir DIR
@@ -108,9 +110,12 @@ hashes `config/engines.toml`, which therefore never changes); `config/l17.toml` 
 and `config/m1.toml` is likewise sealed by the committed M1 records, so edit position on `qwen17`
 lives in `config/m1q17.toml` with its own ids `H-M1L1Q17`/`H-M1LDQ17`, same CLIs; any later family
 follows the same pattern through `config.FAMILY_FILES`, which maps a family to its llama.cpp file and
-its vLLM file — `smollm3` → `lsm3.toml` and `vsm3.toml`, neither of which exists in the tree yet; a
-record of such a family hashes its family file under the file's stem, and `m1sm3.toml` / `vm1sm3.toml`
-would hold its edit-position ids); `config/vm3.toml`
+its vLLM file — `smollm3` → `config/lsm3.toml` (ggml-org f16 GGUF plus the owner's chat template
+pinned, served by `--chat-template-file` because every published GGUF's embedded template renders no
+`tools`) and `config/vsm3.toml` (bf16 safetensors, eight files at one revision, served as
+`smollm3-3b`), with `config/m1sm3.toml` / `config/vm1sm3.toml` holding its edit-position ids
+`H-M1L1SM3`/`H-M1LDSM3` and `H-M1V32SM3`/`H-M1V128SM3`; all four UNREGISTERED until an entry names
+them; a record of such a family hashes its family file under the file's stem); `config/vm3.toml`
 and `config/vm2.toml` for templating and serialization drift on vLLM (`vm23` driver, arms in place
 of sites, vm1's formula verbatim); `config/m8.toml` for lifespan on recorded runs (`m8` driver: the
 vendored conversations replayed one request per assistant turn with no nonce, `--c` conversations in
@@ -157,7 +162,7 @@ share and deaths) · `m5`, `summarize_m5` (rebuild: full then compacted, prefix/
 (model switch through the router, restart with slot save/restore).
 `config/` — `seal.toml`, `controls.toml`, `m1.toml`, `m2.toml`, `m3.toml`, `m4.toml`, `m5.toml`,
 `m6.toml`, `m7.toml`, `m8.toml`, `m8l.toml`, `engines.toml`, `vllm.toml`, `vm1.toml`, `l17.toml`,
-`m1q17.toml`, `vm2.toml`, `vm3.toml`.
+`m1q17.toml`, `vm2.toml`, `vm3.toml`, `lsm3.toml`, `vsm3.toml`, `m1sm3.toml`, `vm1sm3.toml`.
 `ledger/` — `ledger.md`, `predictions/`.
 `corpus/` — `base_prefix/tau2-airline/`, `recorded/tau2-airline-claude-3-7-sonnet/` (50 simulations +
 `provenance.json`), `live/`, `requests/`, `MANIFEST.json`. `tools/` —
