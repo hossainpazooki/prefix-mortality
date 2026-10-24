@@ -15,7 +15,7 @@
 # pins for vLLM), and the registering entry names that override. The driver hashes the local
 # template file and refuses on a mismatch.
 [lsm3]
-registered_by = ""
+registered_by = "0051"
 
 [lsm3.model]
 family = "smollm3"

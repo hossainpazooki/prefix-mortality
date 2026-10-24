@@ -11,7 +11,7 @@
 # Hub's recorded ones; the others were hashed from the files at that revision, all read 2026-10-23.
 # The driver hashes every local file and refuses on a mismatch.
 [vsm3]
-registered_by = ""
+registered_by = "0051"
 served_model_name = "smollm3-3b"
 
 [vsm3.model]

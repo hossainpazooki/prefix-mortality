@@ -114,8 +114,8 @@ its vLLM file — `smollm3` → `config/lsm3.toml` (ggml-org f16 GGUF plus the o
 pinned, served by `--chat-template-file` because every published GGUF's embedded template renders no
 `tools`) and `config/vsm3.toml` (bf16 safetensors, eight files at one revision, served as
 `smollm3-3b`), with `config/m1sm3.toml` / `config/vm1sm3.toml` holding its edit-position ids
-`H-M1L1SM3`/`H-M1LDSM3` and `H-M1V32SM3`/`H-M1V128SM3`; all four UNREGISTERED until an entry names
-them; a record of such a family hashes its family file under the file's stem); `config/vm3.toml`
+`H-M1L1SM3`/`H-M1LDSM3` and `H-M1V32SM3`/`H-M1V128SM3`; `lsm3`/`vsm3` registered by 0051, the two
+edit-position files UNREGISTERED until an entry names them; a record of such a family hashes its family file under the file's stem); `config/vm3.toml`
 and `config/vm2.toml` for templating and serialization drift on vLLM (`vm23` driver, arms in place
 of sites, vm1's formula verbatim); `config/m8.toml` for lifespan on recorded runs (`m8` driver: the
 vendored conversations replayed one request per assistant turn with no nonce, `--c` conversations in

@@ -2543,3 +2543,47 @@ with no condition). The sentence stands.
 
 **Status.** 0049's readings of both engines stand as corrected above; the post cites 0049 and this
 entry together for what the servers publish. Twenty-four validated hypotheses across two engines.
+
+### 0051 — 2026-10-24 — A fourth family on both engines: SmolLM3-3B, controls registered on llama.cpp and on vLLM
+
+prior-entries-sha256: b26c7fe2b73c2a4929a57902d7377ebb33fd27baf9a10dc6fcb07a84e792ba52
+
+**Registers** `config/lsm3.toml` and `config/vsm3.toml`, both now `registered_by = "0051"`: the family
+`smollm3` — SmolLM3-3B, served by the llama.cpp build registered in 0002 and by the vLLM build
+registered in 0022 — the first family after the first to be measured on both engines. The cross-engine
+comparison of 0025 and 0030 was made on `qwen17` only; this family repeats it with a second render
+semantics (its template serialises each tool as one object). No hypothesis is registered and no
+verdict cell is added: a control's outcome per server configuration is PASS, FAIL or NOT MEASURABLE,
+and a later entry states it from `summarize` and `summarize_vcontrols` output. `config/m1sm3.toml`
+and `config/vm1sm3.toml` exist in the tree and stay UNREGISTERED; this entry does not register them.
+
+**Instrument.**
+
+| part | value |
+|---|---|
+| engines | llama.cpp `b11235` at commit `6c7a87f` (0002) and vLLM `0.31.1rc1.dev8+gb6d8e8afd` (0022), unchanged. `config/engines.toml` and `config/vllm.toml` are byte-identical to their registered texts — every committed record hashes one of them — which is why the family lives in two files of its own, as `config/l17.toml` did (0028). |
+| model on llama.cpp | `ggml-org/SmolLM3-3B-GGUF`, file `SmolLM3-f16.gguf`, the llama.cpp project's own conversion (the owner publishes no GGUF); sha256 `8e6ad54c…6f74` pinned in `config/lsm3.toml` from the Hub's LFS record and verified against the downloaded file. The driver hashes the local file and refuses a mismatch. |
+| chat template on llama.cpp | The template embedded in every published GGUF of this model predates the owner's fix of 2025-07-09 ("fix: reassign xml_tools to tools to make it work with vllm") and renders no OpenAI `tools`. The server is therefore started with `--chat-template-file` pointing at the owner's `chat_template.jinja` at revision `988f1dde`, sha256 `3e0e275a…2814`, pinned in `config/lsm3.toml`. The driver hashes that file, requires `/props` to return `chat_template` byte-equal to it, and refuses otherwise; records carry `chat_template_sha256`. This is the first family served under a template override; 0006's pattern names the flag here. |
+| model on vLLM | `HuggingFaceTB/SmolLM3-3B`, bf16 safetensors, eight files at repository revision `988f1dde` — two shards, `config.json`, `tokenizer.json`, `tokenizer_config.json`, `chat_template.jinja`, `generation_config.json`, `special_tokens_map.json` — each pinned by sha256 in `config/vsm3.toml`; the driver hashes every local file and refuses a mismatch. Served as `smollm3-3b`. The template is the same bytes the llama.cpp lane serves. |
+| backend on vLLM | The pin has no native class for this architecture; the model runs through vLLM's Transformers modeling backend (`vllm/model_executor/models/registry.py`), with the CPU backend, dtype, context, KV space and the two block sizes of 0022. 72 KiB of KV per token from `config.json` at the revision (36 layers, 4 KV heads, head size 128, bf16), against 112 KiB for Qwen3-1.7B. |
+| weights | f16 GGUF on llama.cpp, bf16 safetensors on vLLM. Nothing measured here depends on them — reuse counters and token counts are functions of the tokenizer, the template and the cache policy — and the GGUF carries the owner's tokenizer. `config.json` gained `tie_word_embeddings: true` on 2025-07-28, after the GGUF was built; a weights question, likewise. The results entry repeats these sentences. |
+| server configurations | llama.cpp: `--parallel 1` and the defaults (0006's pattern). vLLM: block 32 and block 128 (0022's). Fresh server per run; never both engines at once on the 16 GB machine. |
+| machine | The Mac mini of 0002 and 0022. |
+
+**Parameters**, as in `config/controls.toml`, registered since 0002 and unchanged: 5 repetitions per
+configuration, each a write, a read and a scramble, under the rules of 0002 on llama.cpp and of 0022
+on vLLM. Records of this family additionally carry `config/lsm3.toml` or `config/vsm3.toml` in
+`config_sha256` under the file's stem; both summarizers refuse records of this family that do not.
+
+**Known before the run.**
+
+| fact | consequence |
+|---|---|
+| The pins were committed at `a225522` on 2026-10-23. On 2026-10-24, after that commit, one unrecorded smoke per lane was made: a server brought up at the pin, a handful of requests, one `/props` read, one template render. | Nothing from them is evidence and no figure from them appears here. They answered the two questions this entry needed before registering: the Transformers backend reports `prompt_tokens_details` with `cached_tokens` and `created_cache_tokens`, so the vLLM lane is measurable for this family under 0022's rules; and the override reaches `/props`, the served template's first line being the owner's and the render carrying a `<tools>` block. |
+| The template writes the local date (`strftime_now`) into the system header and takes no `date_string` argument, unlike Llama 3.1's (`config/m8l.toml`). | A run must not cross local midnight (0041's lesson); the results entry states each run's date. The nonce keeps every body distinct within a day. |
+| The template defaults `enable_thinking` to true and writes `Reasoning Mode: /think`; the `/no_think` path appends `<think>\n\n</think>\n` after the generation prompt, as Qwen3's does. | The render the controls measure is the default one; no reasoning switch is passed. |
+| 0022 pinned four files for Qwen3-1.7B and not `tokenizer_config.json`, which holds that model's template. | Nothing measured there is in doubt — every request's token ids are stored in the records — but this family pins its template on both lanes. |
+| At the defaults the llama.cpp server runs 4 slots with idle-slot clearing (0005). | The write rule is exercised beyond its floor only from the fifth fresh prompt, as 0002 and 0028 recorded. |
+
+**Status.** The smollm3 controls are `[STRETCH]` on both engines: registered, not run. Order: the
+llama.cpp one-slot run, the defaults, then vLLM at block 32 and at block 128.

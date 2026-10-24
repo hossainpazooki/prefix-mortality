@@ -668,11 +668,11 @@ def test_m8l_is_m8_with_the_llama_date_pinned():
 
 # --- the smollm3 cell on both lanes (config/lsm3.toml, vsm3.toml, m1sm3.toml, vm1sm3.toml) ---------
 
-def test_the_smollm3_family_files_load_unregistered_and_pin_the_same_template_bytes_on_both_lanes():
+def test_the_smollm3_family_files_are_registered_by_0051_and_pin_the_same_template_bytes_on_both_lanes():
     from prefix_mortality import REPO_ROOT
     l = load_l17_config(REPO_ROOT / "config" / "lsm3.toml")
     v = load_vfamily_config(REPO_ROOT / "config" / "vsm3.toml")
-    assert l.registered_by == "" and v.registered_by == "", "unregistered until a ledger entry names them"
+    assert l.registered_by == v.registered_by == "0051", "both lanes' controls registered by one entry"
     assert l.model.family == v.model.family == "smollm3"
     assert l.model.hf_repo == "ggml-org/SmolLM3-3B-GGUF" and l.model.file == "SmolLM3-f16.gguf"
     assert v.served_model_name == "smollm3-3b" and v.model.revision == "988f1dde"
