@@ -78,7 +78,7 @@ eight).
 .venv/Scripts/python.exe -m prefix_mortality.m3 probe --url URL --hypothesis H-M3LD --changes T1,T2
 .venv/Scripts/python.exe -m prefix_mortality.m3 run --url URL --hypothesis H-M3LD --family qwen --model-path FILE
 .venv/Scripts/python.exe -m prefix_mortality.summarize_m3 --run RUN_ID
-.venv/Scripts/python.exe -m prefix_mortality.vcontrols probe --url URL --pad-words 0   # vLLM; records nothing
+.venv/Scripts/python.exe -m prefix_mortality.vcontrols probe --url URL --pad-words 0 [--served-model ID]   # vLLM; records nothing; ID for a smoke of a later family
 .venv/Scripts/python.exe -m prefix_mortality.vcontrols run --url URL --family qwen17 --block-size 32 --model-dir DIR
 .venv/Scripts/python.exe -m prefix_mortality.summarize_vcontrols --run RUN_ID
 .venv/Scripts/python.exe -m prefix_mortality.vm1 probe --url URL --hypothesis H-M1V32 --sites system-0.240,user

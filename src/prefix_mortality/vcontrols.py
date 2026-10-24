@@ -177,14 +177,16 @@ def run(controls: ControlsConfig, cfg: VllmConfig, family: str, block_size: int,
 
 
 def probe(controls: ControlsConfig, cfg: VllmConfig, client: Client, fixture: Path = FIXTURE,
-          pad_words: int = 0) -> dict:
+          pad_words: int = 0, served: str | None = None) -> dict:
+    """Unrecorded. `served` names the model id to address (a later family's); default vllm.toml's."""
+    served = cfg.served_model_name if served is None else served
     server = {"version": client.version(), "model_ids": client.model_ids()}
     system_text = (fixture / "system.txt").read_bytes().decode("utf-8")
     tools = json.loads((fixture / "tools.json").read_text(encoding="utf-8"))
     user = controls.user_message + " pad" * pad_words
     nonce, other = new_nonce(controls.nonce_bytes), new_nonce(controls.nonce_bytes)
-    write = build_body(controls, cfg.served_model_name, system_text, tools, nonce, user_message=user)
-    fresh = build_body(controls, cfg.served_model_name, system_text, tools, other, user_message=user)
+    write = build_body(controls, served, system_text, tools, nonce, user_message=user)
+    fresh = build_body(controls, served, system_text, tools, other, user_message=user)
     pw, pf = client.prepare(write), client.prepare(fresh)
     ids_w, ids_f = [t["id"] for t in pw["tokens"]], [t["id"] for t in pf["tokens"]]
     first, second, third = client.chat(write), client.chat(write), client.chat(fresh)
@@ -207,13 +209,16 @@ def main(argv=None) -> int:
     sub.choices["run"].add_argument("--model-dir", required=True, help="folder holding the pinned model files")
     sub.choices["probe"].add_argument("--pad-words", type=int, default=0,
                                       help="lengthen the user message to hunt a block boundary")
+    sub.choices["probe"].add_argument("--served-model", default=None,
+                                      help="model id to address when the server is not vllm.toml's (a smoke of a later family)")
     a = ap.parse_args(argv)
     controls = load_controls_config(REPO_ROOT / "config" / "controls.toml", REPO_ROOT)
     cfg = load_vllm_config(REPO_ROOT / "config" / "vllm.toml", REPO_ROOT)
     client = Client(a.url, controls.request_timeout_seconds)
     try:
         if a.cmd == "probe":
-            print(json.dumps(probe(controls, cfg, client, pad_words=a.pad_words), indent=2, ensure_ascii=True))
+            print(json.dumps(probe(controls, cfg, client, pad_words=a.pad_words, served=a.served_model),
+                             indent=2, ensure_ascii=True))
             return 0
         vfam = _maybe_vfamily(cfg, a.family)
         report = run(controls, cfg, a.family, a.block_size, client, Path(a.model_dir), vfam=vfam)
