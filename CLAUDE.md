@@ -31,11 +31,14 @@ the six parameters; entry 0050 records the twelfth refuter's pass on 0049's sour
 refutation of the count: twenty-four validated hypotheses, not twenty-seven (0045's "eleven" is
 eight). Entry 0051 registers the controls of a fourth family, SmolLM3-3B, on both engines
 (`config/lsm3.toml`, `config/vsm3.toml`); entry 0052 records them: PASS on llama.cpp in both
-configurations, FAIL on vLLM at block 32 (the template's first 38 tokens, which no nonce changes,
+configurations, FAIL on vLLM at block 32 (the render's first 38 tokens, which no nonce changes,
 fill a block), block 128 not run. Entry 0053 closes the cell with no further run: 0052's head
 corrected from 39 to 38, `config/m1sm3.toml` and `config/vm1sm3.toml` UNREGISTERED by decision,
-the family's key-order prediction withdrawn by reading (both servers rebuild every tool before
-the template sees it), and 0036's "the template normalises" corrected to the servers.
+the family's key-order prediction withdrawn by reading (both servers rebuild every tool of the
+request's `tools` field before the template sees it; a `tools` key in `chat_template_kwargs`
+bypasses that, and no driver sends one), and 0036's "the template normalises" corrected to the
+servers. Entry 0054 records the thirteenth refuter's pass: 0052 `[VALIDATED]`, 0053's render
+length and the reach of its two source readings corrected, three sentences recast.
 
 ## Rules
 - The chassis is copied from lag-ladder, not shared. Never import `lag_ladder`, `linear_ceiling` or
@@ -291,4 +294,5 @@ the operator's ruling the requests upstream. Phase 1 was reopened on 2026-10-23 
 SmolLM3-3B family on both engines (0051): its controls pass on llama.cpp, fail on vLLM at block 32
 and are not run at block 128 (0052). 0053 closes it without another run, by the operator's
 ruling of 2026-11-02: publish first, and a second family on vLLM, if ever, on another machine
-after publication as its own design. Next: one refuter over 0052 and 0053, then the post.
+after publication as its own design. The refuter's pass is 0054; the reopening ends there, and
+the post is next.

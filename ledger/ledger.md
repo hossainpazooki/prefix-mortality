@@ -2715,3 +2715,40 @@ smollm3 controls are `[BASELINE]` on llama.cpp in both configurations and FAIL `
 at block 32. Block 128 stays `[STRETCH]`: registered, not run. Twenty-four validated hypotheses
 stand. One refuter over 0052 and this entry follows (rule 5, entry 0008), and with it the 2026-10-23
 reopening of Phase 1 ends.
+
+### 0054 — 2026-11-02 — 0052 and 0053 survived a thirteenth refuter on every figure but one; two readings of 0053 narrowed, three sentences recast
+
+prior-entries-sha256: b14700ab184a6ee476ac93eeebb9222e72196f7dfc0b6e7faa13c1df72a37094
+
+**Under rule 5** (entry 0008). Entries 0052 and 0053 were given to a thirteenth refuter, independent
+of the author as in 0010, 0011, 0014, 0018, 0021, 0024, 0027, 0034, 0037, 0045, 0048 and 0050. It
+was a separate agent with its own context and its own code. It had no git, imported nothing from
+the package, contacted no server, and had network access only to the two engines' sources at the
+pins. It worked on an export of commit `20be297` carrying 0053's two files. Those files are
+byte-identical to commit `216d15d`, which changes nothing else (the author's check:
+`ledger/ledger.md` sha256 `2c67bf0a…`, `CLAUDE.md` `11dea0d1…`).
+
+| | |
+|---|---|
+| what it read | The export whole, the llama.cpp source at `b11235` and the vLLM source at `b6d8e8af`, all from the public raw files. It also fetched `common/chat.cpp` by commit `6c7a87f`, and it equals the tag's. It attacked eight claims: 0052's table, cell by cell, from the records and requests; the head length and 0053's counts over 517 pairs; the render; 0053's source readings; its quotations; its counts and tags; both chain lines and every record's config hashes; and `CLAUDE.md` with the registration gate. |
+| verdict | NOT REFUTED on every figure of 0052's table, PASS, PASS and FAIL recomputed under 0002's and 0022's rules. Also NOT REFUTED: 0053's 517-pair histogram (38: 290, 39: 222, 40: 3, 41: 2), the rule that the space before the nonce is a token of its own for all 22 digit-led nonces and none of the 11 letter-led ones, the one-slot pattern in all 9 comparisons, every cited line range at both pins, every quotation, the count of twenty-four, both chain lines (`7ca611b2…`, `13fa7f97…`), all 33 records' config hashes, and the gate in `m1.py` 66–67 and `vm1.py` 49–50. REFUTED: 0053's render length, and two of its source readings, which hold for the request's `tools` field only. Two sentences of 0053 and one of 0052 were also miscast. The operator's ruling quoted in 0053 has no source in this repository and is unverifiable here. |
+| what it added | 90 of the 517 pairs compare llama.cpp token ids with vLLM's. That is valid because the vocabularies agree: ids 0 to 37 are identical in all 33 requests. Every pair at 40 is such a pair; within one engine the counts are 38: 257, 39: 168, 41: 2. The lower bound holds for any nonce the driver draws: nonces are 32 lowercase hex characters, and the tokenizer closes `run` at the space. The author re-read each cited line and recomputed the counts below from the records. |
+
+**Corrections.** Entries are immutable; the sentences below are superseded here. No verdict or
+outcome changes.
+
+| entry, sentence | correction |
+|---|---|
+| 0053, the 22 write and read requests "have one render of 19,788 characters" | 19,817 characters, identical but for the 32-character nonce. 19,788 is the length with the nonce replaced by a three-character mask. |
+| 0053, "both servers rebuild every tool before any template sees it" and "A template that prints the whole tool prints the server's rebuild" | As read, for the request's `tools` field, which is all the drivers send and all the withdrawn cell would have varied. A `tools` key inside `chat_template_kwargs` replaces the rebuild on both engines and reaches the template as sent, key order and extra keys included. llama.cpp: `tools/server/server-common.cpp` 1332–1336 copies the request's kwargs; `common/chat.cpp` 1293–1296 makes them the template's extra context; 922–930 sets `tools` and then overwrites it from that context. vLLM: `vllm/renderers/online_renderer.py` 773–782 puts the rebuild among the defaults; `vllm/renderers/params.py` 104–123 and 48 let the request's kwargs win; `vllm/renderers/hf.py` 1056–1067 and 826–832 pass them to the template and refuse only `chat_template` and `tokenize` (723–730). The cell's predicted outcome, 0016's table, stands. |
+| 0053, the vLLM serializers emit "`type` and `function` …, then `name`, `description` and `parameters`" | Also `defer_loading` on the tool, and `strict` and `defer_loading` on the function, when a request sets them (`vllm/entrypoints/openai/chat_completion/protocol.py` 192 and 204–205; `vllm/entrypoints/generate/base/protocol.py` 289–290 and 296–299). A tool sent with `strict: true` reaches vLLM's template; llama.cpp keeps only `name`, `description` and `parameters` (`common/chat.cpp` 609–611). The stored requests set none of these. |
+| 0053, "The template's first 38 tokens, through `run`"; and 0052, "the 39 tokens the template writes before the nonce" | The render's first 38 tokens: 37 from the template's header, then `run`, which the driver writes into the system message ahead of the nonce (`src/prefix_mortality/vcontrols.py` 41, `controls.py` 53 and 66). The template's 37 tokens alone exceed 32. |
+| 0053, "The comparison across engines stays on `qwen17` alone (0025, 0030, 0033)" | The edit-position comparison across engines (0033) stays on `qwen17` alone. 0035 and 0036 set vLLM's drift results on `qwen17` beside llama.cpp's on two other families (0016, 0017). |
+| 0052, "its sentence that the lane is measurable under 0022's rules holds for block 128 alone" | The lane reported every field at block 32, where the scramble control fails by construction; at block 128 there is no record. |
+| 0052, the scramble cell "cached 32 where the rule says 0" | And created 4,768 where the rule says 4,800 (*n* = 4,830): the two counters disagree with the rule by the same 32. |
+
+**Status.** 0052's outcomes are `[VALIDATED]`. The smollm3 controls PASS on llama.cpp in both
+configurations and FAIL on vLLM at block 32. Block 128 stays `[STRETCH]`: registered, not run.
+0053's readings stand as corrected above; its decisions are unchanged. Twenty-four validated
+hypotheses stand: controls are not hypotheses. The 2026-10-23 reopening of Phase 1 ends here, and
+the post is next.
