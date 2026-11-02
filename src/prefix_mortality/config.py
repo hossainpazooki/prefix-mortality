@@ -676,7 +676,7 @@ def load_engines_config(path: Path) -> dict[str, EngineConfig]:
 # under the file's stem.
 FAMILY_FILES: dict[str, tuple[str | None, str | None]] = {
     "qwen17": ("l17.toml", None),          # entry 0028; on vLLM the family is config/vllm.toml's own
-    "smollm3": ("lsm3.toml", "vsm3.toml"),  # design of 2026-10-23; unregistered until an entry names it
+    "smollm3": ("lsm3.toml", "vsm3.toml"),  # both registered by 0051 (controls)
 }
 
 
