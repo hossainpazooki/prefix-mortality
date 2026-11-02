@@ -2587,3 +2587,57 @@ on vLLM. Records of this family additionally carry `config/lsm3.toml` or `config
 
 **Status.** The smollm3 controls are `[STRETCH]` on both engines: registered, not run. Order: the
 llama.cpp one-slot run, the defaults, then vLLM at block 32 and at block 128.
+
+### 0052 — 2026-11-02 — SmolLM3-3B controls: llama.cpp passes in both configurations, vLLM fails at block 32, block 128 not run
+
+prior-entries-sha256: 7ca611b21837b5635b48700a939b60da5ad33488322c707eb8e55f8f15e304f7
+
+**Outcome** `[BASELINE]`. The controls registered by 0051 ran at commit `563d97e` on 2026-10-24, one
+run per server configuration, the server started fresh for each. Their records and requests are
+committed at `9d4c2ab`. Every figure below is from `summarize --run` or `summarize_vcontrols --run`
+on those files, or from the records' `server` and pin fields, except the one counted from the stored
+token ids, which says so.
+
+| | llama.cpp `--parallel 1` | llama.cpp defaults | vLLM block 32 |
+|---|---|---|---|
+| run | `20261024T224544Z-smollm3` | `20261024T225020Z-smollm3` | `20261024T225941Z-smollm3-b32` |
+| outcome | PASS | PASS | FAIL |
+| records | 15 | 15 | 3 |
+| read | reused *n* − 1, 5 of 5 | reused *n* − 1, 5 of 5 | cached floor((*n* − 1)/*B*)·*B*, 1 of 1 |
+| write | at most *h*, 5 of 5 (first 0; then 38 to 39 of *h* 53 to 60) | at most *h*, 5 of 5 (every write 0) | cached 0, created floor(*n*/*B*)·*B*, 1 of 1 |
+| scramble | at most *h*, 5 of 5 (38 to 39 of *h* 54 to 60) | at most *h*, 5 of 5 (every scramble 0) | cached 32 where the rule says 0, 0 of 1 |
+| as the server reported | `b11235-6c7a87f7e`, 1 slot, context 65,536 | `b11235-6c7a87f7e`, 4 slots, context 65,536 | `0.31.1rc1.dev8+gb6d8e8afd` |
+| chat template, sha256 in the records | `3e0e275a…2814`, the pinned file | `3e0e275a…2814` | `3e0e275a…2814`, among the eight model files |
+| *n*, over all requests | 4,823 to 4,831 | 4,824 to 4,830 | 4,829 to 4,830 |
+| local date | 2026-10-24, all records | 2026-10-24 | 2026-10-24 |
+| fields not reported | None. | None. | None. |
+
+**The failure at block 32.** The driver stops at the first repetition that fails, so the run holds
+one. 0022's scramble rule predicts cached 0 only while the scramble and the write share fewer tokens
+than one block (`nonce_isolates_first_block`). Counted from the stored token ids, they share 41: the
+39 tokens the template writes before the nonce, and two more because both nonces begin with `5e`.
+The 39 do not depend on the nonce, so at block 32 every scramble of this family shares a full first
+block with its write and the control cannot pass whatever nonce is drawn; at block 128 the 39 fit
+inside the first block. For Qwen3-1.7B the shared head was shorter than 32 (0023, 5 of 5 at both
+sizes). 0051 registered block 32 without checking this length against the block size; its vLLM
+smoke ran at block 128 only, so its sentence that the lane is measurable under 0022's rules holds
+for block 128 alone. By rule 1 of 0001, no hypothesis of this family runs on vLLM at block 32.
+Nothing here changes 0022's rules or `config/vsm3.toml`.
+
+**Block 128 not run.** On 2026-11-01 the vLLM server, started as 0051 registers it, refused to
+start: its own check, made after the weights are loaded, found less memory available on the machine
+than the registered 4 GiB KV space. The driver refused at its first contact with the server and no
+record was written. The KV space is part of the instrument (0022, 0051) and this entry does not
+change it.
+
+**Weights**, as 0051 promised to repeat: f16 GGUF on llama.cpp, bf16 safetensors on vLLM. Nothing
+measured here depends on them — reuse counters and token counts are functions of the tokenizer, the
+template and the cache policy — and the GGUF carries the owner's tokenizer. `config.json` gained
+`tie_word_embeddings: true` on 2025-07-28, after the GGUF was built; a weights question, likewise.
+
+**Status.** The smollm3 controls on llama.cpp are `[BASELINE]` in both configurations: rule 1 of
+0001 is stated and measured for the fourth family, with the patterns of the first three (one slot
+reuses the shared template head; the defaults clear idle slots, 0005). On vLLM they FAIL at block
+32 `[BASELINE]` and stay `[STRETCH]` at block 128: registered, not run. `[VALIDATED]` waits on an
+independent refuter (rule 5, entry 0008). `config/m1sm3.toml` and `config/vm1sm3.toml` remain
+UNREGISTERED.

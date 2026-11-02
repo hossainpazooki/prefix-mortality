@@ -29,7 +29,10 @@ corrects one sentence of 0046, 0022, 0025 and the `config/vllm.toml` comment: vL
 `/server_info` under `VLLM_SERVER_DEV_MODE`; llama.cpp's `/props` and `/metrics` publish none of
 the six parameters; entry 0050 records the twelfth refuter's pass on 0049's source readings and its
 refutation of the count: twenty-four validated hypotheses, not twenty-seven (0045's "eleven" is
-eight).
+eight). Entry 0051 registers the controls of a fourth family, SmolLM3-3B, on both engines
+(`config/lsm3.toml`, `config/vsm3.toml`); entry 0052 records them: PASS on llama.cpp in both
+configurations, FAIL on vLLM at block 32 (the template's 39 tokens before the nonce fill a block),
+block 128 not run.
 
 ## Rules
 - The chassis is copied from lag-ladder, not shared. Never import `lag_ladder`, `linear_ceiling` or
@@ -281,4 +284,6 @@ development flag; the same sentence in 0022, 0025 and the sealed `config/vllm.to
 corrected by reading. The vLLM request narrows to promotion of those fields, typed, onto the API a
 client calls; the llama.cpp request is unchanged. Phase 1 is closed on both engines; Phase 2 (one
 blog post, both engines, vLLM's request the headline, by the rulings of 2026-10-12) is next, then on
-the operator's ruling the requests upstream.
+the operator's ruling the requests upstream. Phase 1 was reopened on 2026-10-23 for one cell, the
+SmolLM3-3B family on both engines (0051): its controls pass on llama.cpp, fail on vLLM at block 32
+and are not run at block 128 (0052); the post waits on that cell.
