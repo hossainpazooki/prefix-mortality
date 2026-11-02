@@ -2641,3 +2641,77 @@ reuses the shared template head; the defaults clear idle slots, 0005). On vLLM t
 32 `[BASELINE]` and stay `[STRETCH]` at block 128: registered, not run. `[VALIDATED]` waits on an
 independent refuter (rule 5, entry 0008). `config/m1sm3.toml` and `config/vm1sm3.toml` remain
 UNREGISTERED.
+
+### 0053 — 2026-11-02 — The SmolLM3-3B cell closes without another run: 0052's head length and 0036's attribution corrected, a prediction withdrawn by reading
+
+prior-entries-sha256: 13fa7f973ee2ae52f12feaa5faa0d3f2e9108108f7a4290edeb50dbebe469ead
+
+**Descriptive.** No run, no hypothesis, no verdict. In the form of 0034 and 0049: entries are
+immutable, and the sentences below are superseded here. The evidence is the stored token ids and
+renders of the 33 requests of 0052's three runs (committed at `9d4c2ab`), counted with code outside
+the package and marked as counted, and a reading of the llama.cpp source at `b11235` and the vLLM
+source at `b6d8e8af`, to the standard of 0015 and 0049. No server was contacted.
+
+**The ruling.** The operator, 2026-11-02, verbatim: "R7 — Drop the key-order cell (design §3 E).
+Close the SmolLM3 cell with entry 0053 as a closing entry with no run. Publish first; the pod route
+for a second family on vLLM is after publication, if ever, and is its own design." The design is the
+one 0051 was registered from, and it is not in this repository. Its section 3 holds the prediction
+withdrawn below; E is the follow-on cell that would have tested it.
+
+**The head, corrected.** 0052 says the write and the scramble share 41 tokens: "the 39 tokens the
+template writes before the nonce, and two more because both nonces begin with `5e`". It adds: "The
+39 do not depend on the nonce". That is one too many. Counted from the stored token ids over the
+517 pairs of these requests whose nonces differ, the shared prefix is never shorter than 38 or
+longer than 41: 38 in 290 pairs, 39 in 222, 40 in 3 and 41 in 2. The template's first 38 tokens,
+through `run`, do not depend on the nonce. Token 38, the space before the nonce, is a token of its
+own only when the nonce begins with a digit. A nonce that begins with a letter takes the space into
+its first token (` a`, ` d`, ` db`, ` f` and ` bef` in these records). Both nonces of the vLLM pair
+at block 32 begin with a digit, so they share the space, then `5` and `e`: three tokens past the 38,
+41 in all. The one-slot llama.cpp run shows it in its reuse (`summarize --run
+20261024T224544Z-smollm3`): after the first write, every write and scramble reused 39 where both
+nonces compared begin with a digit, and 38 where either begins with a letter (repetitions 3 and 5).
+0052's outcomes stand. At least 38 tokens are shared
+whatever nonce is drawn, so the scramble control cannot pass at block 32, and 41 tokens fit inside a
+block of 128.
+
+**No edit-position run.** `config/m1sm3.toml` and `config/vm1sm3.toml` stay UNREGISTERED by
+decision, not by omission. No edit-position run will be made for this family on either engine, and
+the four ids those files hold (`H-M1L1SM3`, `H-M1LDSM3`, `H-M1V32SM3`, `H-M1V128SM3`) are not
+registered. The family was registered for a second comparison across engines (0051). On this machine
+its vLLM half is barred at block 32 by rule 1 of 0001 and was refused at block 128 by the server's
+own memory check (0052). The comparison across engines stays on `qwen17` alone (0025, 0030, 0033).
+
+**A prediction withdrawn by reading.** 0051 calls this family's template "a second render semantics
+(its template serialises each tool as one object)". From that the design predicted a verdict
+different from 0016's: that reordering the keys of a tool or of its `function` would change the
+render and end the prefix at the first reordered tool on both engines, and that the two engines
+would print the tools differently. The prediction was never registered here and no request tested
+it. Both halves are refuted without a run.
+
+| claim | refuted by |
+|---|---|
+| the two engines print the tools differently | The stored renders. With the nonce masked, the 22 write and read requests of 0052's three runs, on both engines, have one render of 19,788 characters. Each tool is printed as one mapping, `{'type': 'function', 'function': {'name': …`. Counted from the stored requests. |
+| a reorder at the level of the tool or its `function` changes the render | The sources: both servers rebuild every tool before any template sees it. On llama.cpp `b11235`, `common/chat.cpp` 587–614 (`common_chat_tools_parse_oaicompat`) keeps `name`, `description` and `parameters` (the last as text) and nothing else. Lines 558–575 (`common_chat_tools_to_json_oaicompat`) emit them as `type`, `function`, `name`, `description`, `parameters`, in that order. Line 1228 builds that rebuild ahead of every render branch (1315–1339). This is 0015's reading, unchanged. On vLLM `b6d8e8af`, `vllm/renderers/online_renderer.py` 287 hands the template `tool.model_dump()` for each tool. The serializers emit only declared fields, in declared order: `type` and `function` (`vllm/entrypoints/openai/chat_completion/protocol.py` 189–206), then `name`, `description` and `parameters` (`vllm/entrypoints/generate/base/protocol.py` 285–300). A template that prints the whole tool prints the server's rebuild. |
+
+On both engines the order of the tools, and the key order inside `parameters`, still reach the
+template. llama.cpp's request type keeps object key order (`common/json.cpp` 14,
+`nlohmann::ordered_json`) through the text round trip of `parameters`; vLLM's `parameters` is a
+plain mapping. This family's key-order cell would therefore have reproduced 0016's table: S2, S5 and
+S6 identical, S3 and S4 ending at the first differing character. It is not run.
+
+**One sentence of 0036 corrected.**
+
+| entry, sentence | correction |
+|---|---|
+| 0036, "serialization drift the template normalises away (function-level key order)" | The server normalises it on both engines, before the template sees the tools (the sources above; 0016's title already says so of llama.cpp). The property order that 0036's next sentence says "the template PRESERVES" is kept by the server's parse inside `parameters`, and the template prints it. 0036's tables and verdicts stand. |
+
+**After publication.** 2026-11-02: the post is published first. A second family on vLLM, if wanted,
+runs on another machine at the same commits, as its own design after publication. That design opens
+with a bridging entry on `qwen17` whose cached and created counts must match 0023's records exactly
+before any other family runs there.
+
+**Status.** Descriptive; it changes no verdict. 0052's outcomes stand as corrected above. The
+smollm3 controls are `[BASELINE]` on llama.cpp in both configurations and FAIL `[BASELINE]` on vLLM
+at block 32. Block 128 stays `[STRETCH]`: registered, not run. Twenty-four validated hypotheses
+stand. One refuter over 0052 and this entry follows (rule 5, entry 0008), and with it the 2026-10-23
+reopening of Phase 1 ends.

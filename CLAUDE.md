@@ -31,8 +31,11 @@ the six parameters; entry 0050 records the twelfth refuter's pass on 0049's sour
 refutation of the count: twenty-four validated hypotheses, not twenty-seven (0045's "eleven" is
 eight). Entry 0051 registers the controls of a fourth family, SmolLM3-3B, on both engines
 (`config/lsm3.toml`, `config/vsm3.toml`); entry 0052 records them: PASS on llama.cpp in both
-configurations, FAIL on vLLM at block 32 (the template's 39 tokens before the nonce fill a block),
-block 128 not run.
+configurations, FAIL on vLLM at block 32 (the template's first 38 tokens, which no nonce changes,
+fill a block), block 128 not run. Entry 0053 closes the cell with no further run: 0052's head
+corrected from 39 to 38, `config/m1sm3.toml` and `config/vm1sm3.toml` UNREGISTERED by decision,
+the family's key-order prediction withdrawn by reading (both servers rebuild every tool before
+the template sees it), and 0036's "the template normalises" corrected to the servers.
 
 ## Rules
 - The chassis is copied from lag-ladder, not shared. Never import `lag_ladder`, `linear_ceiling` or
@@ -67,7 +70,7 @@ block 128 not run.
 .venv/Scripts/python.exe -m prefix_mortality.summarize --run RUN_ID      # recomputes from disk; refuses on mismatch
 .venv/Scripts/python.exe -m prefix_mortality.m1 probe --url URL --hypothesis H-M1L1 --sites system-0.240,user
 .venv/Scripts/python.exe -m prefix_mortality.m1 run --url URL --hypothesis H-M1L1 --family qwen --model-path FILE
-.venv/Scripts/python.exe -m prefix_mortality.m1 run --url URL --hypothesis H-M1L1SM3 --family smollm3 --model-path FILE --chat-template-path FILE   # lsm3.toml + m1sm3.toml
+.venv/Scripts/python.exe -m prefix_mortality.m1 run --url URL --hypothesis H-M1L1SM3 --family smollm3 --model-path FILE --chat-template-path FILE   # lsm3.toml + m1sm3.toml; UNREGISTERED by decision (0053), refuses
 .venv/Scripts/python.exe -m prefix_mortality.summarize_m1 --run RUN_ID
 .venv/Scripts/python.exe -m prefix_mortality.m7 probe --url URL --hypothesis H-M7LD --family qwen --ks 1,12
 .venv/Scripts/python.exe -m prefix_mortality.m7 run --url URL --hypothesis H-M7LD --family qwen --model-path FILE
@@ -86,7 +89,7 @@ block 128 not run.
 .venv/Scripts/python.exe -m prefix_mortality.summarize_vcontrols --run RUN_ID
 .venv/Scripts/python.exe -m prefix_mortality.vm1 probe --url URL --hypothesis H-M1V32 --sites system-0.240,user
 .venv/Scripts/python.exe -m prefix_mortality.vm1 run --url URL --hypothesis H-M1V32 --family qwen17 --model-dir DIR
-.venv/Scripts/python.exe -m prefix_mortality.vm1 run --url URL --hypothesis H-M1V32SM3 --family smollm3 --model-dir DIR   # vsm3.toml + vm1sm3.toml
+.venv/Scripts/python.exe -m prefix_mortality.vm1 run --url URL --hypothesis H-M1V32SM3 --family smollm3 --model-dir DIR   # vsm3.toml + vm1sm3.toml; UNREGISTERED by decision (0053), refuses
 .venv/Scripts/python.exe -m prefix_mortality.summarize_vm1 --run RUN_ID
 .venv/Scripts/python.exe -m prefix_mortality.vm23 probe --experiment vm3 --url URL --hypothesis H-M3V32 --arms thinking-off,thinking-on
 .venv/Scripts/python.exe -m prefix_mortality.vm23 run --experiment vm2 --url URL --hypothesis H-M2V32 --family qwen17 --model-dir DIR
@@ -118,7 +121,7 @@ pinned, served by `--chat-template-file` because every published GGUF's embedded
 `tools`) and `config/vsm3.toml` (bf16 safetensors, eight files at one revision, served as
 `smollm3-3b`), with `config/m1sm3.toml` / `config/vm1sm3.toml` holding its edit-position ids
 `H-M1L1SM3`/`H-M1LDSM3` and `H-M1V32SM3`/`H-M1V128SM3`; `lsm3`/`vsm3` registered by 0051, the two
-edit-position files UNREGISTERED until an entry names them; a record of such a family hashes its family file under the file's stem); `config/vm3.toml`
+edit-position files UNREGISTERED by decision (0053: no edit-position run for this family); a record of such a family hashes its family file under the file's stem); `config/vm3.toml`
 and `config/vm2.toml` for templating and serialization drift on vLLM (`vm23` driver, arms in place
 of sites, vm1's formula verbatim); `config/m8.toml` for lifespan on recorded runs (`m8` driver: the
 vendored conversations replayed one request per assistant turn with no nonce, `--c` conversations in
@@ -286,4 +289,6 @@ client calls; the llama.cpp request is unchanged. Phase 1 is closed on both engi
 blog post, both engines, vLLM's request the headline, by the rulings of 2026-10-12) is next, then on
 the operator's ruling the requests upstream. Phase 1 was reopened on 2026-10-23 for one cell, the
 SmolLM3-3B family on both engines (0051): its controls pass on llama.cpp, fail on vLLM at block 32
-and are not run at block 128 (0052); the post waits on that cell.
+and are not run at block 128 (0052). 0053 closes it without another run, by the operator's
+ruling of 2026-11-02: publish first, and a second family on vLLM, if ever, on another machine
+after publication as its own design. Next: one refuter over 0052 and 0053, then the post.
